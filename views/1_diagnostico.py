@@ -2,7 +2,7 @@ import streamlit as st
 
 # Título de la Hoja
 st.header("1. Diagnóstico del Problema")
-st.info("Diligencie la información correspondiente a la hoja 'DIAGNÓSTICO PREVIO' de su Excel.")
+st.info("Diligencie la información correspondiente al DIAGNÓSTICO PREVIO")
 
 # Recuperamos el espacio de memoria que creamos en el paso anterior
 if 'datos_problema' not in st.session_state:
