@@ -1,41 +1,51 @@
 import streamlit as st
 from session_state import inicializar_session
 
-# 1. Configuración inicial
-st.set_page_config(page_title="Formulación de Proyectos", layout="wide")
+# Configuración inicial
+st.set_page_config(page_title="Formulador de Proyectos", layout="wide")
 
-# 2. Cargar memoria (OBLIGATORIO antes de cualquier cosa)
+# --- ESCUDO ANTI-TRADUCTOR (Previene el error 'removeChild') ---
+st.markdown(
+    """
+    <meta name="google" content="notranslate">
+    <style>
+       .goog-te-banner-frame {display: none!important;}
+        body {translate: no!important;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Inicializar memoria
 inicializar_session()
 
-# 3. Definir páginas vacías por ahora (Placeholders)
-def pag_diagnostico():
-    st.title("📍 1. Diagnóstico")
-    st.info("Aquí irán los formularios de la hoja 'DIAGNÓSTICO PREVIO'")
-    # Prueba de memoria para ver si funciona
-    nombre = st.text_input("Nombre del Proyecto", value=st.session_state['datos_proyecto']['nombre'])
-    st.session_state['datos_proyecto']['nombre'] = nombre
+# --- DEFINICIÓN DE PÁGINAS ---
 
-def pag_interesados():
-    st.title("👥 2. Interesados")
-    st.write("Matriz de análisis de involucrados")
+# FASE 1: Diagnóstico (Archivos reales)
+pag_1 = st.Page("views/1_diagnostico.py", title="1. Diagnóstico y Zona", icon="📍")
 
-def pag_vester():
-    st.title("🧮 3. Matriz de Vester")
-    st.write("Análisis de problemas activos y pasivos")
+# FASE 2: Interesados
+pag_2 = st.Page("views/2_interesados.py", title="2. Análisis de Interesados", icon="👥")
 
-def pag_arboles():
-    st.title("🌳 4. Árboles")
-    st.write("Árbol de Problemas y Objetivos")
+# FASE 3: Matriz de Vester (El que acabamos de crear)
+pag_3 = st.Page("views/3_vester.py", title="3. Matriz de Vester", icon="🧮")
 
-def pag_mml():
-    st.title("📋 5. Marco Lógico")
-    st.write("Matriz 4x4 final")
+# FASES 4-5: Placeholders (Funciones temporales)
+def p_objetivos():
+    st.title("🌳 Fase 4: Objetivos")
+    st.info("Próximamente: Árboles de Objetivos y Alternativas")
 
-# 4. Crear el menú de navegación lateral
+def p_mml():
+    st.title("📋 Fase 5: Marco Lógico")
+    st.info("Próximamente: Matriz de Marco Lógico 4x4")
+
+# --- MENÚ DE NAVEGACIÓN (Aquí estaba el error, ahora está corregido) ---
 pg = st.navigation({
-    "Fase I: Identificación":,
-    "Fase II: Planificación": [
-        st.Page(pag_mml, title="Matriz de Marco Lógico"),
+    "Fase I: Identificación": [pag_1, pag_2],
+    "Fase II: Análisis y Estrategia": [
+        pag_3, 
+        st.Page(p_objetivos, title="4. Objetivos"),
+        st.Page(p_mml, title="5. Marco Lógico")
     ]
 })
 
