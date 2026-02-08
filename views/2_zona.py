@@ -13,8 +13,8 @@ datos = st.session_state['datos_zona']
 # Recuperamos lo que escribiste en la página 1
 problema_fase_1 = st.session_state.get('datos_problema', {}).get('problema_central', "⚠️ No has definido el problema aún en la Fase 1.")
 
-with st.expander("📌 Ver Problema Central (Referencia)", expanded=True):
-    st.info(f"**PROBLEMA CENTRAL:** {problema_fase_1}")
+with st.expander("📌 PROBLEMA CENTAL", expanded=True):
+    st.info(f" {problema_fase_1}")
 
 # --- BARRA DE PROGRESO ---
 # Contamos cuántos campos tienen datos
