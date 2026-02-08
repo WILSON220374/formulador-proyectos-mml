@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa las variables de memoria para todas las fases del proyecto."""
+    """Inicializa las variables para guardar datos de las 15 pestañas."""
     
-    # --- FASE 1: DIAGNÓSTICO (Solo el Problema) ---
+    # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {
             "problema_central": "",
@@ -13,7 +13,7 @@ def inicializar_session():
             "factores_agravantes": ""
         }
 
-    # --- FASE 2: ZONA (Territorio y Población) ---
+    # --- FASE 2: ZONA ---
     if 'datos_zona' not in st.session_state:
         st.session_state['datos_zona'] = {
             "pob_total": 0,
@@ -33,7 +33,6 @@ def inicializar_session():
 
     # --- FASE 4: VESTER ---
     if 'problemas_vester' not in st.session_state:
-        # Iniciamos con 10 problemas vacíos
         st.session_state['problemas_vester'] = [f"Problema {i}" for i in range(1, 11)]
     
     if 'df_vester' not in st.session_state:
@@ -46,5 +45,6 @@ def inicializar_session():
     # --- FASE 6: MARCO LÓGICO ---
     if 'df_mml' not in st.session_state:
         filas = ["Fin", "Propósito", "Componentes", "Actividades"]
-        cols =
-        st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=cols)
+        # AQUÍ ESTABA EL ERROR, AHORA ESTÁ CORREGIDO:
+        columnas =
+        st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
