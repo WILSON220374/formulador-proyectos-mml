@@ -45,6 +45,6 @@ def inicializar_session():
     # --- FASE 6: MARCO LÓGICO ---
     if 'df_mml' not in st.session_state:
         filas = ["Fin", "Propósito", "Componentes", "Actividades"]
-        # AQUÍ ESTABA EL ERROR, AHORA ESTÁ CORREGIDO:
+        # AQUÍ ESTABA EL ERROR. Ahora sí tiene la lista correcta:
         columnas =
         st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
