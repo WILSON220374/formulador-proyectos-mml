@@ -1,41 +1,60 @@
 import streamlit as st
-from session_state import inicializar_session
 
-# Configuración inicial
-st.set_page_config(page_title="Formulador de Proyectos", layout="wide")
-inicializar_session()
+# Título de la Hoja
+st.header("1. Diagnóstico del Problema")
+st.info("Diligencie la información correspondiente a la hoja 'DIAGNÓSTICO PREVIO' de su Excel.")
 
-# --- DEFINICIÓN DE PÁGINAS ---
+# Recuperamos el espacio de memoria que creamos en el paso anterior
+if 'datos_problema' not in st.session_state:
+    st.session_state['datos_problema'] = {}
 
-# FASE 1: Archivo real que acabamos de crear
-pag_1 = st.Page("views/1_diagnostico.py", title="1. Diagnóstico y Zona", icon="📍")
+datos = st.session_state['datos_problema']
 
-# FASES 2-5: Funciones "Placeholder" (las iremos reemplazando por archivos reales paso a paso)
-def p_interesados():
-    st.title("👥 Fase 2: Interesados")
-    st.info("Próximamente: Matriz de Interesados y Estrategias")
+# --- FORMULARIO DE DIAGNÓSTICO ---
+with st.form("form_diagnostico"):
+    # Pregunta 1
+    st.markdown("### 1. ¿En qué consiste la situación problema?")
+    problema = st.text_area(
+        "Describa la carencia o déficit principal:",
+        value=datos.get('problema_central', ""),
+        height=100,
+        placeholder="Ejemplo: Mal estado de la vía que comunica..."
+    )
 
-def p_analisis():
-    st.title("🧮 Fase 3: Análisis del Problema")
-    st.info("Próximamente: Matriz de Vester y Árbol de Problemas")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Pregunta 2
+        st.markdown("### 2. ¿Cómo se manifiesta?")
+        sintomas = st.text_area(
+            "Síntomas y efectos visibles:",
+            value=datos.get('sintomas', ""),
+            height=150
+        )
 
-def p_objetivos():
-    st.title("🌳 Fase 4: Objetivos y Alternativas")
-    st.info("Próximamente: Árbol de Objetivos y Selección")
+    with col2:
+        # Pregunta 3
+        st.markdown("### 3. Causas Inmediatas")
+        causas = st.text_area(
+            "¿Cuáles son las causas directas?",
+            value=datos.get('causas_inmediatas', ""),
+            height=150
+        )
 
-def p_mml():
-    st.title("📋 Fase 5: Marco Lógico")
-    st.info("Próximamente: Matriz 4x4 completa")
+    # Pregunta 4
+    st.markdown("### 4. Factores Agravantes")
+    agravantes = st.text_area(
+        "¿Qué otros factores empeoran la situación?",
+        value=datos.get('factores_agravantes', "")
+    )
 
-# --- MENÚ DE NAVEGACIÓN ---
-pg = st.navigation({
-    "Fase I: Identificación": [pag_1],
-    "Fase II: Formulación": [
-        st.Page(p_interesados, title="2. Interesados"),
-        st.Page(p_analisis, title="3. Problemas (Vester)"),
-        st.Page(p_objetivos, title="4. Objetivos"),
-        st.Page(p_mml, title="5. Marco Lógico")
-    ]
-})
+    # Botón de Guardado
+    guardar = st.form_submit_button("💾 Guardar Diagnóstico")
 
-pg.run()
+    if guardar:
+        # Guardamos en la memoria del sistema
+        st.session_state['datos_problema']['problema_central'] = problema
+        st.session_state['datos_problema']['sintomas'] = sintomas
+        st.session_state['datos_problema']['causas_inmediatas'] = causas
+        st.session_state['datos_problema']['factores_agravantes'] = agravantes
+        st.success("✅ Diagnóstico guardado correctamente.")
