@@ -2,14 +2,8 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa la memoria y fuerza la limpieza de versiones antiguas."""
+    """Inicializa la memoria para todas las fases, incluyendo el nuevo Árbol de Objetivos."""
     
-    # --- RESET FORZADO SI DETECTA ESTRUCTURA VIEJA ---
-    if 'arbol_tarjetas' in st.session_state:
-        if "Fin" in st.session_state['arbol_tarjetas'] or "Reglas MML Activas" in str(st.session_state):
-            st.session_state.clear() # Borra todo para evitar conflictos
-            st.rerun()
-
     # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {
@@ -23,15 +17,22 @@ def inicializar_session():
                      "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
         )
     
-    # --- FASE 4: ÁRBOL DE PROBLEMAS (Estructura Jerárquica Nueva) ---
+    # --- FASE 4: ÁRBOL DE PROBLEMAS ---
     if 'arbol_tarjetas' not in st.session_state:
         st.session_state['arbol_tarjetas'] = {
-            "Problema Superior": [],   
-            "Efectos Indirectos": [],  
-            "Efectos Directos": [],    
-            "Problema Central": [],    
-            "Causas Directas": [],     
-            "Causas Indirectas": []    
+            "Problema Superior": [], "Efectos Indirectos": [], "Efectos Directos": [],
+            "Problema Central": [], "Causas Directas": [], "Causas Indirectas": []
+        }
+
+    # --- FASE 5: ÁRBOL DE OBJETIVOS ---
+    if 'arbol_objetivos' not in st.session_state:
+        st.session_state['arbol_objetivos'] = {
+            "Fin Último": [],           # Positivo de Problema Superior
+            "Fines Indirectos": [],     # Positivo de Efectos Indirectos
+            "Fines Directos": [],       # Positivo de Efectos Directos
+            "Objetivo General": [],     # Positivo de Problema Central
+            "Medios Directos": [],      # Positivo de Causas Directas
+            "Medios Indirectos": []     # Positivo de Causas Indirectas
         }
 
 inicializar_session()
