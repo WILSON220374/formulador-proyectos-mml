@@ -2,15 +2,12 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa la memoria solo para las fases activas del proyecto."""
+    """Inicializa la memoria con jerarquía de dependencias y Problema Superior."""
     
     # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {
-            "problema_central": "",
-            "sintomas": "",
-            "causas_inmediatas": "",
-            "factores_agravantes": ""
+            "problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""
         }
 
     # --- FASE 2: ZONA ---
@@ -23,24 +20,21 @@ def inicializar_session():
     # --- FASE 3: INTERESADOS ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame(
-            columns=[
-                "#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", 
-                "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
-            ]
+            columns=["#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", 
+                     "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
         )
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
     
-    # --- FASE 4: ÁRBOL DE PROBLEMAS (6 secciones de tarjetas) ---
+    # --- FASE 4: ÁRBOL DE PROBLEMAS (Jerárquico) ---
     if 'arbol_tarjetas' not in st.session_state:
         st.session_state['arbol_tarjetas'] = {
-            "Fin": [],
-            "Efectos Indirectos": [],
-            "Efectos Directos": [],
-            "Problema Central": [],
-            "Causas Directas": [],
-            "Causas Indirectas": []
+            "Problema Superior": [],   # Antes 'Fin'
+            "Efectos Indirectos": [],  # Formato: {"texto": "", "padre": ""}
+            "Efectos Directos": [],    # Texto simple
+            "Problema Central": [],    # Texto simple
+            "Causas Directas": [],     # Texto simple
+            "Causas Indirectas": []    # Formato: {"texto": "", "padre": ""}
         }
 
-# Ejecución automática
 inicializar_session()
