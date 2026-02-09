@@ -88,10 +88,10 @@ with st.container(border=True):
         )
     with col_b:
         vias = st.text_area(
-            "Estado de Vías / Acceso",
-            value=datos.get('vias', ""),
+            "División del territorio",
+            value=datos.get('politica', ""),
             height=120,
-            help="Descripción de la infraestructura de transporte actual."
+            help="Descripción de la división politica."
         )
 
 # --- BOTÓN DE GUARDADO ---
