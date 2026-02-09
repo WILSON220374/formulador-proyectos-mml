@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa la memoria para todas las fases, incluyendo el nuevo Árbol de Objetivos."""
+    """Inicializa de forma segura todas las variables de estado."""
     
     # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
@@ -25,14 +25,16 @@ def inicializar_session():
         }
 
     # --- FASE 5: ÁRBOL DE OBJETIVOS ---
+    # Esta es la clave para evitar el KeyError
     if 'arbol_objetivos' not in st.session_state:
         st.session_state['arbol_objetivos'] = {
-            "Fin Último": [],           # Positivo de Problema Superior
-            "Fines Indirectos": [],     # Positivo de Efectos Indirectos
-            "Fines Directos": [],       # Positivo de Efectos Directos
-            "Objetivo General": [],     # Positivo de Problema Central
-            "Medios Directos": [],      # Positivo de Causas Directas
-            "Medios Indirectos": []     # Positivo de Causas Indirectas
+            "Fin Último": [],           
+            "Fines Indirectos": [],     
+            "Fines Directos": [],       
+            "Objetivo General": [],     
+            "Medios Directos": [],      
+            "Medios Indirectos": []     
         }
 
+# Ejecutar siempre al importar
 inicializar_session()
