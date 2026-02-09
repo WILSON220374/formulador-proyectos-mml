@@ -5,7 +5,7 @@ import textwrap
 
 st.title("🌳 4. Árbol de Problemas (Vista Jerárquica e Imagen)")
 
-# 1. Configuración Maestra (Colores y Reglas)
+# 1. Configuración Maestra (Colores y Coordenadas para la Imagen)
 CONFIG = {
     "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple", "y": 5},
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
@@ -41,40 +41,28 @@ with st.sidebar:
     st.divider()
     st.subheader("📥 Exportar Árbol")
 
-    # --- FUNCIÓN PARA GENERAR LA IMAGEN ---
     def generar_png_arbol():
         fig, ax = plt.subplots(figsize=(12, 10))
         ax.set_xlim(0, 10)
         ax.set_ylim(-0.5, 6)
         ax.axis('off')
-
         datos = st.session_state['arbol_tarjetas']
         
         for seccion, conf in CONFIG.items():
             items = datos[seccion]
             if not items: continue
-            
-            # Calcular posiciones X según el número de items
             n = len(items)
             espaciado = 10 / (n + 1)
-            
             for i, item in enumerate(items):
                 x = (i + 1) * espaciado
                 y = conf["y"]
                 texto = item["texto"] if isinstance(item, dict) else item
-                
-                # Dibujar rectángulo (Post-it)
                 rect = plt.Rectangle((x-0.8, y-0.3), 1.6, 0.6, facecolor=conf["color"], edgecolor='gray', lw=1, alpha=0.8)
                 ax.add_patch(rect)
-                
-                # Texto con ajuste de línea
                 txt_ajustado = "\n".join(textwrap.wrap(texto, width=15))
                 ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black')
-                
-                # Etiqueta de sección al borde izquierdo
                 if i == 0:
                     ax.text(0.1, y, seccion.upper(), fontsize=7, color='gray', va='center', fontweight='bold')
-
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
         plt.close(fig)
@@ -89,7 +77,6 @@ with st.sidebar:
     )
 
 # --- FUNCIONES DE RENDERIZADO EN PANTALLA ---
-
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
@@ -101,7 +88,7 @@ def render_simple(nombre):
     col_l, col_c = st.columns([1, 4])
     with col_l:
         st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
-    with col_content := col_c:
+    with col_c:
         items = st.session_state['arbol_tarjetas'][nombre]
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
@@ -119,7 +106,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
         col_l, col_c = st.columns([1, 4])
         with col_l:
             st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:25px;'>{seccion_actual.upper()}</div>", unsafe_allow_html=True)
-        with col_content := col_c:
+        with col_c:
             if not padres:
                 st.caption(f"Cree un {nombre_padre} para activar esta fila.")
             else:
@@ -135,14 +122,15 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                     st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
-                            if st.button("🗑️ Borrar", key=f"del_p_{seccion_actual}_{i}"):
-                                if [h for h in hijos if h["padre"] == p_txt]:
+                            hijos_asociados = [h for h in hijos if h["padre"] == p_txt]
+                            if st.button("🗑️ Borrar Principal", key=f"del_p_{seccion_actual}_{i}"):
+                                if hijos_asociados:
                                     st.error("⚠️ Borre primero los elementos indirectos.")
                                 else:
                                     st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
                                     st.rerun()
 
-# --- DIBUJO DEL ÁRBOL ---
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
 render_simple("Problema Superior")
 st.markdown("---")
