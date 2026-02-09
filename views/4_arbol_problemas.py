@@ -1,8 +1,8 @@
 import streamlit as st
 
-st.title("🌳 4. Árbol de Problemas (Vista Jerárquica)")
+st.title("🌳 4. Árbol de Problemas (Vista de Ramas)")
 
-# Configuración Maestra de Colores y Dependencias
+# Configuración Maestra: Colores y Relaciones
 CONFIG = {
     "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple"},
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos"},
@@ -12,81 +12,138 @@ CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas"}
 }
 
-# --- SIDEBAR: CREADOR DE POST-ITS ---
+# --- SIDEBAR: GENERADOR DE TARJETAS (ASOCIACIÓN PREVIA) ---
 with st.sidebar:
     st.header("➕ Nuevo Post-it")
-    with st.form("crear", clear_on_submit=True):
-        tipo_sel = st.selectbox("Sección:", list(CONFIG.keys()))
-        texto = st.text_area("Descripción:")
+    # 1. Selección de Sección primero para activar lógica
+    tipo_sel = st.selectbox("1. Seleccione Sección:", list(CONFIG.keys()))
+    
+    with st.form("crear_ficha", clear_on_submit=True):
+        texto_input = st.text_area("2. Descripción de la idea:")
         
-        padre_sel = None
+        # Lógica de asociación: Se hace ANTES de generar
+        padre_asociado = None
         if CONFIG[tipo_sel]["tipo"] == "hijo":
-            opciones = st.session_state['arbol_tarjetas'][CONFIG[tipo_sel]["padre"]]
-            if opciones:
-                padre_sel = st.selectbox(f"Asociar a {CONFIG[tipo_sel]['padre']}:", opciones)
+            nombre_padre = CONFIG[tipo_sel]["padre"]
+            opciones_padre = st.session_state['arbol_tarjetas'][nombre_padre]
+            
+            if opciones_padre:
+                padre_asociado = st.selectbox(f"3. Vincular a {nombre_padre}:", opciones_padre)
             else:
-                st.warning(f"⚠️ Cree primero un {CONFIG[tipo_sel]['padre']}")
-
-        if st.form_submit_button("Generar") and texto:
-            if len(st.session_state['arbol_tarjetas'][tipo_sel]) < CONFIG[tipo_sel]["limite"]:
-                if CONFIG[tipo_sel]["tipo"] == "hijo" and padre_sel:
-                    st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto, "padre": padre_sel})
+                st.warning(f"⚠️ No hay '{nombre_padre}' creados. Cree uno primero.")
+        
+        if st.form_submit_button("Generar Ficha"):
+            if not texto_input:
+                st.error("Por favor escriba un texto.")
+            elif len(st.session_state['arbol_tarjetas'][tipo_sel]) >= CONFIG[tipo_sel]["limite"]:
+                st.error("Límite de 1 tarjeta alcanzado para esta sección.")
+            elif CONFIG[tipo_sel]["tipo"] == "hijo" and not padre_asociado:
+                st.error("Debe seleccionar un elemento superior para asociar.")
+            else:
+                # Guardar según tipo
+                if CONFIG[tipo_sel]["tipo"] == "hijo":
+                    st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto_input, "padre": padre_asociado})
                 else:
-                    st.session_state['arbol_tarjetas'][tipo_sel].append(texto)
+                    st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 st.rerun()
-            else:
-                st.error("Límite alcanzado.")
 
-# --- FUNCIONES DE RENDERIZADO LATERAL ---
+# --- FUNCIONES DE RENDERIZADO VISUAL ---
 
 def card_html(texto, color):
-    return f"""<div style="background-color:{color}; padding:15px; border-radius:8px; 
+    return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
-               margin-bottom:10px; min-height:80px; box-shadow: 2px 2px 5px #eee; display: flex; align-items: center;">
+               margin-bottom:8px; min-height:70px; box-shadow: 2px 2px 5px #eee; 
+               display: flex; align-items: center; justify-content: center; text-align: center;">
                {texto}</div>"""
 
-def render_bloque_lateral(nombre, es_hijo=False):
-    col_label, col_content = st.columns([1, 4]) # 1 para etiqueta lateral, 4 para tarjetas
+def render_fila_simple(nombre):
+    """Para Problema Superior y Central (Etiqueta al lado)"""
+    col_label, col_content = st.columns([1, 4])
     with col_label:
-        st.markdown(f"<div style='margin-top:25px; font-weight:bold; color:#444; border-right:2px solid #ddd; padding-right:10px; height:100%; text-align:right;'>{nombre.upper()}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
+    with col_content:
+        items = st.session_state['arbol_tarjetas'][nombre]
+        if items:
+            st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
+            if st.button("🗑️", key=f"del_{nombre}"):
+                st.session_state['arbol_tarjetas'][nombre] = []
+                st.rerun()
+        else:
+            st.caption("Sección vacía")
+
+def render_jerarquia_completa(nombre_padre, nombre_hijo, inversion_visual=False):
+    """Renderiza padres e hijos alineados verticalmente"""
+    col_label, col_content = st.columns([1, 4])
+    with col_label:
+        st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:25px;'>{nombre_padre.upper()} y {nombre_hijo.upper()}</div>", unsafe_allow_html=True)
     
     with col_content:
-        if not es_hijo:
-            items = st.session_state['arbol_tarjetas'][nombre]
-            cols = st.columns(3)
-            for i, val in enumerate(items):
-                with cols[i % 3]:
-                    st.markdown(card_html(val, CONFIG[nombre]["color"]), unsafe_allow_html=True)
-                    if st.button("🗑️", key=f"d_{nombre}_{i}"):
-                        st.session_state['arbol_tarjetas'][nombre].pop(i)
-                        st.rerun()
-        else:
-            nombre_padre = CONFIG[nombre]["padre"]
-            padres = st.session_state['arbol_tarjetas'][nombre_padre]
-            hijos = st.session_state['arbol_tarjetas'][nombre]
-            
-            for p in padres:
-                hijos_vivos = [h for h in hijos if h["padre"] == p]
-                if hijos_vivos:
-                    st.caption(f"📍 Vinculados a: {p}")
-                    c_hijos = st.columns(3)
-                    for idx, h in enumerate(hijos_vivos):
-                        with c_hijos[idx % 3]:
-                            st.markdown(card_html(h["texto"], CONFIG[nombre]["color"]), unsafe_allow_html=True)
-                            if st.button("🗑️", key=f"dh_{nombre}_{idx}_{p}"):
-                                st.session_state['arbol_tarjetas'][nombre] = [x for x in hijos if x != h]
-                                st.rerun()
-            st.divider()
+        padres = st.session_state['arbol_tarjetas'][nombre_padre]
+        hijos = st.session_state['arbol_tarjetas'][nombre_hijo]
+        
+        if not padres:
+            st.caption(f"Cree un {nombre_padre} para ver la estructura.")
+            return
 
-# --- DIBUJO DEL ÁRBOL ---
+        # Creamos una columna física para cada padre
+        cols = st.columns(max(len(padres), 1))
+        
+        for i, p_texto in enumerate(padres):
+            with cols[i]:
+                # Si son Efectos, el orden es: Hijo (arriba) -> Padre (abajo)
+                # Si son Causas, el orden es: Padre (arriba) -> Hijo (abajo)
+                
+                if inversion_visual: # Caso Efectos
+                    # Dibujar hijos primero
+                    hijos_del_padre = [h for h in hijos if h["padre"] == p_texto]
+                    for h_idx, h_data in enumerate(hijos_del_padre):
+                        st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_h_{nombre_hijo}_{i}_{h_idx}"):
+                            st.session_state['arbol_tarjetas'][nombre_hijo].remove(h_data)
+                            st.rerun()
+                    # Dibujar padre después
+                    st.markdown(card_html(p_texto, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
+                
+                else: # Caso Causas (Padre arriba, hijo abajo)
+                    st.markdown(card_html(p_texto, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
+                    # Dibujar hijos debajo
+                    hijos_del_padre = [h for h in hijos if h["padre"] == p_texto]
+                    for h_idx, h_data in enumerate(hijos_del_padre):
+                        st.caption(f"↳ {nombre_hijo}")
+                        st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_h_{nombre_hijo}_{i}_{h_idx}"):
+                            st.session_state['arbol_tarjetas'][nombre_hijo].remove(h_data)
+                            st.rerun()
+                
+                if st.button("🗑️ Borrar Principal", key=f"del_p_{nombre_padre}_{i}"):
+                    # Limpiar también hijos huérfanos
+                    st.session_state['arbol_tarjetas'][nombre_hijo] = [h for h in hijos if h["padre"] != p_texto]
+                    st.session_state['arbol_tarjetas'][nombre_padre].pop(i)
+                    st.rerun()
+
+# --- CONSTRUCCIÓN VISUAL DEL ÁRBOL ---
 st.divider()
-render_bloque_lateral("Problema Superior")
+
+# 1. Problema Superior
+render_fila_simple("Problema Superior")
 st.markdown("---")
-render_bloque_lateral("Efectos Indirectos", es_hijo=True)
-render_bloque_lateral("Efectos Directos")
-st.divider()
+
+# 2. Efectos (Directos e Indirectos alineados verticalmente)
+# Para efectos, los indirectos suelen graficarse por ENCIMA de los directos
+render_jerarquia_completa("Efectos Directos", "Efectos Indirectos", inversion_visual=True)
+st.markdown("---")
+
+# 3. Problema Central
 st.error("🚨 ÁREA DEL PROBLEMA CENTRAL")
-render_bloque_lateral("Problema Central")
+render_fila_simple("Problema Central")
+st.markdown("---")
+
+# 4. Causas (Directas e Indirectas alineadas verticalmente)
+# Las causas indirectas aparecen DEBAJO de las directas asociadas
+render_jerarquia_completa("Causas Directas", "Causas Indirectas", inversion_visual=False)
+
 st.divider()
-render_bloque_lateral("Causas Directas")
-render_bloque_lateral("Causas Indirectas", es_hijo=True)
+if st.button("Limpiar Árbol Completo", type="primary"):
+    for k in st.session_state['arbol_tarjetas']:
+        st.session_state['arbol_tarjetas'][k] = []
+    st.rerun()
