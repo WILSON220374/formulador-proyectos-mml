@@ -24,12 +24,10 @@ inicializar_session()
 # FASE 1: Identificación (Archivos reales)
 pag_1 = st.Page("views/1_diagnostico.py", title="1. Diagnóstico del Problema", icon="🤕")
 pag_2 = st.Page("views/2_zona.py", title="2. Caracterización de la Zona", icon="🗺️")
+# CORRECCIÓN: Ahora apunta al archivo físico en la carpeta views
+pag_3 = st.Page("views/3_interesados.py", title="3. Interesados", icon="👥")
 
-# FASES SIGUIENTES (Placeholders)
-def p_interesados():
-    st.title("👥 3. Análisis de Interesados")
-    st.info("🚧 En el siguiente paso construiremos esta matriz.")
-
+# FASES SIGUIENTES (Placeholders para las que aún no tienen archivo .py)
 def p_vester():
     st.title("🧮 4. Matriz de Vester")
     st.info("🚧 Próximamente: Votación automática.")
@@ -44,11 +42,15 @@ def p_mml():
 
 # --- MENÚ DE NAVEGACIÓN ---
 pg = st.navigation({
-    "Fase I: Identificación": [pag_1, pag_2, st.Page(p_interesados, title="3. Interesados")],
+    "Fase I: Identificación": [
+        pag_1, 
+        pag_2, 
+        pag_3  # Cargando el archivo real corregido
+    ],
     "Fase II: Análisis y Estrategia": [
-        st.Page(p_vester, title="4. Matriz de Vester"),
-        st.Page(p_arboles, title="5. Árboles"),
-        st.Page(p_mml, title="6. Marco Lógico")
+        st.Page(p_vester, title="4. Matriz de Vester", icon="🧮"),
+        st.Page(p_arboles, title="5. Árboles", icon="🌳"),
+        st.Page(p_mml, title="6. Marco Lógico", icon="📋")
     ]
 })
 
