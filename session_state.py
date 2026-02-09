@@ -16,16 +16,11 @@ def inicializar_session():
     # --- FASE 2: ZONA ---
     if 'datos_zona' not in st.session_state:
         st.session_state['datos_zona'] = {
-            "pob_total": 0,
-            "pob_urbana": 0,
-            "pob_rural": 0,
-            "ubicacion": "",
-            "limites": "",
-            "economia": "",
-            "vias": ""
+            "pob_total": 0, "pob_urbana": 0, "pob_rural": 0,
+            "ubicacion": "", "limites": "", "economia": "", "vias": ""
         }
 
-    # --- FASE 3: INTERESADOS (Estructura de 9 columnas - CORREGIDO) ---
+    # --- FASE 3: INTERESADOS (9 columnas exactas) ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame(
             columns=[
@@ -33,23 +28,28 @@ def inicializar_session():
                 "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
             ]
         )
-
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
     
-    # --- FASE 4: VESTER ---
-    if 'problemas_vester' not in st.session_state:
-        st.session_state['problemas_vester'] = [f"Problema {i}" for i in range(1, 11)]
-    
-    if 'df_vester' not in st.session_state:
-        st.session_state['df_vester'] = pd.DataFrame()
+    # --- FASE 4: ÁRBOL DE PROBLEMAS (6 secciones de tarjetas) ---
+    if 'arbol_tarjetas' not in st.session_state:
+        st.session_state['arbol_tarjetas'] = {
+            "Fin": [],
+            "Efectos Indirectos": [],
+            "Efectos Directos": [],
+            "Problema Central": [],
+            "Causas Directas": [],
+            "Causas Indirectas": []
+        }
 
-    # --- FASE 5: ÁRBOLES ---
-    if 'arbol_problemas' not in st.session_state:
-        st.session_state['arbol_problemas'] = {}
-
-    # --- FASE 6: MARCO LÓGICO ---
+    # --- FASE 5: MARCO LÓGICO (6 columnas técnicas) ---
     if 'df_mml' not in st.session_state:
         filas = ["Fin", "Propósito", "Componentes", "Actividades"]
-        columnas = ["Resumen Narrativo", "Indicadores", "Medios de Verificación", "Supuestos"]
+        columnas = [
+            "INDICATORS", "SOURCE OF INFORMATION", "METHOD OF ANALYSIS", 
+            "FREQUENCY OF COLLECTION", "RESPONSIBLE", "ASSUMPTIONS"
+        ]
         st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
+
+# Ejecución automática al importar
+inicializar_session()
