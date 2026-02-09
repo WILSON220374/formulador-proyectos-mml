@@ -1,8 +1,8 @@
 import streamlit as st
 
-st.title("🌳 4. Árbol de Problemas (Editor Dinámico)")
+st.title("🌳 4. Árbol de Problemas (Editor con Reordenamiento)")
 
-# Configuración Maestra de Colores y Secciones
+# 1. Configuración de Estilos y Colores
 SECCIONES_CONFIG = {
     "Fin": {"color": "#C1E1C1", "icono": "🏆"},
     "Efectos Indirectos": {"color": "#B3D9FF", "icono": "🌊"},
@@ -12,85 +12,90 @@ SECCIONES_CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "icono": "🌱"}
 }
 
-# --- 1. GENERADOR DE TARJETAS (POST-ITS) ---
-with st.sidebar:
-    st.header("➕ Nueva Tarjeta")
-    with st.form("crear_tarjeta", clear_on_submit=True):
-        nuevo_texto = st.text_area("Descripción del problema/idea:", placeholder="Escriba aquí...")
-        nueva_seccion = st.selectbox("Seleccione la Sección inicial:", list(SECCIONES_CONFIG.keys()))
-        
-        submit = st.form_submit_state = st.form_submit_button("Generar Post-it", use_container_width=True)
-        
-        if submit and nuevo_texto:
-            # Guardamos un diccionario con el texto y su sección actual
-            st.session_state['arbol_tarjetas'][nueva_seccion].append(nuevo_texto)
-            st.success(f"Tarjeta añadida a {nueva_seccion}")
-            st.rerun()
+# --- LÓGICA DE MOVIMIENTO ---
 
-# --- 2. LÓGICA DE MOVIMIENTO ENTRE SECCIONES ---
-def mover_tarjeta(seccion_origen, indice, nueva_seccion_destino):
-    # Extraer la tarjeta de la sección actual
-    contenido = st.session_state['arbol_tarjetas'][seccion_origen].pop(indice)
-    # Insertarla en la nueva sección
-    st.session_state['arbol_tarjetas'][nueva_seccion_destino].append(contenido)
+# Mover entre secciones (Arriba/Abajo en el árbol)
+def cambiar_seccion(origen, idx, destino):
+    tarjeta = st.session_state['arbol_tarjetas'][origen].pop(idx)
+    st.session_state['arbol_tarjetas'][destino].append(tarjeta)
     st.rerun()
 
-# --- 3. FUNCIÓN PARA DIBUJAR LAS TARJETAS DINÁMICAS ---
-def renderizar_bloque(nombre_seccion):
-    config = SECCIONES_CONFIG[nombre_seccion]
-    st.markdown(f"#### {config['icono']} {nombre_seccion}")
+# Reordenar dentro de la misma sección (Izquierda/Derecha)
+def reordenar(seccion, idx, direccion):
+    lista = st.session_state['arbol_tarjetas'][seccion]
+    nueva_pos = idx + direccion
+    if 0 <= nueva_pos < len(lista):
+        lista[idx], lista[nueva_pos] = lista[nueva_pos], lista[idx]
+        st.rerun()
+
+# --- INTERFAZ DE CREACIÓN ---
+with st.sidebar:
+    st.header("➕ Nuevo Post-it")
+    with st.form("nuevo_postit", clear_on_submit=True):
+        texto = st.text_area("Descripción del problema:")
+        seccion_ini = st.selectbox("Ubicación inicial:", list(SECCIONES_CONFIG.keys()))
+        if st.form_submit_button("Crear Tarjeta", use_container_width=True) and texto:
+            st.session_state['arbol_tarjetas'][seccion_ini].append(texto)
+            st.rerun()
+
+# --- RENDERIZADO DEL ÁRBOL ---
+
+def mostrar_bloque(nombre):
+    cfg = SECCIONES_CONFIG[nombre]
+    st.markdown(f"#### {cfg['icono']} {nombre}")
     
-    lista_tarjetas = st.session_state['arbol_tarjetas'][nombre_seccion]
-    
-    if not lista_tarjetas:
-        st.caption("Arrastre o cree tarjetas para esta sección.")
+    tarjetas = st.session_state['arbol_tarjetas'][nombre]
+    if not tarjetas:
+        st.caption("No hay tarjetas aquí.")
     else:
-        # Mostramos las tarjetas en un grid de 3 columnas
-        cols_tarjetas = st.columns(3)
-        for idx, texto in enumerate(lista_tarjetas):
-            with cols_tarjetas[idx % 3]:
-                # Contenedor visual de la tarjeta
+        # Mostramos en 3 columnas
+        cols_visuales = st.columns(3)
+        for i, contenido in enumerate(tarjetas):
+            with cols_visuales[i % 3]:
+                # Estilo de la tarjeta
                 st.markdown(f"""
-                    <div style="background-color:{config['color']}; padding:15px; 
-                         border-radius:8px; border-left:10px solid rgba(0,0,0,0.1); 
-                         color:black; font-weight:500; min-height:100px; box-shadow: 2px 2px 5px #eeeeee;">
-                        {texto}
+                    <div style="background-color:{cfg['color']}; padding:15px; border-radius:10px; 
+                         border-left:10px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
+                         min-height:110px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1);">
+                        {contenido}
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Controles de la tarjeta (Mover y Eliminar)
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    # El "espacio" para cambiar de sección que pediste
-                    nuevo_destino = st.selectbox(
-                        "Mover a:", 
-                        list(SECCIONES_CONFIG.keys()), 
-                        index=list(SECCIONES_CONFIG.keys()).index(nombre_seccion),
-                        key=f"move_{nombre_seccion}_{idx}",
-                        label_visibility="collapsed"
-                    )
-                    if nuevo_destino != nombre_seccion:
-                        mover_tarjeta(nombre_seccion, idx, nuevo_destino)
-                with c2:
-                    if st.button("🗑️", key=f"del_{nombre_seccion}_{idx}"):
-                        st.session_state['arbol_tarjetas'][nombre_seccion].pop(idx)
+                # Controles de la tarjeta
+                # Fila 1: Mover Izquierda / Derecha
+                c_izq, c_der, c_del = st.columns([1,1,1])
+                with c_izq:
+                    if st.button("⬅️", key=f"L_{nombre}_{i}"):
+                        reordenar(nombre, i, -1)
+                with c_der:
+                    if st.button("➡️", key=f"R_{nombre}_{i}"):
+                        reordenar(nombre, i, 1)
+                with c_del:
+                    if st.button("🗑️", key=f"D_{nombre}_{i}"):
+                        st.session_state['arbol_tarjetas'][nombre].pop(i)
                         st.rerun()
+                
+                # Fila 2: Cambiar de Sección (Nivel)
+                nueva_sec = st.selectbox(
+                    "Cambiar nivel:", 
+                    list(SECCIONES_CONFIG.keys()),
+                    index=list(SECCIONES_CONFIG.keys()).index(nombre),
+                    key=f"sec_{nombre}_{i}",
+                    label_visibility="collapsed"
+                )
+                if nueva_sec != nombre:
+                    cambiar_seccion(nombre, i, nueva_sec)
 
-# --- 4. ESTRUCTURA VISUAL DEL ÁRBOL (JERARQUÍA MML) ---
 st.divider()
 
-# Nivel Superior: Fines y Efectos
-renderizar_bloque("Fin")
+# Dibujado en orden jerárquico solicitado
+mostrar_bloque("Fin")
 st.markdown("---")
-renderizar_bloque("Efectos Indirectos")
-renderizar_bloque("Efectos Directos")
-
-# Centro: Problema
+mostrar_bloque("Efectos Indirectos")
+mostrar_bloque("Efectos Directos")
 st.markdown("---")
-st.error("🚨 ÁREA DEL PROBLEMA CENTRAL")
-renderizar_bloque("Problema Central")
+st.error("📍 PROBLEMA CENTRAL")
+mostrar_bloque("Problema Central")
 st.markdown("---")
-
-# Base: Causas
-renderizar_bloque("Causas Directas")
-renderizar_bloque("Causas Indirectas")
+mostrar_bloque("Causas Directas")
+mostrar_bloque("Causas Indirectas")
