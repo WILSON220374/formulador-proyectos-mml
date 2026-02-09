@@ -25,7 +25,7 @@ def inicializar_session():
             "vias": ""
         }
 
-# --- FASE 3: INTERESADOS (Estructura de 9 columnas) ---
+    # --- FASE 3: INTERESADOS (Estructura de 9 columnas - CORREGIDO) ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame(
             columns=[
@@ -48,11 +48,8 @@ def inicializar_session():
     if 'arbol_problemas' not in st.session_state:
         st.session_state['arbol_problemas'] = {}
 
-  # --- FASE 6: MARCO LÓGICO ---
+    # --- FASE 6: MARCO LÓGICO ---
     if 'df_mml' not in st.session_state:
         filas = ["Fin", "Propósito", "Componentes", "Actividades"]
-        
-        # LÍNEA 49 (Escribe esto):
         columnas = ["Resumen Narrativo", "Indicadores", "Medios de Verificación", "Supuestos"]
-        
         st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
