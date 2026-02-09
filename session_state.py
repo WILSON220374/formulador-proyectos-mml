@@ -51,5 +51,5 @@ def inicializar_session():
         ]
         st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
 
-# Ejecución automática al importar
+# Ejecutar la función al cargar el archivo
 inicializar_session()
