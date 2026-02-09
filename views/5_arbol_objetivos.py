@@ -4,11 +4,12 @@ import io
 import textwrap
 from session_state import inicializar_session
 
-# Asegurar que el estado exista antes de renderizar nada
+# Asegurar persistencia del estado
 inicializar_session()
 
-st.title("🎯 5. Árbol de Objetivos (Fines y Medios)")
+st.title("🎯 5. Árbol de Objetivos (Editor Directo)")
 
+# Configuración Maestra
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5, "tipo": "simple", "limite": 1},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4, "tipo": "hijo", "padre": "Fines Directos", "limite": 99},
@@ -22,7 +23,8 @@ CONFIG_OBJ = {
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    if st.button("✨ Generar desde Problemas", use_container_width=True):
+    # Mapeo exacto sin prefijos
+    if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state['arbol_tarjetas']
         mapeo = {
             "Problema Superior": "Fin Último", "Efectos Indirectos": "Fines Indirectos",
@@ -33,22 +35,21 @@ with st.sidebar:
             st.session_state['arbol_objetivos'][o_sec] = []
             for item in problemas[p_sec]:
                 if isinstance(item, dict):
+                    # Copia exacta de texto y relación padre
                     st.session_state['arbol_objetivos'][o_sec].append({
-                        "texto": f"Contribuir a: {item['texto']}", 
-                        "padre": f"Lograr: {item['padre']}"
+                        "texto": item['texto'], 
+                        "padre": item['padre']
                     })
                 else:
-                    st.session_state['arbol_objetivos'][o_sec].append(f"Fortalecer: {item}")
+                    st.session_state['arbol_objetivos'][o_sec].append(item)
+        st.success("¡Información copiada! Ahora puedes editar cada caja.")
         st.rerun()
 
     st.divider()
 
+    # Exportación a Imagen PNG profesional
     def exportar_objetivos_png():
-        # Verificación de seguridad para la función de imagen
-        if 'arbol_objetivos' not in st.session_state:
-            return None
-            
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=(12, 10))
         ax.set_xlim(0, 10); ax.set_ylim(-0.5, 6); ax.axis('off')
         datos = st.session_state['arbol_objetivos']
         for sec, conf in CONFIG_OBJ.items():
@@ -58,26 +59,39 @@ with st.sidebar:
             for i, item in enumerate(items):
                 x = (i + 1) * espacio
                 txt = item["texto"] if isinstance(item, dict) else item
-                rect = plt.Rectangle((x-0.7, conf["y"]-0.25), 1.4, 0.5, facecolor=conf["color"], edgecolor='black', lw=0.5)
+                rect = plt.Rectangle((x-0.8, conf["y"]-0.3), 1.6, 0.6, facecolor=conf["color"], edgecolor='black', lw=0.7)
                 ax.add_patch(rect)
-                txt_wrap = "\n".join(textwrap.wrap(txt, width=15))
+                txt_wrap = "\n".join(textwrap.wrap(txt, width=18))
                 ax.text(x, conf["y"], txt_wrap, ha='center', va='center', fontsize=8, fontweight='bold')
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
         plt.close(fig)
         return buf.getvalue()
 
-    img_data = exportar_objetivos_png()
-    if img_data:
-        st.download_button("🖼️ Descargar Imagen (PNG)", data=img_data, file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol como Imagen", data=exportar_objetivos_png(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO ---
-def card_html(texto, color):
-    return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
-               border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
-               margin-bottom:8px; min-height:70px; display: flex; align-items: center; 
-               justify-content: center; text-align: center; box-shadow: 2px 2px 5px #eee;">
-               {texto}</div>"""
+# --- FUNCIONES DE EDICIÓN Y RENDERIZADO ---
+
+def render_simple_obj(nombre):
+    col_l, col_c = st.columns([1, 4])
+    with col_l: 
+        st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
+    with col_c:
+        items = st.session_state['arbol_objetivos'].get(nombre, [])
+        if items:
+            # Obtener valor actual
+            val_actual = items[0]["texto"] if isinstance(items[0], dict) else items[0]
+            
+            # Caja editable con color de fondo dinámico
+            nuevo_val = st.text_area(f"Editar {nombre}:", value=val_actual, key=f"edit_{nombre}", label_visibility="collapsed")
+            
+            if nuevo_val != val_actual:
+                if isinstance(items[0], dict):
+                    st.session_state['arbol_objetivos'][nombre][0]["texto"] = nuevo_val
+                else:
+                    st.session_state['arbol_objetivos'][nombre][0] = nuevo_val
+                st.rerun()
+        else: st.caption("Sección vacía")
 
 def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_objetivos'].get(nombre_padre, [])
@@ -91,36 +105,52 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
         with col_c:
             if padres:
                 cols = st.columns(len(padres))
-                for i, p_txt in enumerate(padres):
+                for i, p_item in enumerate(padres):
                     with cols[i]:
                         if es_hijo:
-                            # Ajuste de búsqueda de hijos
-                            p_compare = p_txt["texto"] if isinstance(p_txt, dict) else p_txt
-                            hijos_p = [h for h in hijos if h.get("padre") == p_compare]
+                            # Renderizar hijos vinculados
+                            p_nombre = p_item["texto"] if isinstance(p_item, dict) else p_item
+                            hijos_p = [h for h in hijos if h.get("padre") == p_nombre]
                             for h_idx, h_data in enumerate(hijos_p):
-                                st.markdown(card_html(h_data["texto"], CONFIG_OBJ[seccion]["color"]), unsafe_allow_html=True)
+                                # Buscar índice real del hijo para actualizarlo
+                                real_h_idx = next(idx for idx, x in enumerate(hijos) if x == h_data)
+                                
+                                # Editor para hijo
+                                n_val_h = st.text_area(f"Hijo {i}_{h_idx}", value=h_data["texto"], key=f"ed_h_{seccion}_{i}_{h_idx}", label_visibility="collapsed")
+                                if n_val_h != h_data["texto"]:
+                                    st.session_state['arbol_objetivos'][seccion][real_h_idx]["texto"] = n_val_h
+                                    st.rerun()
                         else:
-                            txt_p = p_txt["texto"] if isinstance(p_txt, dict) else p_txt
-                            st.markdown(card_html(txt_p, CONFIG_OBJ[seccion]["color"]), unsafe_allow_html=True)
+                            # Editor para padre
+                            p_txt = p_item["texto"] if isinstance(p_item, dict) else p_item
+                            n_val_p = st.text_area(f"Padre {i}", value=p_txt, key=f"ed_p_{seccion}_{i}", label_visibility="collapsed")
+                            
+                            if n_val_p != p_txt:
+                                # 1. Actualizar el padre
+                                if isinstance(p_item, dict):
+                                    st.session_state['arbol_objetivos'][seccion][i]["texto"] = n_val_p
+                                else:
+                                    st.session_state['arbol_objetivos'][seccion][i] = n_val_p
+                                
+                                # 2. ACTUALIZAR VÍNCULOS DE HIJOS automáticamente
+                                for h in hijos:
+                                    if h["padre"] == p_txt:
+                                        h["padre"] = n_val_p
+                                st.rerun()
             else: st.caption("Esperando datos...")
 
-def render_simple_obj(nombre):
-    col_l, col_c = st.columns([1, 4])
-    with col_l: st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
-    with col_c:
-        items = st.session_state['arbol_objetivos'].get(nombre, [])
-        if items: 
-            txt = items[0]["texto"] if isinstance(items[0], dict) else items[0]
-            st.markdown(card_html(txt, CONFIG_OBJ[nombre]["color"]), unsafe_allow_html=True)
-        else: st.caption("Sección vacía")
-
-# --- CONSTRUCCIÓN DEL ÁRBOL ---
+# --- DIBUJO DEL ÁRBOL ---
 st.divider()
 render_simple_obj("Fin Último")
 st.markdown("---")
 render_rama_objetivos("Fines Directos", "Fines Indirectos", inversion=True)
 st.markdown("---")
-st.success("🎯 OBJETIVO GENERAL")
+st.success("🎯 OBJETIVO GENERAL (Editar para redactar en positivo)")
 render_simple_obj("Objetivo General")
 st.markdown("---")
 render_rama_objetivos("Medios Directos", "Medios Indirectos", inversion=False)
+
+st.divider()
+if st.button("Limpiar Árbol de Objetivos", type="secondary"):
+    st.session_state['arbol_objetivos'] = {k: [] for k in st.session_state['arbol_objetivos']}
+    st.rerun()
