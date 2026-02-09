@@ -1,110 +1,100 @@
 import streamlit as st
 
-st.title("🌳 4. Árbol de Problemas (Reglas MML Activas)")
+st.title("🌳 4. Árbol de Problemas (Jerárquico)")
 
-# Configuración de Estilos y Restricciones
-# Definimos cuáles secciones son de "Tarjeta Única"
-SECCIONES_CONFIG = {
-    "Fin": {"color": "#C1E1C1", "icono": "🏆", "limite": 1},
-    "Efectos Indirectos": {"color": "#B3D9FF", "icono": "🌊", "limite": 99},
-    "Efectos Directos": {"color": "#80BFFF", "icono": "💧", "limite": 99},
-    "Problema Central": {"color": "#FFB3BA", "icono": "📍", "limite": 1},
-    "Causas Directas": {"color": "#FFFFBA", "icono": "🧱", "limite": 99},
-    "Causas Indirectas": {"color": "#FFDFBA", "icono": "🌱", "limite": 99}
+# Configuración de Colores y Límites
+CONFIG = {
+    "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple"},
+    "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos"},
+    "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple"},
+    "Problema Central": {"color": "#FFB3BA", "limite": 1, "tipo": "simple"},
+    "Causas Directas": {"color": "#FFFFBA", "limite": 99, "tipo": "simple"},
+    "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas"}
 }
 
-# --- LÓGICA DE VALIDACIÓN Y MOVIMIENTO ---
-
-def cambiar_seccion(origen, idx, destino):
-    # Validar si el destino ya alcanzó su límite (Para Fin y Problema Central)
-    if len(st.session_state['arbol_tarjetas'][destino]) >= SECCIONES_CONFIG[destino]["limite"]:
-        st.toast(f"❌ La sección '{destino}' solo permite una tarjeta.", icon="🚫")
-    else:
-        tarjeta = st.session_state['arbol_tarjetas'][origen].pop(idx)
-        st.session_state['arbol_tarjetas'][destino].append(tarjeta)
-        st.rerun()
-
-def reordenar(seccion, idx, direccion):
-    lista = st.session_state['arbol_tarjetas'][seccion]
-    nueva_pos = idx + direccion
-    if 0 <= nueva_pos < len(lista):
-        lista[idx], lista[nueva_pos] = lista[nueva_pos], lista[idx]
-        st.rerun()
-
-# --- INTERFAZ DE CREACIÓN EN SIDEBAR ---
+# --- SIDEBAR: GENERADOR DINÁMICO ---
 with st.sidebar:
     st.header("➕ Nuevo Post-it")
-    with st.form("nuevo_postit", clear_on_submit=True):
-        texto = st.text_area("Descripción del problema:")
-        seccion_ini = st.selectbox("Ubicación inicial:", list(SECCIONES_CONFIG.keys()))
+    with st.form("crear_tarjeta", clear_on_submit=True):
+        tipo_sel = st.selectbox("Sección:", list(CONFIG.keys()))
+        texto_input = st.text_area("Descripción:")
         
-        enviar = st.form_submit_button("Crear Tarjeta", use_container_width=True)
-        
-        if enviar and texto:
-            # Validación de límite al crear
-            actuales = len(st.session_state['arbol_tarjetas'][seccion_ini])
-            limite = SECCIONES_CONFIG[seccion_ini]["limite"]
-            
-            if actuales < limite:
-                st.session_state['arbol_tarjetas'][seccion_ini].append(texto)
-                st.rerun()
+        # Lógica para preguntar por el padre si es indirecto
+        padre_sel = None
+        if CONFIG[tipo_sel]["tipo"] == "hijo":
+            padres_disponibles = st.session_state['arbol_tarjetas'][CONFIG[tipo_sel]["padre"]]
+            if padres_disponibles:
+                padre_sel = st.selectbox(f"Asociar a {CONFIG[tipo_sel]['padre']}:", padres_disponibles)
             else:
-                st.error(f"La sección '{seccion_ini}' ya tiene el máximo permitido (1).")
+                st.warning(f"Primero cree un(a) {CONFIG[tipo_sel]['padre']}.")
 
-# --- RENDERIZADO DEL ÁRBOL ---
-
-def mostrar_bloque(nombre):
-    cfg = SECCIONES_CONFIG[nombre]
-    st.markdown(f"#### {cfg['icono']} {nombre}")
-    
-    tarjetas = st.session_state['arbol_tarjetas'][nombre]
-    if not tarjetas:
-        st.caption("Sección vacía.")
-    else:
-        # Mostramos en columnas
-        cols_visuales = st.columns(3)
-        for i, contenido in enumerate(tarjetas):
-            with cols_visuales[i % 3]:
-                st.markdown(f"""
-                    <div style="background-color:{cfg['color']}; padding:15px; border-radius:10px; 
-                         border-left:10px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
-                         min-height:110px; box-shadow: 2px 2px 8px rgba(0,0,0,0.1);">
-                        {contenido}
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Fila de Reordenamiento y Eliminación
-                c_izq, c_der, c_del = st.columns([1,1,1])
-                with c_izq:
-                    if st.button("⬅️", key=f"L_{nombre}_{i}"): reordenar(nombre, i, -1)
-                with c_der:
-                    if st.button("➡️", key=f"R_{nombre}_{i}"): reordenar(nombre, i, 1)
-                with c_del:
-                    if st.button("🗑️", key=f"D_{nombre}_{i}"):
-                        st.session_state['arbol_tarjetas'][nombre].pop(i)
+        if st.form_submit_button("Generar") and texto_input:
+            if len(st.session_state['arbol_tarjetas'][tipo_sel]) < CONFIG[tipo_sel]["limite"]:
+                if CONFIG[tipo_sel]["tipo"] == "hijo":
+                    if padre_sel:
+                        st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto_input, "padre": padre_sel})
                         st.rerun()
-                
-                # Selector para mover de nivel (Cambio de color y sección)
-                nueva_sec = st.selectbox(
-                    "Cambiar nivel:", 
-                    list(SECCIONES_CONFIG.keys()),
-                    index=list(SECCIONES_CONFIG.keys()).index(nombre),
-                    key=f"sec_{nombre}_{i}",
-                    label_visibility="collapsed"
-                )
-                if nueva_sec != nombre:
-                    cambiar_seccion(nombre, i, nueva_sec)
+                else:
+                    st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
+                    st.rerun()
+            else:
+                st.error("Límite alcanzado para esta sección (1).")
 
+# --- FUNCIONES DE RENDERIZADO ---
+
+def card_html(texto, color):
+    return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
+               border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
+               margin-bottom:8px; min-height:80px; box-shadow: 2px 2px 5px #eee;">{texto}</div>"""
+
+def mostrar_seccion_simple(nombre):
+    col_label, col_content = st.columns([1, 4])
+    with col_label:
+        st.markdown(f"<br><b style='color:#555;'>{nombre.upper()}</b>", unsafe_allow_html=True)
+    with col_content:
+        items = st.session_state['arbol_tarjetas'][nombre]
+        cols = st.columns(3)
+        for i, texto in enumerate(items):
+            with cols[i % 3]:
+                st.markdown(card_html(texto, CONFIG[nombre]["color"]), unsafe_allow_html=True)
+                if st.button("🗑️", key=f"del_{nombre}_{i}"):
+                    st.session_state['arbol_tarjetas'][nombre].pop(i)
+                    st.rerun()
+
+def mostrar_seccion_hija(nombre_hijo, nombre_padre):
+    col_label, col_content = st.columns([1, 4])
+    with col_label:
+        st.markdown(f"<br><b style='color:#555;'>{nombre_hijo.upper()}</b>", unsafe_allow_html=True)
+    with col_content:
+        padres = st.session_state['arbol_tarjetas'][nombre_padre]
+        hijos = st.session_state['arbol_tarjetas'][nombre_hijo]
+        
+        for p_idx, p_texto in enumerate(padres):
+            st.caption(f"Vinculados a: {p_texto}")
+            items_vivos = [h for h in hijos if h["padre"] == p_texto]
+            if items_vivos:
+                sub_cols = st.columns(3)
+                for h_idx, h_data in enumerate(items_vivos):
+                    with sub_cols[h_idx % 3]:
+                        st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_{nombre_hijo}_{p_idx}_{h_idx}"):
+                            # Buscar el índice real en la lista completa para borrar
+                            real_idx = next(i for i, v in enumerate(hijos) if v == h_data)
+                            st.session_state['arbol_tarjetas'][nombre_hijo].pop(real_idx)
+                            st.rerun()
+            else:
+                st.caption("No hay tarjetas asociadas.")
+            st.divider()
+
+# --- DIBUJO DEL ÁRBOL ---
 st.divider()
-
-# Dibujado del Árbol con jerarquía estricta
-mostrar_bloque("Fin")
+mostrar_seccion_simple("Problema Superior")
 st.markdown("---")
-mostrar_bloque("Efectos Indirectos")
-mostrar_bloque("Efectos Directos")
+mostrar_seccion_hija("Efectos Indirectos", "Efectos Directos")
+mostrar_seccion_simple("Efectos Directos")
 st.markdown("---")
-st.error("🚨 PROBLEMA CENTRAL (Único)")
-mostrar_bloque("Problema Central")
+st.error("📍 PROBLEMA CENTRAL (Único)")
+mostrar_seccion_simple("Problema Central")
 st.markdown("---")
-mostrar_bloque("Causas Directas")
-mostrar_bloque("Causas Indirectas")
+mostrar_seccion_simple("Causas Directas")
+mostrar_seccion_hija("Causas Indirectas", "Causas Directas")
