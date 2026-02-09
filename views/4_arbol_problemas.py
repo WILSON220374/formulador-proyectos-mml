@@ -1,34 +1,33 @@
 import streamlit as st
+import matplotlib.pyplot as plt
+import io
+import textwrap
 
-st.title("🌳 4. Árbol de Problemas (Jerarquía y Validación)")
+st.title("🌳 4. Árbol de Problemas (Vista Jerárquica e Imagen)")
 
-# 1. Configuración de Estilos y Colores
+# 1. Configuración Maestra (Colores y Reglas)
 CONFIG = {
-    "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple"},
-    "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos"},
-    "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple"},
-    "Problema Central": {"color": "#FFB3BA", "limite": 1, "tipo": "simple"},
-    "Causas Directas": {"color": "#FFFFBA", "limite": 99, "tipo": "simple"},
-    "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas"}
+    "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple", "y": 5},
+    "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
+    "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
+    "Problema Central": {"color": "#FFB3BA", "limite": 1, "tipo": "simple", "y": 2},
+    "Causas Directas": {"color": "#FFFFBA", "limite": 99, "tipo": "simple", "y": 1},
+    "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN DE FICHAS Y DESCARGA ---
+# --- SIDEBAR: GESTIÓN Y DESCARGA ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("1. Seleccione Sección:", list(CONFIG.keys()))
     
     with st.form("crear_ficha", clear_on_submit=True):
         texto_input = st.text_area("2. Descripción de la idea:")
-        
-        # Asociación previa para elementos indirectos
         padre_asociado = None
         if CONFIG[tipo_sel]["tipo"] == "hijo":
             opciones_p = st.session_state['arbol_tarjetas'][CONFIG[tipo_sel]["padre"]]
             if opciones_p:
                 padre_asociado = st.selectbox(f"3. Vincular a {CONFIG[tipo_sel]['padre']}:", opciones_p)
-            else:
-                st.warning(f"⚠️ Primero cree un {CONFIG[tipo_sel]['padre']}.")
-
+        
         if st.form_submit_button("Generar Ficha") and texto_input:
             if len(st.session_state['arbol_tarjetas'][tipo_sel]) < CONFIG[tipo_sel]["limite"]:
                 if CONFIG[tipo_sel]["tipo"] == "hijo" and padre_asociado:
@@ -37,36 +36,59 @@ with st.sidebar:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 st.rerun()
             else:
-                st.error("Límite de 1 tarjeta alcanzado para esta sección.")
+                st.error("Límite de 1 tarjeta alcanzado.")
 
     st.divider()
-    
-    # 2. OPCIÓN DE DESCARGA PARA IMPRESIÓN
     st.subheader("📥 Exportar Árbol")
-    def generar_texto_reporte():
+
+    # --- FUNCIÓN PARA GENERAR LA IMAGEN ---
+    def generar_png_arbol():
+        fig, ax = plt.subplots(figsize=(12, 10))
+        ax.set_xlim(0, 10)
+        ax.set_ylim(-0.5, 6)
+        ax.axis('off')
+
         datos = st.session_state['arbol_tarjetas']
-        reporte = "REPORTE TÉCNICO: ÁRBOL DE PROBLEMAS\n" + "="*40 + "\n"
-        for sec, items in datos.items():
-            reporte += f"\n{sec.upper()}:\n"
-            if not items:
-                reporte += "- (Sección vacía)\n"
-            else:
-                for i, item in enumerate(items):
-                    if isinstance(item, dict):
-                        reporte += f"  {i+1}. {item['texto']} [Asociado a: {item['padre']}]\n"
-                    else:
-                        reporte += f"  {i+1}. {item}\n"
-        return reporte
+        
+        for seccion, conf in CONFIG.items():
+            items = datos[seccion]
+            if not items: continue
+            
+            # Calcular posiciones X según el número de items
+            n = len(items)
+            espaciado = 10 / (n + 1)
+            
+            for i, item in enumerate(items):
+                x = (i + 1) * espaciado
+                y = conf["y"]
+                texto = item["texto"] if isinstance(item, dict) else item
+                
+                # Dibujar rectángulo (Post-it)
+                rect = plt.Rectangle((x-0.8, y-0.3), 1.6, 0.6, facecolor=conf["color"], edgecolor='gray', lw=1, alpha=0.8)
+                ax.add_patch(rect)
+                
+                # Texto con ajuste de línea
+                txt_ajustado = "\n".join(textwrap.wrap(texto, width=15))
+                ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black')
+                
+                # Etiqueta de sección al borde izquierdo
+                if i == 0:
+                    ax.text(0.1, y, seccion.upper(), fontsize=7, color='gray', va='center', fontweight='bold')
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+        plt.close(fig)
+        return buf.getvalue()
 
     st.download_button(
-        label="📄 Descargar Reporte (.txt)",
-        data=generar_texto_reporte(),
-        file_name="arbol_problemas.txt",
-        mime="text/plain",
+        label="🖼️ Descargar como Imagen (PNG)",
+        data=generar_png_arbol(),
+        file_name="arbol_problemas.png",
+        mime="image/png",
         use_container_width=True
     )
 
-# --- FUNCIONES DE RENDERIZADO ---
+# --- FUNCIONES DE RENDERIZADO EN PANTALLA ---
 
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
@@ -79,28 +101,25 @@ def render_simple(nombre):
     col_l, col_c = st.columns([1, 4])
     with col_l:
         st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
-    with col_c:
+    with col_content := col_c:
         items = st.session_state['arbol_tarjetas'][nombre]
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
             if st.button("🗑️ Borrar", key=f"del_{nombre}"):
                 st.session_state['arbol_tarjetas'][nombre] = []
                 st.rerun()
-        else:
-            st.caption("Sección vacía")
+        else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
-    """Renderiza alineado verticalmente con validación de borrado."""
     padres = st.session_state['arbol_tarjetas'][nombre_padre]
     hijos = st.session_state['arbol_tarjetas'][nombre_hijo]
-    
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
 
     for seccion_actual, es_hijo in orden:
         col_l, col_c = st.columns([1, 4])
         with col_l:
             st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:25px;'>{seccion_actual.upper()}</div>", unsafe_allow_html=True)
-        with col_c:
+        with col_content := col_c:
             if not padres:
                 st.caption(f"Cree un {nombre_padre} para activar esta fila.")
             else:
@@ -116,31 +135,20 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                     st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
-                            
-                            # VALIDACIÓN: Verificar si tiene hijos antes de borrar
-                            hijos_asociados = [h for h in hijos if h["padre"] == p_txt]
-                            if st.button("🗑️ Borrar Principal", key=f"del_p_{seccion_actual}_{i}"):
-                                if hijos_asociados:
-                                    st.error("⚠️ Borre primero los elementos indirectos asociados.")
+                            if st.button("🗑️ Borrar", key=f"del_p_{seccion_actual}_{i}"):
+                                if [h for h in hijos if h["padre"] == p_txt]:
+                                    st.error("⚠️ Borre primero los elementos indirectos.")
                                 else:
                                     st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
                                     st.rerun()
 
-# --- CONSTRUCCIÓN DEL ÁRBOL ---
+# --- DIBUJO DEL ÁRBOL ---
 st.divider()
 render_simple("Problema Superior")
 st.markdown("---")
-# Efectos: Indirectos arriba, Directos abajo
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
 st.error("📍 ÁREA DEL PROBLEMA CENTRAL")
 render_simple("Problema Central")
 st.markdown("---")
-# Causas: Directas arriba, Indirectas abajo
 render_rama("Causas Directas", "Causas Indirectas", inversion=False)
-
-st.divider()
-if st.button("Limpiar Árbol Completo", type="primary"):
-    for k in st.session_state['arbol_tarjetas']:
-        st.session_state['arbol_tarjetas'][k] = []
-    st.rerun()
