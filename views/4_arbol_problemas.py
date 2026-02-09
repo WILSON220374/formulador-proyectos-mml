@@ -12,7 +12,7 @@ CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas"}
 }
 
-# --- SIDEBAR: GENERADOR Y HERRAMIENTAS ---
+# --- SIDEBAR: GESTIÓN DE FICHAS Y DESCARGA ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("1. Seleccione Sección:", list(CONFIG.keys()))
@@ -41,7 +41,7 @@ with st.sidebar:
 
     st.divider()
     
-    # 2. BOTÓN DE DESCARGA (Para Impresión)
+    # 2. OPCIÓN DE DESCARGA PARA IMPRESIÓN
     st.subheader("📥 Exportar Árbol")
     def generar_texto_reporte():
         datos = st.session_state['arbol_tarjetas']
@@ -94,7 +94,6 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_tarjetas'][nombre_padre]
     hijos = st.session_state['arbol_tarjetas'][nombre_hijo]
     
-    # Definir orden de filas para Efectos (Hijo arriba) o Causas (Padre arriba)
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
 
     for seccion_actual, es_hijo in orden:
@@ -110,4 +109,38 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                     with cols[i]:
                         if es_hijo:
                             hijos_del_padre = [h for h in hijos if h["padre"] == p_txt]
-                            for h_
+                            for h_idx, h_data in enumerate(hijos_del_padre):
+                                st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
+                                if st.button("🗑️", key=f"del_h_{seccion_actual}_{i}_{h_idx}"):
+                                    st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data)
+                                    st.rerun()
+                        else:
+                            st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
+                            
+                            # VALIDACIÓN: Verificar si tiene hijos antes de borrar
+                            hijos_asociados = [h for h in hijos if h["padre"] == p_txt]
+                            if st.button("🗑️ Borrar Principal", key=f"del_p_{seccion_actual}_{i}"):
+                                if hijos_asociados:
+                                    st.error("⚠️ Borre primero los elementos indirectos asociados.")
+                                else:
+                                    st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
+                                    st.rerun()
+
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
+st.divider()
+render_simple("Problema Superior")
+st.markdown("---")
+# Efectos: Indirectos arriba, Directos abajo
+render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
+st.markdown("---")
+st.error("📍 ÁREA DEL PROBLEMA CENTRAL")
+render_simple("Problema Central")
+st.markdown("---")
+# Causas: Directas arriba, Indirectas abajo
+render_rama("Causas Directas", "Causas Indirectas", inversion=False)
+
+st.divider()
+if st.button("Limpiar Árbol Completo", type="primary"):
+    for k in st.session_state['arbol_tarjetas']:
+        st.session_state['arbol_tarjetas'][k] = []
+    st.rerun()
