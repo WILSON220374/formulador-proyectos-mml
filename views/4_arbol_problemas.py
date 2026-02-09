@@ -2,7 +2,7 @@ import streamlit as st
 
 st.title("🌳 4. Árbol de Problemas (Vista Jerárquica)")
 
-# Configuración Maestra
+# Configuración Maestra de Colores y Dependencias
 CONFIG = {
     "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple"},
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos"},
@@ -35,19 +35,20 @@ with st.sidebar:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto)
                 st.rerun()
             else:
-                st.error("Límite de 1 tarjeta alcanzado.")
+                st.error("Límite alcanzado.")
 
-# --- FUNCIONES DE DISEÑO ---
+# --- FUNCIONES DE RENDERIZADO LATERAL ---
 
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:15px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
-               margin-bottom:10px; min-height:80px; box-shadow: 2px 2px 5px #eee;">{texto}</div>"""
+               margin-bottom:10px; min-height:80px; box-shadow: 2px 2px 5px #eee; display: flex; align-items: center;">
+               {texto}</div>"""
 
-def render_lateral(nombre, es_hijo=False):
-    col_label, col_content = st.columns([1, 4]) # Etiquetas a la IZQUIERDA
+def render_bloque_lateral(nombre, es_hijo=False):
+    col_label, col_content = st.columns([1, 4]) # 1 para etiqueta lateral, 4 para tarjetas
     with col_label:
-        st.markdown(f"<p style='color:#666; font-weight:bold; margin-top:20px;'>{nombre.upper()}</p>", unsafe_allow_html=True)
+        st.markdown(f"<div style='margin-top:25px; font-weight:bold; color:#444; border-right:2px solid #ddd; padding-right:10px; height:100%; text-align:right;'>{nombre.upper()}</div>", unsafe_allow_html=True)
     
     with col_content:
         if not es_hijo:
@@ -60,17 +61,16 @@ def render_lateral(nombre, es_hijo=False):
                         st.session_state['arbol_tarjetas'][nombre].pop(i)
                         st.rerun()
         else:
-            # Lógica jerárquica: Agrupar hijos bajo su padre
             nombre_padre = CONFIG[nombre]["padre"]
             padres = st.session_state['arbol_tarjetas'][nombre_padre]
             hijos = st.session_state['arbol_tarjetas'][nombre]
             
             for p in padres:
-                hijos_de_este_padre = [h for h in hijos if h["padre"] == p]
-                if hijos_de_este_padre:
-                    st.caption(f"Derivados de: {p}")
+                hijos_vivos = [h for h in hijos if h["padre"] == p]
+                if hijos_vivos:
+                    st.caption(f"📍 Vinculados a: {p}")
                     c_hijos = st.columns(3)
-                    for idx, h in enumerate(hijos_de_este_padre):
+                    for idx, h in enumerate(hijos_vivos):
                         with c_hijos[idx % 3]:
                             st.markdown(card_html(h["texto"], CONFIG[nombre]["color"]), unsafe_allow_html=True)
                             if st.button("🗑️", key=f"dh_{nombre}_{idx}_{p}"):
@@ -78,15 +78,15 @@ def render_lateral(nombre, es_hijo=False):
                                 st.rerun()
             st.divider()
 
-# --- ESTRUCTURA VISUAL DEL ÁRBOL ---
+# --- DIBUJO DEL ÁRBOL ---
 st.divider()
-render_lateral("Problema Superior")
+render_bloque_lateral("Problema Superior")
 st.markdown("---")
-render_lateral("Efectos Indirectos", es_hijo=True)
-render_lateral("Efectos Directos")
-st.markdown("---")
-st.error("📍 PROBLEMA CENTRAL (Único)")
-render_lateral("Problema Central")
-st.markdown("---")
-render_lateral("Causas Directas")
-render_lateral("Causas Indirectas", es_hijo=True)
+render_bloque_lateral("Efectos Indirectos", es_hijo=True)
+render_bloque_lateral("Efectos Directos")
+st.divider()
+st.error("🚨 ÁREA DEL PROBLEMA CENTRAL")
+render_bloque_lateral("Problema Central")
+st.divider()
+render_bloque_lateral("Causas Directas")
+render_bloque_lateral("Causas Indirectas", es_hijo=True)
