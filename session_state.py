@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa la memoria con limpieza automática de versiones antiguas."""
+    """Inicializa la memoria y fuerza la limpieza de versiones antiguas."""
     
-    # --- LIMPIEZA DE MEMORIA VIEJA ---
-    # Si detecta la estructura antigua, reinicia para evitar errores de nombres
+    # --- RESET FORZADO SI DETECTA ESTRUCTURA VIEJA ---
     if 'arbol_tarjetas' in st.session_state:
-        if "Fin" in st.session_state['arbol_tarjetas']:
-            del st.session_state['arbol_tarjetas']
+        if "Fin" in st.session_state['arbol_tarjetas'] or "Reglas MML Activas" in str(st.session_state):
+            st.session_state.clear() # Borra todo para evitar conflictos
+            st.rerun()
 
     # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
@@ -23,15 +23,15 @@ def inicializar_session():
                      "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
         )
     
-    # --- FASE 4: ÁRBOL DE PROBLEMAS (Jerarquía solicitada) ---
+    # --- FASE 4: ÁRBOL DE PROBLEMAS (Estructura Jerárquica Nueva) ---
     if 'arbol_tarjetas' not in st.session_state:
         st.session_state['arbol_tarjetas'] = {
-            "Problema Superior": [],   # Nombre actualizado
-            "Efectos Indirectos": [],  # Formato: {"texto": "", "padre": ""}
-            "Efectos Directos": [],    # Texto simple
-            "Problema Central": [],    # Texto simple
-            "Causas Directas": [],     # Texto simple
-            "Causas Indirectas": []    # Formato: {"texto": "", "padre": ""}
+            "Problema Superior": [],   
+            "Efectos Indirectos": [],  
+            "Efectos Directos": [],    
+            "Problema Central": [],    
+            "Causas Directas": [],     
+            "Causas Indirectas": []    
         }
 
 inicializar_session()
