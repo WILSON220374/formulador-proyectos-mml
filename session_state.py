@@ -25,19 +25,17 @@ def inicializar_session():
             "vias": ""
         }
 
-# --- FASE 3: INTERESADOS (Asegúrate de tener estas columnas) ---
+# --- FASE 3: INTERESADOS (Estructura de 9 columnas) ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame(
             columns=[
                 "#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", 
-                "CONTRIBUCIÓN AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
+                "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
             ]
         )
 
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
-if 'analisis_participantes' not in st.session_state:
-    st.session_state['analisis_participantes'] = ""
     
     # --- FASE 4: VESTER ---
     if 'problemas_vester' not in st.session_state:
