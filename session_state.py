@@ -25,17 +25,20 @@ def inicializar_session():
             "vias": ""
         }
 
- # --- FASE 3: INTERESADOS (Actualizado) ---
-if 'df_interesados' not in st.session_state:
-    columnas = [
-        "ID", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", 
-        "CONTRIBUCIÓN AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
-    ]
-    # Creamos el DataFrame inicial vacío
-    st.session_state['df_interesados'] = pd.DataFrame(columns=columnas)
+# --- FASE 3: INTERESADOS (Asegúrate de tener estas columnas) ---
+    if 'df_interesados' not in st.session_state:
+        st.session_state['df_interesados'] = pd.DataFrame(
+            columns=[
+                "#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", 
+                "CONTRIBUCIÓN AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
+            ]
+        )
 
+    if 'analisis_participantes' not in st.session_state:
+        st.session_state['analisis_participantes'] = ""
 if 'analisis_participantes' not in st.session_state:
     st.session_state['analisis_participantes'] = ""
+    
     # --- FASE 4: VESTER ---
     if 'problemas_vester' not in st.session_state:
         st.session_state['problemas_vester'] = [f"Problema {i}" for i in range(1, 11)]
