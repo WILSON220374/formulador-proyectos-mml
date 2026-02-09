@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 def inicializar_session():
-    """Inicializa las variables para guardar datos de las 15 pestañas."""
+    """Inicializa la memoria solo para las fases activas del proyecto."""
     
     # --- FASE 1: DIAGNÓSTICO ---
     if 'datos_problema' not in st.session_state:
@@ -20,7 +20,7 @@ def inicializar_session():
             "ubicacion": "", "limites": "", "economia": "", "vias": ""
         }
 
-    # --- FASE 3: INTERESADOS (9 columnas exactas) ---
+    # --- FASE 3: INTERESADOS ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame(
             columns=[
@@ -42,14 +42,5 @@ def inicializar_session():
             "Causas Indirectas": []
         }
 
-    # --- FASE 5: MARCO LÓGICO (6 columnas técnicas) ---
-    if 'df_mml' not in st.session_state:
-        filas = ["Fin", "Propósito", "Componentes", "Actividades"]
-        columnas = [
-            "INDICATORS", "SOURCE OF INFORMATION", "METHOD OF ANALYSIS", 
-            "FREQUENCY OF COLLECTION", "RESPONSIBLE", "ASSUMPTIONS"
-        ]
-        st.session_state['df_mml'] = pd.DataFrame("", index=filas, columns=columnas)
-
-# Ejecutar la función al cargar el archivo
+# Ejecución automática
 inicializar_session()
