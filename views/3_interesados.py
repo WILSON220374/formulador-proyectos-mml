@@ -1,12 +1,10 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import numpy as np
 from session_state import guardar_datos_nube
 
 st.title("👥 3. Análisis de Interesados")
 
-# Problema Central
+# --- RESUMEN DEL CONTEXTO ---
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
@@ -15,9 +13,12 @@ columnas_ordenadas = ["#", "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTR
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
 
+# Mapeo de colores para los nombres
 color_map = {
-    "Opositor": "#EF553B", "Beneficiario": "#00CC96", 
-    "Cooperante": "#636EFA", "Perjudicado": "#AB63FA"
+    "Opositor": "🔴",      # Rojo
+    "Beneficiario": "🟢",  # Verde
+    "Cooperante": "🔵",    # Azul
+    "Perjudicado": "🟣"     # Púrpura
 }
 
 def calcular_estrategia(row):
@@ -28,12 +29,13 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
-# Datos y Editor
+# --- TABLA DE DATOS ---
 df_actual = st.session_state['df_interesados']
 for col in columnas_ordenadas:
     if col not in df_actual.columns: df_actual[col] = None
 df_actual = df_actual[columnas_ordenadas]
 
+st.subheader("📝 Matriz de Datos")
 df_editado = st.data_editor(
     df_actual,
     column_config={
@@ -43,7 +45,7 @@ df_editado = st.data_editor(
         "INTERÉS": st.column_config.SelectboxColumn("INTERÉS", options=opciones_nivel),
         "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA", disabled=True),
     },
-    num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_v5"
+    num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_v6"
 )
 
 if not df_editado.equals(df_actual):
@@ -54,46 +56,66 @@ if not df_editado.equals(df_actual):
     guardar_datos_nube()
     st.rerun()
 
-# --- GRÁFICA GIGANTE SIN SUPERPOSICIÓN ---
-if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
-    st.subheader("📊 Visualización de Cuadrantes (Zoom Extendido)")
-    
-    mapa_val = {"Alto": 2, "Bajo": 1}
-    df_plot = df_editado.copy().dropna(subset=['PODER', 'INTERÉS', 'NOMBRE'])
-    
-    if not df_plot.empty:
-        # Jittering más agresivo para separar nombres
-        df_plot['x_j'] = df_plot['INTERÉS'].map(mapa_val) + np.random.uniform(-0.35, 0.35, len(df_plot))
-        df_plot['y_j'] = df_plot['PODER'].map(mapa_val) + np.random.uniform(-0.35, 0.35, len(df_plot))
-
-        fig = px.scatter(
-            df_plot, x='x_j', y='y_j', text='NOMBRE', color='POSICIÓN',
-            color_discrete_map=color_map,
-            height=700, # <--- GRÁFICA MÁS ALTA PARA DAR ESPACIO
-            labels={'x_j': 'Interés', 'y_j': 'Poder'}
-        )
-
-        fig.update_xaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.3, 2.7], gridcolor='rgba(0,0,0,0.05)')
-        fig.update_yaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.3, 2.7], gridcolor='rgba(0,0,0,0.05)')
-        
-        fig.add_hline(y=1.5, line_dash="dash", line_color="gray", opacity=0.3)
-        fig.add_vline(x=1.5, line_dash="dash", line_color="gray", opacity=0.3)
-        
-        fig.update_traces(
-            textposition='middle right', # Texto al lado del punto, no encima
-            textfont_size=9, 
-            marker=dict(size=18, line=dict(width=1.5, color='white'), opacity=0.8)
-        )
-
-        fig.update_layout(
-            plot_bgcolor='white',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            margin=dict(l=20, r=150, t=50, b=20) # Margen derecho amplio para textos largos
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-# Área de conclusiones
+# --- NUEVA VISUALIZACIÓN POR CUADRANTES (TIPO LISTA) ---
 st.divider()
-st.subheader("📝 Conclusiones")
-st.session_state['analisis_participantes'] = st.text_area("Análisis:", value=st.session_state.get('analisis_participantes', ""), height=100)
+st.subheader("📊 Clasificación Estratégica de Interesados")
+
+if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
+    # Función auxiliar para filtrar y formatear la lista
+    def obtener_lista_cuadrante(poder, interes):
+        filtro = df_editado[
+            (df_editado['PODER'] == poder) & 
+            (df_editado['INTERÉS'] == interes) & 
+            (df_editado['NOMBRE'].notna())
+        ]
+        items = []
+        for _, row in filtro.iterrows():
+            emoji = color_map.get(row['POSICIÓN'], "⚪")
+            items.append(f"{emoji} **{row['NOMBRE']}** ({row['GRUPO']})")
+        return items if items else ["*Sin actores asignados*"]
+
+    # Diseño de la cuadrícula 2x2
+    col_izq, col_der = st.columns(2)
+
+    with col_izq:
+        with st.container(border=True):
+            st.error("⚖️ **PODER ALTO / INTERÉS BAJO**")
+            st.caption("Estrategia: Consultar y mantener satisfechos")
+            for item in obtener_lista_cuadrante("Alto", "Bajo"):
+                st.markdown(item)
+
+        with st.container(border=True):
+            st.warning("💤 **PODER BAJO / INTERÉS BAJO**")
+            st.caption("Estrategia: Monitorizar (mínimo esfuerzo)")
+            for item in obtener_lista_cuadrante("Bajo", "Bajo"):
+                st.markdown(item)
+
+    with col_der:
+        with st.container(border=True):
+            st.success("🔥 **PODER ALTO / INTERÉS ALTO**")
+            st.caption("Estrategia: Involucrar y trabajar de cerca")
+            for item in obtener_lista_cuadrante("Alto", "Alto"):
+                st.markdown(item)
+
+        with st.container(border=True):
+            st.info("📢 **PODER BAJO / INTERÉS ALTO**")
+            st.caption("Estrategia: Mantener informados")
+            for item in obtener_lista_cuadrante("Bajo", "Alto"):
+                st.markdown(item)
+    
+    st.caption("Leyenda de Actitud: 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
+
+else:
+    st.warning("Complete la tabla de interesados para ver la clasificación.")
+
+# --- SECCIÓN DE CONCLUSIONES ---
+st.divider()
+st.subheader("📝 Análisis de Participantes")
+analisis_input = st.text_area(
+    "Escriba sus conclusiones aquí:", 
+    value=st.session_state.get('analisis_participantes', ""),
+    height=150
+)
+if analisis_input != st.session_state.get('analisis_participantes', ""):
+    st.session_state['analisis_participantes'] = analisis_input
+    guardar_datos_nube()
