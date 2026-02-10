@@ -43,7 +43,10 @@ def inicializar_session():
             "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []
         }
 
-    # --- Fase III: Planificación (Nuevo) ---
+    # --- Fase III: Planificación (Análisis de Alternativas) ---
+    if 'relaciones_medios' not in st.session_state:
+        st.session_state['relaciones_medios'] = [] # Almacena si son complementarios o excluyentes
+
     if 'lista_alternativas' not in st.session_state:
         st.session_state['lista_alternativas'] = []
 
@@ -60,6 +63,7 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
+            st.session_state['relaciones_medios'] = d.get('relaciones_medios', []) # Recuperar relaciones
             
             if 'interesados' in d:
                 st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
@@ -77,7 +81,8 @@ def guardar_datos_nube():
             "analisis_txt": st.session_state['analisis_participantes'],
             "arbol_p": st.session_state['arbol_tarjetas'],
             "arbol_o": st.session_state['arbol_objetivos'],
-            "alternativas": st.session_state['lista_alternativas']
+            "alternativas": st.session_state['lista_alternativas'],
+            "relaciones_medios": st.session_state['relaciones_medios'] # Guardar relaciones
         }
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
     except Exception as e:
