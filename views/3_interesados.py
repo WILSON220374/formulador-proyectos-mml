@@ -4,21 +4,18 @@ from session_state import guardar_datos_nube
 
 st.title("👥 3. Análisis de Interesados")
 
-# --- RESUMEN DEL CONTEXTO ---
+# --- CONTEXTO DEL PROYECTO ---
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
-# Configuración de columnas
+# Configuración de columnas y opciones
 columnas_ordenadas = ["#", "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
 
-# Mapeo de colores para los nombres
 color_map = {
-    "Opositor": "🔴",      # Rojo
-    "Beneficiario": "🟢",  # Verde
-    "Cooperante": "🔵",    # Azul
-    "Perjudicado": "🟣"     # Púrpura
+    "Opositor": "🔴", "Beneficiario": "🟢", 
+    "Cooperante": "🔵", "Perjudicado": "🟣"
 }
 
 def calcular_estrategia(row):
@@ -45,7 +42,7 @@ df_editado = st.data_editor(
         "INTERÉS": st.column_config.SelectboxColumn("INTERÉS", options=opciones_nivel),
         "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA", disabled=True),
     },
-    num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_v6"
+    num_rows="dynamic", use_container_width=True, hide_index=True, key="editor_v7"
 )
 
 if not df_editado.equals(df_actual):
@@ -56,66 +53,56 @@ if not df_editado.equals(df_actual):
     guardar_datos_nube()
     st.rerun()
 
-# --- NUEVA VISUALIZACIÓN POR CUADRANTES (TIPO LISTA) ---
+# --- CLASIFICACIÓN POR ESTRATEGIA (CUADRANTES) ---
 st.divider()
-st.subheader("📊 Clasificación Estratégica de Interesados")
+st.subheader("📊 Mapa Estratégico de Actores")
 
 if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
-    # Función auxiliar para filtrar y formatear la lista
     def obtener_lista_cuadrante(poder, interes):
-        filtro = df_editado[
-            (df_editado['PODER'] == poder) & 
-            (df_editado['INTERÉS'] == interes) & 
-            (df_editado['NOMBRE'].notna())
-        ]
+        filtro = df_editado[(df_editado['PODER'] == poder) & (df_editado['INTERÉS'] == interes) & (df_editado['NOMBRE'].notna())]
         items = []
         for _, row in filtro.iterrows():
             emoji = color_map.get(row['POSICIÓN'], "⚪")
             items.append(f"{emoji} **{row['NOMBRE']}** ({row['GRUPO']})")
         return items if items else ["*Sin actores asignados*"]
 
-    # Diseño de la cuadrícula 2x2
     col_izq, col_der = st.columns(2)
 
     with col_izq:
+        # Cuadrante Poder Alto / Interés Bajo
         with st.container(border=True):
-            st.error("⚖️ **PODER ALTO / INTERÉS BAJO**")
-            st.caption("Estrategia: Consultar y mantener satisfechos")
+            st.error("🤝 **CONSULTAR Y MANTENER SATISFECHOS**")
             for item in obtener_lista_cuadrante("Alto", "Bajo"):
                 st.markdown(item)
 
+        # Cuadrante Poder Bajo / Interés Bajo
         with st.container(border=True):
-            st.warning("💤 **PODER BAJO / INTERÉS BAJO**")
-            st.caption("Estrategia: Monitorizar (mínimo esfuerzo)")
+            st.warning("🔍 **MONITORIZAR**")
             for item in obtener_lista_cuadrante("Bajo", "Bajo"):
                 st.markdown(item)
 
     with col_der:
+        # Cuadrante Poder Alto / Interés Alto
         with st.container(border=True):
-            st.success("🔥 **PODER ALTO / INTERÉS ALTO**")
-            st.caption("Estrategia: Involucrar y trabajar de cerca")
+            st.success("🚀 **INVOLUCRAR Y MANTENER CERCA**")
             for item in obtener_lista_cuadrante("Alto", "Alto"):
                 st.markdown(item)
 
+        # Cuadrante Poder Bajo / Interés Alto
         with st.container(border=True):
-            st.info("📢 **PODER BAJO / INTERÉS ALTO**")
-            st.caption("Estrategia: Mantener informados")
+            st.info("📧 **MANTENER INFORMADOS**")
             for item in obtener_lista_cuadrante("Bajo", "Alto"):
                 st.markdown(item)
     
-    st.caption("Leyenda de Actitud: 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
+    st.caption("Leyenda: 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
 
 else:
-    st.warning("Complete la tabla de interesados para ver la clasificación.")
+    st.warning("Ingrese los datos en la tabla para ver la clasificación.")
 
 # --- SECCIÓN DE CONCLUSIONES ---
 st.divider()
 st.subheader("📝 Análisis de Participantes")
-analisis_input = st.text_area(
-    "Escriba sus conclusiones aquí:", 
-    value=st.session_state.get('analisis_participantes', ""),
-    height=150
-)
+analisis_input = st.text_area("Conclusiones:", value=st.session_state.get('analisis_participantes', ""), height=120)
 if analisis_input != st.session_state.get('analisis_participantes', ""):
     st.session_state['analisis_participantes'] = analisis_input
     guardar_datos_nube()
