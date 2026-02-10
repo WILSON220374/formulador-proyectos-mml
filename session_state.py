@@ -3,55 +3,37 @@ import pandas as pd
 from supabase import create_client
 
 def conectar_db():
-    """Establece la conexión con Supabase usando las llaves de los Secrets."""
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    """Inicializa todas las variables de memoria para evitar errores de carga."""
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     
-    # --- Fase I: Identificación ---
+    # Variables de Fase I y II
     if 'datos_problema' not in st.session_state:
-        st.session_state['datos_problema'] = {
-            "problema_central": "", 
-            "sintomas": "", 
-            "causas_inmediatas": "", 
-            "factores_agravantes": ""
-        }
-    
+        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     if 'datos_zona' not in st.session_state:
         st.session_state['datos_zona'] = {}
-        
     if 'df_interesados' not in st.session_state:
-        columnas = ["#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
-        st.session_state['df_interesados'] = pd.DataFrame(columns=columnas)
-        
+        st.session_state['df_interesados'] = pd.DataFrame(columns=["#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"])
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
-
-    # --- Fase II: Análisis ---
     if 'arbol_tarjetas' not in st.session_state:
-        st.session_state['arbol_tarjetas'] = {
-            "Problema Superior": [], "Efectos Indirectos": [], "Efectos Directos": [], 
-            "Problema Central": [], "Causas Directas": [], "Causas Indirectas": []
-        }
-        
+        st.session_state['arbol_tarjetas'] = {"Problema Superior": [], "Efectos Indirectos": [], "Efectos Directos": [], "Problema Central": [], "Causas Directas": [], "Causas Indirectas": []}
     if 'arbol_objetivos' not in st.session_state:
-        st.session_state['arbol_objetivos'] = {
-            "Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], 
-            "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []
-        }
+        st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
 
-    # --- Fase III: Planificación (Análisis de Alternativas) ---
+    # Variables de Fase III
     if 'relaciones_medios' not in st.session_state:
-        st.session_state['relaciones_medios'] = [] # Almacena si son complementarios o excluyentes
-
+        st.session_state['relaciones_medios'] = []
     if 'lista_alternativas' not in st.session_state:
         st.session_state['lista_alternativas'] = []
+    
+    # CONTADOR PARA RESETEO DE WIDGETS (Solución al error)
+    if 'alt_counter' not in st.session_state:
+        st.session_state['alt_counter'] = 0
 
 def cargar_datos_nube(user_id):
-    """Descarga el progreso del grupo desde Supabase."""
     try:
         db = conectar_db()
         res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
@@ -63,15 +45,13 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            st.session_state['relaciones_medios'] = d.get('relaciones_medios', []) # Recuperar relaciones
-            
+            st.session_state['relaciones_medios'] = d.get('relaciones_medios', [])
             if 'interesados' in d:
                 st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
     except Exception as e:
-        st.error(f"Error al cargar desde la nube: {e}")
+        st.error(f"Error al cargar: {e}")
 
 def guardar_datos_nube():
-    """Sincroniza el estado actual de la app con la base de datos."""
     try:
         db = conectar_db()
         paquete = {
@@ -82,8 +62,8 @@ def guardar_datos_nube():
             "arbol_p": st.session_state['arbol_tarjetas'],
             "arbol_o": st.session_state['arbol_objetivos'],
             "alternativas": st.session_state['lista_alternativas'],
-            "relaciones_medios": st.session_state['relaciones_medios'] # Guardar relaciones
+            "relaciones_medios": st.session_state['relaciones_medios']
         }
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
     except Exception as e:
-        st.error(f"Error al guardar en la nube: {e}")
+        st.error(f"Error al guardar: {e}")
