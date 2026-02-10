@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np # Necesario para el "ruido" visual
 from session_state import guardar_datos_nube
 
 st.title("👥 3. Análisis de Interesados")
@@ -9,13 +10,12 @@ st.title("👥 3. Análisis de Interesados")
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
-# Definir el orden exacto de las columnas que quieres ver
+# Definir el orden de las columnas
 columnas_ordenadas = [
     "#", "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", 
     "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"
 ]
 
-# Opciones para los menús desplegables
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
 
@@ -28,14 +28,14 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
-# 1. Asegurar que el DataFrame tenga todas las columnas en orden
+# Asegurar estructura del DataFrame
 df_actual = st.session_state['df_interesados']
 for col in columnas_ordenadas:
     if col not in df_actual.columns:
         df_actual[col] = None
 df_actual = df_actual[columnas_ordenadas]
 
-# --- EL EDITOR DE DATOS ---
+# --- EDITOR DE DATOS ---
 st.subheader("📝 Matriz de Interesados")
 df_editado = st.data_editor(
     df_actual,
@@ -48,45 +48,66 @@ df_editado = st.data_editor(
     },
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True, # <--- ESTO ELIMINA LA COLUMNA GRIS CON EL LÁPIZ
-    key="editor_interesados_v2"
+    hide_index=True,
+    key="editor_interesados_v3"
 )
 
-# Detectar cambios y procesar
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
-        # Numeración automática 1, 2, 3...
         df_editado["#"] = range(1, len(df_editado) + 1)
-        # Cálculo de estrategia
         df_editado["ESTRATEGIA DE INVOLUCRAMIENTO"] = df_editado.apply(calcular_estrategia, axis=1)
-    
     st.session_state['df_interesados'] = df_editado
-    guardar_datos_nube() # Guardado automático en Supabase
+    guardar_datos_nube()
     st.rerun()
 
-# --- ANÁLISIS CUALITATIVO ---
+# --- CONCLUSIONES ---
 st.divider()
 st.subheader("📌 Conclusiones del Análisis")
 analisis_txt = st.text_area(
     "Escriba aquí el análisis de la matriz:", 
     value=st.session_state.get('analisis_participantes', ""),
-    height=150
+    height=100
 )
 
 if analisis_txt != st.session_state.get('analisis_participantes', ""):
     st.session_state['analisis_participantes'] = analisis_txt
     guardar_datos_nube()
 
-# --- GRÁFICA ---
+# --- GRÁFICA CON JITTERING (DISPERSIÓN) ---
 if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
-    st.subheader("📊 Matriz de Poder e Interés")
+    st.subheader("📊 Matriz de Poder e Interés (Visualización)")
+    
     mapa_val = {"Alto": 2, "Bajo": 1}
     df_plot = df_editado.copy().dropna(subset=['PODER', 'INTERÉS', 'NOMBRE'])
     
     if not df_plot.empty:
-        df_plot['x'] = df_plot['INTERÉS'].map(mapa_val)
-        df_plot['y'] = df_plot['PODER'].map(mapa_val)
-        fig = px.scatter(df_plot, x='x', y='y', text='NOMBRE', range_x=[0.5, 2.5], range_y=[0.5, 2.5])
-        fig.add_hline(y=1.5, line_dash="dash")
-        fig.add_vline(x=1.5, line_dash="dash")
+        # Aplicamos un pequeño ruido aleatorio (+/- 0.1) para evitar superposición
+        df_plot['x_jitter'] = df_plot['INTERÉS'].map(mapa_val) + np.random.uniform(-0.12, 0.12, len(df_plot))
+        df_plot['y_jitter'] = df_plot['PODER'].map(mapa_val) + np.random.uniform(-0.12, 0.12, len(df_plot))
+
+        fig = px.scatter(
+            df_plot, 
+            x='x_jitter', 
+            y='y_jitter', 
+            text='NOMBRE',
+            labels={'x_jitter': 'Nivel de Interés', 'y_jitter': 'Nivel de Poder'},
+            hover_name='NOMBRE',
+            hover_data={'x_jitter': False, 'y_jitter': False, 'ESTRATEGIA DE INVOLUCRAMIENTO': True}
+        )
+
+        # Configuración estética de la matriz
+        fig.update_xaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.5, 2.5])
+        fig.update_yaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.5, 2.5])
+        
+        # Líneas divisorias de cuadrantes
+        fig.add_hline(y=1.5, line_dash="dash", line_color="gray")
+        fig.add_vline(x=1.5, line_dash="dash", line_color="gray")
+        
+        fig.update_traces(
+            textposition='top center', 
+            marker=dict(size=14, color='royalblue', line=dict(width=2, color='white'))
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("Ingrese interesados con Nombre, Poder e Interés para generar la gráfica.")
