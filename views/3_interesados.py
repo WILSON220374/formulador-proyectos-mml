@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from session_state import guardar_datos_nube # Importamos la función de la nube
+from session_state import guardar_datos_nube # Importamos la conexión a la nube
 
 st.title("👥 3. Análisis de Interesados")
 
@@ -23,7 +23,7 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
-# --- CONFIGURACIÓN DEL EDITOR ---
+# Configuración de las columnas del editor
 config_columnas = {
     "#": st.column_config.NumberColumn("#", disabled=True, help="Autocompletado automático"),
     "POSICIÓN": st.column_config.SelectboxColumn("POSICIÓN", options=opciones_posicion, required=True),
@@ -32,7 +32,7 @@ config_columnas = {
     "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA", disabled=True),
 }
 
-# Mostrar el editor de datos
+# --- MOSTRAR EL EDITOR DE DATOS ---
 df_actual = st.session_state['df_interesados']
 
 df_editado = st.data_editor(
@@ -40,7 +40,7 @@ df_editado = st.data_editor(
     column_config=config_columnas,
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True, # <--- MODIFICACIÓN: Aquí eliminamos la doble numeración
+    hide_index=True, # <--- ESTA LÍNEA ELIMINA LA COLUMNA GRIS DE LA IZQUIERDA
     key="editor_interesados"
 )
 
@@ -57,18 +57,19 @@ if not df_editado.equals(df_actual):
     guardar_datos_nube()
     st.rerun()
 
-# --- ANÁLISIS CUALITATIVO ---
+# --- ANÁLISIS DE PARTICIPANTES ---
 st.subheader("📝 ANÁLISIS DE PARTICIPANTES")
-analisis_txt = st.text_area(
+# Capturamos el texto del área de texto
+analisis_input = st.text_area(
     "Escriba sus conclusiones aquí:", 
     value=st.session_state['analisis_participantes'],
     height=150
 )
 
-# Guardar el texto si cambia y sincronizar con la nube
-if analisis_txt != st.session_state['analisis_participantes']:
-    st.session_state['analisis_participantes'] = analisis_txt
-    guardar_datos_nube()
+# Si el texto cambia, guardamos en memoria y en la nube
+if analisis_input != st.session_state['analisis_participantes']:
+    st.session_state['analisis_participantes'] = analisis_input
+    guardar_datos_nube() # Sincronización inmediata
 
 # --- GRÁFICA DE CUADRANTES ---
 st.subheader("📊 Matriz de Poder e Interés")
