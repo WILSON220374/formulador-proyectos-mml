@@ -56,6 +56,7 @@ pg = st.navigation({
     "Fase II: Análisis": [
         st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
+        st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
     ]
 })
 
