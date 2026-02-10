@@ -1,10 +1,11 @@
 import streamlit as st
-from session_state import inicializar_session, conectar_db, cargar_datos_nube
+from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube
 
+# 1. Configuración de la página
 st.set_page_config(page_title="Formulador Proyectos MML", layout="wide")
 inicializar_session()
 
-# --- INTERFAZ DE LOGIN ---
+# --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     st.title("🏗️ Formulador de Proyectos")
     st.markdown("### Acceso Grupal - Posgrado")
@@ -19,21 +20,33 @@ if not st.session_state['autenticado']:
                 if res.data:
                     st.session_state['autenticado'] = True
                     st.session_state['usuario_id'] = u
-                    cargar_datos_nube(u) # Cargar progreso previo
+                    cargar_datos_nube(u) # Recuperar avance previo
                     st.rerun()
                 else:
-                    st.error("Usuario o contraseña no válidos.")
+                    st.error("Usuario o contraseña incorrectos.")
             except Exception as e:
                 st.error("Error de conexión. Revisa tus Secrets de Supabase.")
     st.stop()
 
-# --- MENÚ DE NAVEGACIÓN ---
+# --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    st.write(f"👷 Grupo: **{st.session_state['usuario_id']}**")
-    if st.button("Cerrar Sesión"):
+    st.header(f"👷 {st.session_state['usuario_id']}")
+    st.divider()
+    
+    # BOTÓN MAESTRO DE GUARDADO
+    if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
+        with st.spinner("Sincronizando..."):
+            guardar_datos_nube()
+            st.toast("✅ ¡Todo tu avance ha sido guardado!", icon="🚀")
+    
+    st.divider()
+    
+    # BOTÓN DE SALIDA
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
         st.rerun()
 
+# --- NAVEGACIÓN ENTRE FASES ---
 pg = st.navigation({
     "Fase I: Identificación": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
@@ -45,4 +58,5 @@ pg = st.navigation({
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
     ]
 })
+
 pg.run()
