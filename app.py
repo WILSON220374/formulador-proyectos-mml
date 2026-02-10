@@ -1,17 +1,22 @@
 import streamlit as st
 from session_state import inicializar_session
 
-# Configuración inicial
+# Configuración inicial de la página
 st.set_page_config(page_title="Formulador de Proyectos MML", layout="wide")
 
-# Escudo anti-traductor
+# Escudo anti-traductor para evitar errores de interfaz
 st.markdown("""<meta name="google" content="notranslate">""", unsafe_allow_html=True)
 
-# Inicializar memoria
+# Inicializar variables de memoria (session_state)
 inicializar_session()
 
 # --- NAVEGACIÓN ---
+# Se define la estructura del menú lateral
 pg = st.navigation({
+    "Inicio": [
+        # Nueva página para guardar y cargar archivos .json
+        st.Page("views/0_proyecto.py", title="Gestión de Proyecto", icon="📁"),
+    ],
     "Fase I: Identificación": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
@@ -23,4 +28,5 @@ pg = st.navigation({
     ]
 })
 
+# Ejecutar la navegación
 pg.run()
