@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import numpy as np # Necesario para el "ruido" visual
+import numpy as np
 from session_state import guardar_datos_nube
 
 st.title("👥 3. Análisis de Interesados")
 
-# Traer el problema central
+# Traer el problema central de la primera hoja
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
@@ -18,6 +18,14 @@ columnas_ordenadas = [
 
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
+
+# Mapeo de colores profesionales para la gráfica
+color_map = {
+    "Opositor": "#EF553B",      # Rojo
+    "Beneficiario": "#00CC96",  # Verde
+    "Cooperante": "#636EFA",    # Azul
+    "Perjudicado": "#AB63FA"     # Púrpura
+}
 
 def calcular_estrategia(row):
     p = str(row.get('PODER', '')).strip()
@@ -49,7 +57,7 @@ df_editado = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
-    key="editor_interesados_v3"
+    key="editor_interesados_v4"
 )
 
 if not df_editado.equals(df_actual):
@@ -73,39 +81,48 @@ if analisis_txt != st.session_state.get('analisis_participantes', ""):
     st.session_state['analisis_participantes'] = analisis_txt
     guardar_datos_nube()
 
-# --- GRÁFICA CON JITTERING (DISPERSIÓN) ---
+# --- GRÁFICA OPTIMIZADA (SIN SUPERPOSICIÓN) ---
 if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
-    st.subheader("📊 Matriz de Poder e Interés (Visualización)")
+    st.subheader("📊 Visualización de Cuadrantes")
     
     mapa_val = {"Alto": 2, "Bajo": 1}
     df_plot = df_editado.copy().dropna(subset=['PODER', 'INTERÉS', 'NOMBRE'])
     
     if not df_plot.empty:
-        # Aplicamos un pequeño ruido aleatorio (+/- 0.1) para evitar superposición
-        df_plot['x_jitter'] = df_plot['INTERÉS'].map(mapa_val) + np.random.uniform(-0.12, 0.12, len(df_plot))
-        df_plot['y_jitter'] = df_plot['PODER'].map(mapa_val) + np.random.uniform(-0.12, 0.12, len(df_plot))
+        # Aumentamos el "Jitter" a +/- 0.3 para máxima separación
+        df_plot['x_jitter'] = df_plot['INTERÉS'].map(mapa_val) + np.random.uniform(-0.3, 0.3, len(df_plot))
+        df_plot['y_jitter'] = df_plot['PODER'].map(mapa_val) + np.random.uniform(-0.3, 0.3, len(df_plot))
 
         fig = px.scatter(
             df_plot, 
             x='x_jitter', 
             y='y_jitter', 
             text='NOMBRE',
+            color='POSICIÓN', # Diferenciación por colores
+            color_discrete_map=color_map,
             labels={'x_jitter': 'Nivel de Interés', 'y_jitter': 'Nivel de Poder'},
             hover_name='NOMBRE',
-            hover_data={'x_jitter': False, 'y_jitter': False, 'ESTRATEGIA DE INVOLUCRAMIENTO': True}
+            hover_data={'x_jitter': False, 'y_jitter': False, 'ESTRATEGIA DE INVOLUCRAMIENTO': True, 'POSICIÓN': True}
         )
 
-        # Configuración estética de la matriz
-        fig.update_xaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.5, 2.5])
-        fig.update_yaxes(tickvals=[1, 2], ticktext=["Bajo", "Alto"], range=[0.5, 2.5])
+        # Configuración de ejes y cuadrantes
+        fig.update_xaxes(tickvals=[1, 2], ticktext=["Interés Bajo", "Interés Alto"], range=[0.4, 2.6])
+        fig.update_yaxes(tickvals=[1, 2], ticktext=["Poder Bajo", "Poder Alto"], range=[0.4, 2.6])
         
-        # Líneas divisorias de cuadrantes
-        fig.add_hline(y=1.5, line_dash="dash", line_color="gray")
-        fig.add_vline(x=1.5, line_dash="dash", line_color="gray")
+        fig.add_hline(y=1.5, line_dash="dash", line_color="gray", opacity=0.5)
+        fig.add_vline(x=1.5, line_dash="dash", line_color="gray", opacity=0.5)
         
+        # Ajuste fino de las etiquetas de texto
         fig.update_traces(
-            textposition='top center', 
-            marker=dict(size=14, color='royalblue', line=dict(width=2, color='white'))
+            textposition='top center',
+            textfont_size=10, # Fuente más pequeña para evitar choques
+            marker=dict(size=15, line=dict(width=1, color='DarkSlateGrey'))
+        )
+
+        fig.update_layout(
+            showlegend=True,
+            legend_title_text='Actitud',
+            margin=dict(l=20, r=20, t=20, b=20)
         )
         
         st.plotly_chart(fig, use_container_width=True)
