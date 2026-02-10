@@ -1,46 +1,39 @@
 import streamlit as st
-from session_state import inicializar_session
-import yaml # Para manejar las claves si usas un archivo local, o conectar a DB
+from session_state import inicializar_session, conectar_db, cargar_datos_nube
 
-# 1. Configuración de página
-st.set_page_config(page_title="Formulador MML - Acceso Profesional", layout="wide")
-
-# 2. Inicializar memoria base
+st.set_page_config(page_title="Formulador Proyectos MML", layout="wide")
 inicializar_session()
 
-# --- LÓGICA DE AUTENTICACIÓN ---
-# Aquí es donde verificaríamos contra la Base de Datos
-if 'autenticado' not in st.session_state:
-    st.session_state['autenticado'] = False
-
+# --- INTERFAZ DE LOGIN ---
 if not st.session_state['autenticado']:
-    # PANTALLA DE LOGIN
-    st.title("🏗️ Acceso al Formulador de Proyectos")
+    st.title("🏗️ Formulador de Proyectos")
+    st.markdown("### Acceso Grupal - Posgrado")
     with st.container(border=True):
-        usuario = st.text_input("Usuario (Grupo/Correo)")
-        password = st.text_input("Contraseña", type="password")
-        
-        if st.button("Ingresar", type="primary", use_container_width=True):
-            # Aquí pondremos la validación real con la base de datos más adelante
-            if usuario == "grupo1" and password == "civil2026": # Ejemplo simple
-                st.session_state['autenticado'] = True
-                st.session_state['usuario_id'] = usuario
-                st.success("Acceso concedido")
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas")
-    
-    st.info("Consulte con su profesor para obtener las credenciales de su grupo.")
-    st.stop() # Detiene la ejecución aquí si no hay login
+        u = st.text_input("Usuario (Grupo)")
+        p = st.text_input("Contraseña", type="password")
+        if st.button("Ingresar", use_container_width=True, type="primary"):
+            try:
+                db = conectar_db()
+                # Verificar credenciales en Supabase
+                res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
+                if res.data:
+                    st.session_state['autenticado'] = True
+                    st.session_state['usuario_id'] = u
+                    cargar_datos_nube(u) # Cargar progreso previo
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña no válidos.")
+            except Exception as e:
+                st.error("Error de conexión. Revisa tus Secrets de Supabase.")
+    st.stop()
 
-# --- SI ESTÁ AUTENTICADO, MOSTRAR LA APP ---
-if st.sidebar.button("Cerrar Sesión"):
-    st.session_state['autenticado'] = False
-    st.rerun()
+# --- MENÚ DE NAVEGACIÓN ---
+with st.sidebar:
+    st.write(f"👷 Grupo: **{st.session_state['usuario_id']}**")
+    if st.button("Cerrar Sesión"):
+        st.session_state['autenticado'] = False
+        st.rerun()
 
-st.sidebar.write(f"👤 Conectado como: **{st.session_state['usuario_id']}**")
-
-# Tu navegación actual
 pg = st.navigation({
     "Fase I: Identificación": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
@@ -52,5 +45,4 @@ pg = st.navigation({
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
     ]
 })
-
 pg.run()
