@@ -7,7 +7,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia del estado
 inicializar_session()
 
-# --- ESTILO MAESTRO: TRANSPARENCIA PROFUNDA Y COLOR TOTAL ---
+# --- ESTILO MAESTRO: TRANSPARENCIA TOTAL Y TARJETAS DE COLOR ---
 st.markdown("""
     <style>
     /* 1. Tipografía base */
@@ -26,47 +26,53 @@ st.markdown("""
         font-weight: normal !important;
     }
 
-    /* 3. Papeleras en Rojo */
+    /* 3. Papeleras Rojas */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold !important;
     }
     
-    /* 4. TRANSPARENCIA PROFUNDA PARA TEXT_AREA */
-    /* Eliminamos el fondo de todas las capas internas de Streamlit */
-    [data-testid="stTextArea"], 
-    [data-testid="stTextArea"] > div, 
-    [data-testid="stTextArea"] textarea,
-    div[data-baseweb="textarea"],
-    div[data-baseweb="base-input"] {
+    /* 4. ELIMINAR CUADROS GRISES: Transparencia total para text_area */
+    div[data-testid="stTextArea"] {
         background-color: transparent !important;
-        background: transparent !important;
+    }
+    div[data-testid="stTextArea"] textarea {
+        background-color: transparent !important;
+        color: #31333F !important;
         border: none !important;
         box-shadow: none !important;
-        color: #31333F !important;
+        padding: 5px !important;
+    }
+    div[data-baseweb="textarea"] {
+        background-color: transparent !important;
+        border: none !important;
     }
 
-    /* Contenedor de la tarjeta que da el color real */
-    .full-color-card {
+    /* 5. DISEÑO DE TARJETA (Igual al Árbol de Problemas) */
+    .objective-card {
         padding: 15px;
         border-radius: 10px;
-        border: 1px solid rgba(0,0,0,0.1);
+        border-left: 8px solid rgba(0,0,0,0.1);
         box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
         margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 80px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# Configuración de Colores para el Árbol
+# Configuración Maestra con los colores del Árbol de Problemas
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
     "Fines Directos": {"color": "#80BFFF", "y": 3},
-    "Objetivo General": {"color": "#D1C4E9", "y": 2},
-    "Medios Directos": {"color": "#FFF9C4", "y": 1},
-    "Medios Indirectos": {"color": "#FFE0B2", "y": 0}
+    "Objetivo General": {"color": "#FFB3BA", "y": 2}, # Color rosa del Problema Principal
+    "Medios Directos": {"color": "#FFFFBA", "y": 1},
+    "Medios Indirectos": {"color": "#FFDFBA", "y": 0}
 }
 
 # --- SIDEBAR: HERRAMIENTAS ---
@@ -86,11 +92,12 @@ with st.sidebar:
             if p_sec in problemas:
                 st.session_state['arbol_objetivos'][o_sec] = []
                 for item in problemas[p_sec]:
+                    txt = item['texto'] if isinstance(item, dict) else item
                     if isinstance(item, dict):
-                        st.session_state['arbol_objetivos'][o_sec].append({"texto": item['texto'], "padre": item['padre']})
+                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
                     else:
-                        st.session_state['arbol_objetivos'][o_sec].append(item)
-        st.success("¡Datos convertidos! Fin Último vacío.")
+                        st.session_state['arbol_objetivos'][o_sec].append(txt)
+        st.success("¡Datos convertidos!")
         st.rerun()
 
     st.divider()
@@ -115,7 +122,7 @@ with st.sidebar:
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol (PNG)", data=exportar_objetivos_png(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar PNG", data=exportar_objetivos_png(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
 # --- FUNCIONES DE RENDERIZADO ---
 
@@ -131,8 +138,8 @@ def render_simple_obj(nombre):
             if st.button(f"➕ Definir {nombre}", key=f"add_{nombre}"):
                 st.session_state['arbol_objetivos'][nombre] = ["Nueva idea"]; st.rerun()
         else:
-            # TARJETA CON COLOR TOTAL
-            st.markdown(f'<div class="full-color-card" style="background-color:{CONFIG_OBJ[nombre]["color"]};">', unsafe_allow_html=True)
+            # Tarjeta con color de fondo total (Igual a Problemas)
+            st.markdown(f'<div class="objective-card" style="background-color:{CONFIG_OBJ[nombre]["color"]};">', unsafe_allow_html=True)
             val_actual = items[0]["texto"] if isinstance(items[0], dict) else items[0]
             nuevo_val = st.text_area(f"edit_{nombre}", value=val_actual, key=f"edit_{nombre}", label_visibility="collapsed")
             st.markdown('</div>', unsafe_allow_html=True)
@@ -163,7 +170,7 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                             p_nombre = p_item["texto"] if isinstance(p_item, dict) else p_item
                             hijos_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_nombre]
                             for h_idx, h_data in enumerate(hijos_p):
-                                st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
+                                st.markdown(f'<div class="objective-card" style="background-color:{color}; min-height:60px;">', unsafe_allow_html=True)
                                 n_val_h = st.text_area(f"h_{seccion}_{i}_{h_idx}", value=h_data["texto"], key=f"ed_h_{seccion}_{i}_{h_idx}", label_visibility="collapsed")
                                 st.markdown('</div>', unsafe_allow_html=True)
                                 if n_val_h != h_data["texto"]:
@@ -173,7 +180,7 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                                     st.session_state['arbol_objetivos'][seccion].remove(h_data); st.rerun()
                         else:
                             p_txt = p_item["texto"] if isinstance(p_item, dict) else p_item
-                            st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
+                            st.markdown(f'<div class="objective-card" style="background-color:{color}; min-height:60px;">', unsafe_allow_html=True)
                             n_val_p = st.text_area(f"p_{seccion}_{i}", value=p_txt, key=f"ed_p_{seccion}_{i}", label_visibility="collapsed")
                             st.markdown('</div>', unsafe_allow_html=True)
                             if n_val_p != p_txt:
@@ -186,18 +193,17 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                                 st.session_state['arbol_objetivos'][seccion].pop(i); st.rerun()
             else: st.caption("Sección vacía")
 
-# --- DIBUJO DEL ÁRBOL ---
+# --- DIBUJO ---
 st.divider()
 render_simple_obj("Fin Último")
 st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
 render_rama_objetivos("Fines Directos", "Fines Indirectos", inversion=True)
 st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
-st.success("🎯 **OBJETIVO GENERAL** (Redactar en positivo)")
 render_simple_obj("Objetivo General")
 st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
 render_rama_objetivos("Medios Directos", "Medios Indirectos", inversion=False)
 
 st.divider()
-if st.button("🗑️ Limpiar Todo el Árbol", type="secondary"):
+if st.button("🗑️ Limpiar Todo", type="secondary"):
     for k in st.session_state['arbol_objetivos']: st.session_state['arbol_objetivos'][k] = []
     st.rerun()
