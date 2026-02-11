@@ -2,19 +2,19 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
+# 1. Persistencia: Carga datos de la nube al iniciar
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. PERSISTENCIA: Carga datos de la nube al iniciar
 inicializar_session()
 
-# --- ESTILO MAESTRO: COLOR TOTAL Y TRANSPARENCIA ---
+# --- ESTILO MAESTRO: TRANSPARENCIA TOTAL PARA EL EDITOR ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
     }
     
-    /* ELIMINACIÓN DE CAPAS GRISES: Forzamos transparencia total en el editor */
+    /* HACER TRANSPARENTE EL EDITOR DE STREAMLIT: Para que no tape el color del fondo */
     div[data-testid="stTextArea"] textarea {
         background-color: transparent !important;
         color: #31333F !important;
@@ -23,28 +23,16 @@ st.markdown("""
         font-weight: 600 !important;
         text-align: center !important;
         font-size: 14px !important;
+        line-height: 1.4 !important;
     }
     div[data-testid="stTextArea"] {
         background-color: transparent !important;
         border: none !important;
     }
-
-    /* TARJETA DE COLOR TOTAL: Sin bordes grises ni recuadros internos */
-    .full-color-card {
-        padding: 15px;
-        border-radius: 12px;
-        border: 1px solid rgba(0,0,0,0.05);
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
-        min-height: 100px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
     
-    .stButton button[kind="primary"] p {
-        color: white !important;
-        font-weight: bold !important;
+    /* Eliminar el espacio del label oculto */
+    div[data-testid="stTextArea"] label {
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -61,11 +49,11 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "y": 0}
 }
 
-# --- SIDEBAR: HERRAMIENTAS DE LIMPIEZA ---
+# --- SIDEBAR: HERRAMIENTAS ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # IMPORTACIÓN CON FILTRO DE CALIDAD: Elimina letras sueltas y huérfanos
+    # IMPORTACIÓN CON FILTRO DE LIMPIEZA (Ya soluciona las fichas 'a' o 'c')
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
@@ -76,15 +64,13 @@ with st.sidebar:
             "Causas Indirectas": "Medios Indirectos"
         }
         
-        # Limpiar datos previos
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
         
-        # FILTRO DE LIMPIEZA: Solo traemos textos reales (> 2 caracteres)
         for p_sec, o_sec in mapeo.items():
             items_raw = problemas.get(p_sec, [])
             for item in items_raw:
                 txt = item['texto'] if isinstance(item, dict) else item
-                # Ignoramos fichas vacías o letras sueltas como 'a', 'c'
+                # Solo traemos fichas con contenido real (más de 2 letras)
                 if isinstance(txt, str) and len(txt.strip()) > 2:
                     if isinstance(item, dict):
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
@@ -95,7 +81,7 @@ with st.sidebar:
             st.session_state['arbol_objetivos']["Fin Último"] = ["MEJORAR LA CALIDAD DE VIDA"]
             
         guardar_datos_nube()
-        st.success("¡Datos importados y depurados! Redacte en positivo sobre las tarjetas.")
+        st.success("¡Datos importados y depurados!")
         st.rerun()
 
     st.divider()
@@ -123,19 +109,32 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO CON COLOR TOTAL ---
+# --- FUNCIÓN DE TARJETA CON COLOR TOTAL ---
 
 def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
     
-    # TARJETA CON COLOR TOTAL DE FONDO
-    st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
+    # 1. CAPA DE COLOR (Fondo sólido)
+    st.markdown(f"""
+        <div style="
+            background-color: {color}; 
+            height: 100px; 
+            border-radius: 12px; 
+            border-left: 10px solid rgba(0,0,0,0.1);
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 0px;
+        "></div>
+    """, unsafe_allow_html=True)
+    
+    # 2. CAPA DE TEXTO (Subimos el editor con un margen negativo)
+    st.markdown('<div style="margin-top: -100px;">', unsafe_allow_html=True)
     nuevo_texto = st.text_area(
-        f"e_{seccion}_{indice}", 
-        value=texto_actual, 
-        label_visibility="collapsed", 
-        key=f"area_{seccion}_{indice}"
+        label=f"edit_{seccion}_{indice}",
+        value=texto_actual,
+        label_visibility="collapsed",
+        key=f"area_{seccion}_{indice}",
+        height=100
     )
     st.markdown('</div>', unsafe_allow_html=True)
     
