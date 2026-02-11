@@ -7,7 +7,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia del estado
 inicializar_session()
 
-# --- ESTILO MAESTRO UNIFICADO ---
+# --- ESTILO MAESTRO UNIFICADO (IGUAL A PROBLEMAS) ---
 st.markdown("""
     <style>
     /* 1. Tipografía base */
@@ -31,6 +31,7 @@ st.markdown("""
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold !important;
+        font-size: 1.1rem;
     }
     
     .stButton button {
@@ -42,7 +43,7 @@ st.markdown("""
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# 1. Configuración de Colores (IGUAL AL ÁRBOL DE PROBLEMAS)
+# 1. Configuración de Colores (Idéntico a Problemas)
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5, "tipo": "simple"},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4, "tipo": "hijo", "padre": "Fines Directos"},
@@ -52,7 +53,7 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "y": 0, "tipo": "hijo", "padre": "Medios Directos"}
 }
 
-# --- SIDEBAR: GESTIÓN DE OBJETIVOS (IDÉNTICO A PROBLEMAS) ---
+# --- SIDEBAR: GESTIÓN Y EXPORTACIÓN ---
 with st.sidebar:
     st.header("➕ Gestión de Objetivos")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_OBJ.keys()))
@@ -73,13 +74,13 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
+    
+    # BOTÓN ✨ TRAER DATOS
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
-            "Efectos Indirectos": "Fines Indirectos",
-            "Efectos Directos": "Fines Directos", 
-            "Problema Principal": "Objetivo General", 
-            "Causas Directas": "Medios Directos", 
+            "Efectos Indirectos": "Fines Indirectos", "Efectos Directos": "Fines Directos", 
+            "Problema Principal": "Objetivo General", "Causas Directas": "Medios Directos", 
             "Causas Indirectas": "Medios Indirectos"
         }
         for p_sec, o_sec in mapeo.items():
@@ -91,13 +92,46 @@ with st.sidebar:
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
                     else:
                         st.session_state['arbol_objetivos'][o_sec].append(txt)
-        st.success("¡Datos convertidos! Fin Último se mantiene vacío.")
+        st.success("¡Datos convertidos!")
         st.rerun()
 
-# --- FUNCIONES DE RENDERIZADO (IDÉNTICO A PROBLEMAS) ---
+    st.divider()
+    st.subheader("📥 Exportar Árbol")
+
+    # FUNCIÓN DE EXPORTACIÓN PNG (SIN DISTORSIÓN)
+    def generar_png_objetivos():
+        fig, ax = plt.subplots(figsize=(16, 14)) 
+        ax.set_xlim(0, 10); ax.set_ylim(-1, 9); ax.axis('off')
+        datos = st.session_state['arbol_objetivos']
+        for seccion, conf in CONFIG_OBJ.items():
+            items = datos.get(seccion, [])
+            if not items: continue
+            n = len(items)
+            ancho_caja = min(2.2, (8.5/n) - 0.3)
+            espaciado = 10 / (n + 1)
+            y_base = conf["y"] * 1.5 
+            for i, item in enumerate(items):
+                x = (i + 1) * espaciado
+                texto = item["texto"] if isinstance(item, dict) else item
+                txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
+                num_lineas = txt_ajustado.count('\n') + 1
+                alto_caja = max(0.6, num_lineas * 0.18)
+                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), ancho_caja, alto_caja, 
+                                     facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
+                ax.add_patch(rect)
+                ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
+                if i == 0:
+                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
+        plt.close(fig)
+        return buf.getvalue()
+
+    st.download_button(label="🖼️ Descargar PNG", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
+
+# --- RENDERIZADO (ESTILO PROBLEMAS) ---
 
 def card_html(texto, color):
-    # Usamos el mismo HTML que el Árbol de Problemas para garantizar visual idéntico
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; 
                border-left:8px solid rgba(0,0,0,0.1); color:#31333F; font-weight:500; 
                margin-bottom:8px; min-height:80px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); 
@@ -143,7 +177,7 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                             if st.button("🗑️", key=f"del_p_{seccion}_{i}"):
                                 st.session_state['arbol_objetivos'][seccion].pop(i); st.rerun()
 
-# --- DIBUJO DEL ÁRBOL ---
+# --- DIBUJO ---
 st.divider()
 render_simple_obj("Fin Último")
 st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
