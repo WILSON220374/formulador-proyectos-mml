@@ -45,21 +45,21 @@ st.markdown("""
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# Configuración Maestra de Colores
+# Configuración Maestra: Mapeo de Colores y Etiquetas Nuevas
 CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "y": 5},
-    "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
-    "Fines Directos": {"color": "#80BFFF", "y": 3},
-    "Objetivo General": {"color": "#FFB3BA", "y": 2},
-    "Medios Directos": {"color": "#FFFFBA", "y": 1},
-    "Medios Indirectos": {"color": "#FFDFBA", "y": 0}
+    "Fin Último": {"color": "#C1E1C1", "y": 5, "label": "FIN ÚLTIMO"},
+    "Fines Indirectos": {"color": "#B3D9FF", "y": 4, "label": "FINES INDIRECTOS"},
+    "Fines Directos": {"color": "#80BFFF", "y": 3, "label": "FINES DIRECTOS"},
+    "Objetivo General": {"color": "#FFB3BA", "y": 2, "label": "OBJETIVO GENERAL"},
+    "Medios Directos": {"color": "#FFFFBA", "y": 1, "label": "OBJETIVOS ESPECÍFICOS"},
+    "Medios Indirectos": {"color": "#FFDFBA", "y": 0, "label": "ACTIVIDADES"}
 }
 
 # --- SIDEBAR: HERRAMIENTAS ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # Importación con filtro (Sin fichas fantasmas)
+    # Importación con filtro de limpieza (Sin fichas fantasmas)
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
@@ -70,12 +70,14 @@ with st.sidebar:
             "Causas Indirectas": "Medios Indirectos"
         }
         
+        # Limpieza de memoria antes de importar
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
         
         for p_sec, o_sec in mapeo.items():
             items_raw = problemas.get(p_sec, [])
             for item in items_raw:
                 txt = item['texto'] if isinstance(item, dict) else item
+                # Filtro de calidad: Solo textos reales
                 if isinstance(txt, str) and len(txt.strip()) > 2:
                     if isinstance(item, dict):
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": txt.upper(), "padre": item['padre']})
@@ -107,6 +109,9 @@ with st.sidebar:
                 ax.add_patch(rect)
                 txt_wrap = "\n".join(textwrap.wrap(txt, width=22))
                 ax.text(x, y_base, txt_wrap, ha='center', va='center', fontsize=9, fontweight='bold')
+                # Etiquetas en el PNG con los nuevos nombres
+                if i == 0:
+                    ax.text(0.1, y_base, conf["label"], fontsize=8, color='#555', fontweight='bold', va='center')
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
         plt.close(fig)
@@ -114,7 +119,7 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIÓN DE TARJETA CON TEXTO CENTRADO ---
+# --- FUNCIÓN DE RENDERIZADO ---
 
 def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
@@ -125,7 +130,7 @@ def render_objective_card(seccion, indice, item):
         <div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>
     """, unsafe_allow_html=True)
     
-    # 2. Tarjeta gris de edición con texto centrado
+    # 2. Tarjeta gris con texto centrado
     nuevo_texto = st.text_area(
         label=f"edit_{seccion}_{indice}",
         value=texto_actual,
@@ -142,21 +147,22 @@ def render_objective_card(seccion, indice, item):
         guardar_datos_nube()
         st.rerun()
 
-def mostrar_seccion(nombre):
+def mostrar_seccion(key_interna):
+    label_visual = CONFIG_OBJ[key_interna]["label"]
     col_l, col_c = st.columns([1, 4])
     with col_l:
-        st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{label_visual}</div>", unsafe_allow_html=True)
     with col_c:
-        items = st.session_state['arbol_objetivos'].get(nombre, [])
+        items = st.session_state['arbol_objetivos'].get(key_interna, [])
         if items:
             cols = st.columns(len(items))
             for i, item in enumerate(items):
                 with cols[i]:
-                    render_objective_card(nombre, i, item)
+                    render_objective_card(key_interna, i, item)
         else:
             st.caption("Sección vacía.")
 
-# --- CONSTRUCCIÓN ---
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
 mostrar_seccion("Fin Último")
 st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
@@ -165,5 +171,5 @@ mostrar_seccion("Fines Directos")
 st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
 mostrar_seccion("Objetivo General")
 st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-mostrar_seccion("Medios Directos")
-mostrar_seccion("Medios Indirectos")
+mostrar_seccion("Medios Directos") # Ahora se visualiza como OBJETIVOS ESPECÍFICOS
+mostrar_seccion("Medios Indirectos") # Ahora se visualiza como ACTIVIDADES
