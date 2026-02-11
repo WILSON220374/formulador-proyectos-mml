@@ -8,17 +8,18 @@ inicializar_session()
 st.title("⚖️ 6. Análisis de Alternativas")
 
 # --- CONTEXTO: OBTENER DATOS DEL PASO 5 ---
+# Se obtienen los nombres actualizados (Objetivos Específicos y Actividades)
 objetivos_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
 # --- 1. EVALUACIÓN DE OBJETIVOS Y ACTIVIDADES ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# Texto de las preguntas completas para los tooltips
+# Textos completos para los tooltips de ayuda
 pregunta_enfoque = "¿EL OBJETIVO ATIENDE EL ENFOQUE PROPUESTO?"
 pregunta_alcance = "¿ESTA DENTRO DEL ALCANCE DE QUIENES DESARROLLARAN EL PROYECTO?"
 
-# Preparación de datos para la tabla
+# Preparación de datos para la tabla (Sin recortes de texto)
 datos_evaluacion = []
 for idx_obj, obj in enumerate(objetivos_especificos):
     obj_txt = obj["texto"] if isinstance(obj, dict) else obj
@@ -26,7 +27,7 @@ for idx_obj, obj in enumerate(objetivos_especificos):
     
     for act_txt in hijas:
         datos_evaluacion.append({
-            "OBJETIVO": obj_txt,
+            "OBJETIVO": f"{idx_obj + 1}. {obj_txt}", # Texto completo sin truncar
             "ACTIVIDAD": act_txt,
             "ENFOQUE": "NO",
             "ALCANCE": "NO",
@@ -36,19 +37,20 @@ for idx_obj, obj in enumerate(objetivos_especificos):
 if 'df_evaluacion_alternativas' not in st.session_state or st.session_state['df_evaluacion_alternativas'].empty:
     st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(datos_evaluacion)
 
-# Editor de tabla corregido (con tooltips y visualización optimizada)
+# Editor de tabla con ANCHO DE COLUMNA CORREGIDO
 df_editado = st.data_editor(
     st.session_state['df_evaluacion_alternativas'],
     column_config={
-        "OBJETIVO": st.column_config.TextColumn("OBJETIVO", disabled=True, width="medium"),
-        "ACTIVIDAD": st.column_config.TextColumn("ACTIVIDAD", disabled=True, width="medium"),
+        # Se cambia width a "large" para evitar el corte del texto
+        "OBJETIVO": st.column_config.TextColumn("OBJETIVO", disabled=True, width="large"),
+        "ACTIVIDAD": st.column_config.TextColumn("ACTIVIDAD", disabled=True, width="large"),
         "ENFOQUE": st.column_config.SelectboxColumn("¿ENFOQUE?", options=["SI", "NO"], help=pregunta_enfoque),
         "ALCANCE": st.column_config.SelectboxColumn("¿ALCANCE?", options=["SI", "NO"], help=pregunta_alcance),
         "ESTADO": st.column_config.TextColumn("ESTADO", disabled=True)
     },
     use_container_width=True,
     hide_index=True,
-    key="tabla_evaluacion_alt_v2"
+    key="tabla_evaluacion_alternativas_final"
 )
 
 # Lógica de actualización de ESTADO
@@ -70,22 +72,20 @@ st.divider()
 # --- 2. CONFIGURACIÓN DE PAQUETES (ALTERNATIVAS) ---
 st.subheader("📦 2. Configuración de Paquetes (Alternativas)")
 
-# Filtramos solo lo seleccionado
 opciones_seleccionadas = st.session_state['df_evaluacion_alternativas'][
     st.session_state['df_evaluacion_alternativas']["ESTADO"] == "✅ SELECCIONADO"
 ]
 
-# VALIDACIÓN CRÍTICA: Si no hay nada seleccionado, mostramos el mensaje solicitado
 if opciones_seleccionadas.empty:
     st.warning("⚠️ DEBE SELECCIONAR POR LO MENOS UNA COMBINACION DE OBJETIVO Y ACTIVIDAD RESPONDIENDO SI A AMBOS CRITERIOS")
 else:
     with st.container(border=True):
-        nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Rehabilitación Integral")
+        nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Rehabilitación Integral de PTAR")
         items_shared = st.multiselect(
-            "Seleccione componentes aprobados para esta alternativa:",
+            "Seleccione los componentes complementarios:",
             options=opciones_seleccionadas["ACTIVIDAD"].unique().tolist()
         )
-        justificacion = st.text_area("Justificación técnica:")
+        justificacion = st.text_area("Justificación técnica de la alternativa:")
         
         if st.button("🚀 Consolidar Alternativa", type="primary"):
             if nombre_alt and items_shared:
@@ -96,23 +96,21 @@ else:
                 }
                 if 'lista_alternativas' not in st.session_state:
                     st.session_state['lista_alternativas'] = []
-                
                 st.session_state['lista_alternativas'].append(nueva_alt)
                 guardar_datos_nube()
                 st.rerun()
             else:
-                st.error("Complete el nombre y seleccione componentes.")
+                st.error("Por favor, asigne un nombre y seleccione componentes.")
 
-# --- 3. VISUALIZACIÓN DE ALTERNATIVAS (PROTECCIÓN CONTRA KEYERROR) ---
+# --- 3. VISUALIZACIÓN DE ALTERNATIVAS CONSOLIDADAS ---
 if st.session_state.get('lista_alternativas'):
     st.divider()
     st.subheader("📋 Alternativas Definidas")
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        # Verificamos que 'nombre' exista en el diccionario antes de intentar usarlo
         if isinstance(alt, dict) and 'nombre' in alt:
             with st.expander(f"🔹 Alternativa {idx+1}: {alt['nombre']}"):
                 st.write(f"**Justificación:** {alt.get('justificacion', 'N/A')}")
-                st.write("**Componentes:**")
+                st.write("**Componentes incluidos:**")
                 for comp in alt.get('componentes', []):
                     st.markdown(f"- {comp}")
                 if st.button("🗑️ Eliminar", key=f"del_alt_{idx}"):
