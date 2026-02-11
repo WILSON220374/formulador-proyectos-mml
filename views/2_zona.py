@@ -1,117 +1,81 @@
 import streamlit as st
-import time
+from session_state import inicializar_session, guardar_datos_nube
 
-# --- TÍTULO Y ESTADO ---
-st.header("2. Caracterización de la Zona de Estudio")
+# Asegurar que la sesión esté lista
+inicializar_session()
 
-if 'datos_zona' not in st.session_state:
-    st.session_state['datos_zona'] = {}
+st.title("📍 2. Zona de Estudio")
 
-datos = st.session_state['datos_zona']
+# --- FUNCIÓN DE AUTO-AJUSTE (Misma lógica de la Hoja 1) ---
+def calcular_altura(texto, min_h=100):
+    """Calcula la altura necesaria para que el texto sea siempre visible."""
+    if not texto:
+        return min_h
+    lineas = texto.count('\n') + (len(texto) // 85)
+    altura_calculada = max(min_h, (lineas + 1) * 23)
+    return altura_calculada
 
-# --- CONTEXTO: TRAER EL PROBLEMA DE LA FASE ANTERIOR ---
-# Recuperamos lo que escribiste en la página 1
-problema_fase_1 = st.session_state.get('datos_problema', {}).get('problema_central', "⚠️ No has definido el problema aún en la Fase 1.")
+# Recuperar datos actuales de la zona
+# Si el diccionario está vacío, inicializamos las llaves estándar
+if not st.session_state['datos_zona']:
+    st.session_state['datos_zona'] = {
+        "localizacion": "",
+        "poblacion": "",
+        "contexto": ""
+    }
 
-with st.expander("📌 PROBLEMA CENTAL", expanded=True):
-    st.info(f" {problema_fase_1}")
+zona = st.session_state['datos_zona']
 
-# --- BARRA DE PROGRESO ---
-# Contamos cuántos campos tienen datos
-campos_totales = 7
-campos_llenos = 0
-lista_campos = ['pob_total', 'pob_urbana', 'pob_rural', 'ubicacion', 'limites', 'economia', 'vias']
-for campo in lista_campos:
-    if datos.get(campo): campos_llenos += 1
-
-progreso = campos_llenos / campos_totales
-st.progress(progreso, text=f"Progreso de la Fase: {int(progreso * 100)}%")
-
-# --- TARJETA 1: ANÁLISIS DEMOGRÁFICO ---
+# --- SECCIÓN 1: LOCALIZACIÓN ---
 with st.container(border=True):
-    st.subheader("👥 Población Afectada")
-    st.markdown("Estime la cantidad de personas involucradas directa o indirectamente.")
+    st.subheader("🗺️ Localización Geográfica")
+    st.markdown("Describa la ubicación exacta, límites y accesibilidad del área del proyecto.")
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        pob_total = st.number_input(
-            "Población Total", 
-            min_value=0, 
-            value=datos.get('pob_total', 0),
-            help="Suma total de habitantes en el área de influencia."
-        )
-    with col2:
-        pob_urbana = st.number_input(
-            "Urbana", 
-            min_value=0, 
-            value=datos.get('pob_urbana', 0),
-            help="Habitantes en cabeceras municipales."
-        )
-    with col3:
-        pob_rural = st.number_input(
-            "Rural", 
-            min_value=0, 
-            value=datos.get('pob_rural', 0),
-            help="Habitantes en veredas o campo."
-        )
-
-# --- TARJETA 2: GEOGRAFÍA Y TERRITORIO ---
-with st.container(border=True):
-    st.subheader("🗺️ Ubicación Geográfica")
-    
-    ubicacion = st.text_input(
-        "Localización Específica", 
-        value=datos.get('ubicacion', ""),
-        placeholder="Ej: Vereda El Rosal, Municipio de Soracá...",
-        help="¿Dónde se ejecutará físicamente el proyecto?"
-    )
-    
-    limites = st.text_area(
-        "Límites Geográficos",
-        value=datos.get('limites', ""),
-        height=100,
-        placeholder="Norte:..., Sur:..., Oriente:...",
-        help="Delimite el área de estudio."
+    h_loc = calcular_altura(zona.get('localizacion', ""))
+    localizacion = st.text_area(
+        "Detalles de Ubicación:",
+        value=zona.get('localizacion', ""),
+        height=h_loc,
+        key="txt_localizacion",
+        placeholder="Ej: Municipio de Sogamoso, Vereda Morcá, sector nororiental..."
     )
 
-# --- TARJETA 3: ECONOMÍA Y ACCESO ---
+# --- SECCIÓN 2: CARACTERÍSTICAS DE LA POBLACIÓN ---
 with st.container(border=True):
-    st.subheader("💰 Economía y Accesibilidad")
+    st.subheader("👥 Características de la Población")
+    st.markdown("Defina el perfil de los beneficiarios: demografía, cultura y niveles socioeconómicos.")
     
-    col_a, col_b = st.columns(2)
-    with col_a:
-        economia = st.text_area(
-            "Principal Actividad Económica",
-            value=datos.get('economia', ""),
-            height=120,
-            help="¿De qué vive la gente en la zona? (Agricultura, Comercio, etc.)"
-        )
-    with col_b:
-        vias = st.text_area(
-            "División del territorio",
-            value=datos.get('politica', ""),
-            height=120,
-            help="Descripción de la división politica."
-        )
+    h_pob = calcular_altura(zona.get('poblacion', ""))
+    poblacion = st.text_area(
+        "Descripción de la Comunidad:",
+        value=zona.get('poblacion', ""),
+        height=h_pob,
+        key="txt_poblacion"
+    )
 
-# --- BOTÓN DE GUARDADO ---
-st.markdown("###")
-col_izq, col_der = st.columns([1, 2])
+# --- SECCIÓN 3: CONTEXTO SOCIOECONÓMICO ---
+with st.container(border=True):
+    st.subheader("🏗️ Contexto y Entorno")
+    st.markdown("Situación actual de la infraestructura, servicios públicos y principales actividades económicas.")
+    
+    h_con = calcular_altura(zona.get('contexto', ""))
+    contexto = st.text_area(
+        "Análisis del Entorno:",
+        value=zona.get('contexto', ""),
+        height=h_con,
+        key="txt_contexto"
+    )
 
-with col_izq:
-    if st.button("💾 Guardar Zona", type="primary", use_container_width=True):
-        # Guardar en memoria
-        st.session_state['datos_zona'].update({
-            'pob_total': pob_total,
-            'pob_urbana': pob_urbana,
-            'pob_rural': pob_rural,
-            'ubicacion': ubicacion,
-            'limites': limites,
-            'economia': economia,
-            'vias': vias
-        })
-        
-        # Feedback visual
-        st.toast("✅ ¡Información territorial guardada!", icon="🗺️")
-        time.sleep(0.5)
-        st.rerun()
+# --- LÓGICA DE GUARDADO AUTOMÁTICO ---
+# Detectar si hubo cambios para sincronizar con la nube
+if (localizacion != zona.get('localizacion') or 
+    poblacion != zona.get('poblacion') or 
+    contexto != zona.get('contexto')):
+    
+    st.session_state['datos_zona'] = {
+        "localizacion": localizacion,
+        "poblacion": poblacion,
+        "contexto": contexto
+    }
+    guardar_datos_nube()
+    st.rerun() # Refresca para aplicar la nueva altura visual inmediatamente
