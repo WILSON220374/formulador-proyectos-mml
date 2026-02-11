@@ -7,7 +7,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia del estado
 inicializar_session()
 
-# --- ESTILO MAESTRO: COLOR TOTAL Y TRANSPARENCIA ---
+# --- ESTILO MAESTRO: TRANSPARENCIA PROFUNDA Y COLOR TOTAL ---
 st.markdown("""
     <style>
     /* 1. Tipografía base */
@@ -16,7 +16,7 @@ st.markdown("""
         color: #31333F;
     }
     
-    /* 2. Sidebar: Botón Guardar (Blanco/Negrita) y Cerrar Sesión (Negro/Fino) */
+    /* 2. Sidebar: Guardar (Blanco/Negrita) y Cerrar Sesión (Negro/Fino) */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
@@ -26,24 +26,29 @@ st.markdown("""
         font-weight: normal !important;
     }
 
-    /* 3. Papeleras Rojas en el árbol */
+    /* 3. Papeleras en Rojo */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold !important;
     }
     
-    /* 4. TRUCO DE TRANSPARENCIA: Forzamos que el área de texto no tenga fondo gris */
-    div[data-baseweb="textarea"], 
-    div[data-baseweb="textarea"] textarea,
-    [data-testid="stTextArea"] {
+    /* 4. TRANSPARENCIA PROFUNDA PARA TEXT_AREA */
+    /* Eliminamos el fondo de todas las capas internas de Streamlit */
+    [data-testid="stTextArea"], 
+    [data-testid="stTextArea"] > div, 
+    [data-testid="stTextArea"] textarea,
+    div[data-baseweb="textarea"],
+    div[data-baseweb="base-input"] {
         background-color: transparent !important;
+        background: transparent !important;
         border: none !important;
+        box-shadow: none !important;
         color: #31333F !important;
     }
-    
-    /* Contenedor de la tarjeta con color total */
-    .colored-card {
-        padding: 10px;
+
+    /* Contenedor de la tarjeta que da el color real */
+    .full-color-card {
+        padding: 15px;
         border-radius: 10px;
         border: 1px solid rgba(0,0,0,0.1);
         box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
@@ -54,7 +59,7 @@ st.markdown("""
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# Configuración Maestra (Colores para tarjetas e imagen)
+# Configuración de Colores para el Árbol
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
@@ -85,7 +90,7 @@ with st.sidebar:
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": item['texto'], "padre": item['padre']})
                     else:
                         st.session_state['arbol_objetivos'][o_sec].append(item)
-        st.success("¡Datos convertidos! Fin Último se mantiene vacío.")
+        st.success("¡Datos convertidos! Fin Último vacío.")
         st.rerun()
 
     st.divider()
@@ -112,7 +117,7 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=exportar_objetivos_png(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO CON COLOR TOTAL ---
+# --- FUNCIONES DE RENDERIZADO ---
 
 def render_simple_obj(nombre):
     col_l, col_c = st.columns([1, 4])
@@ -126,8 +131,8 @@ def render_simple_obj(nombre):
             if st.button(f"➕ Definir {nombre}", key=f"add_{nombre}"):
                 st.session_state['arbol_objetivos'][nombre] = ["Nueva idea"]; st.rerun()
         else:
-            # Contenedor con color de fondo total
-            st.markdown(f'<div class="colored-card" style="background-color:{CONFIG_OBJ[nombre]["color"]};">', unsafe_allow_html=True)
+            # TARJETA CON COLOR TOTAL
+            st.markdown(f'<div class="full-color-card" style="background-color:{CONFIG_OBJ[nombre]["color"]};">', unsafe_allow_html=True)
             val_actual = items[0]["texto"] if isinstance(items[0], dict) else items[0]
             nuevo_val = st.text_area(f"edit_{nombre}", value=val_actual, key=f"edit_{nombre}", label_visibility="collapsed")
             st.markdown('</div>', unsafe_allow_html=True)
@@ -158,7 +163,7 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                             p_nombre = p_item["texto"] if isinstance(p_item, dict) else p_item
                             hijos_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_nombre]
                             for h_idx, h_data in enumerate(hijos_p):
-                                st.markdown(f'<div class="colored-card" style="background-color:{color};">', unsafe_allow_html=True)
+                                st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
                                 n_val_h = st.text_area(f"h_{seccion}_{i}_{h_idx}", value=h_data["texto"], key=f"ed_h_{seccion}_{i}_{h_idx}", label_visibility="collapsed")
                                 st.markdown('</div>', unsafe_allow_html=True)
                                 if n_val_h != h_data["texto"]:
@@ -168,7 +173,7 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                                     st.session_state['arbol_objetivos'][seccion].remove(h_data); st.rerun()
                         else:
                             p_txt = p_item["texto"] if isinstance(p_item, dict) else p_item
-                            st.markdown(f'<div class="colored-card" style="background-color:{color};">', unsafe_allow_html=True)
+                            st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
                             n_val_p = st.text_area(f"p_{seccion}_{i}", value=p_txt, key=f"ed_p_{seccion}_{i}", label_visibility="collapsed")
                             st.markdown('</div>', unsafe_allow_html=True)
                             if n_val_p != p_txt:
