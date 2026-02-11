@@ -2,10 +2,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# Importación de funciones críticas de persistencia
+# Importamos las funciones de persistencia de tu archivo session_state
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. RECUPERACIÓN DE DATOS: Carga la información de la nube al entrar
+# --- CLAVE PARA EL GUARDADO: CARGAR DATOS AL INICIAR ---
 inicializar_session()
 
 # --- ESTILO MAESTRO UNIFICADO ---
@@ -40,10 +40,12 @@ st.markdown("""
 if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
+    if 'Problema Superior' in st.session_state['arbol_tarjetas']:
+        st.session_state['arbol_tarjetas'].pop('Problema Superior')
 
 st.title("🌳 4. Árbol de Problemas")
 
-# Configuración Visual
+# 1. Configuración Maestra
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
@@ -72,30 +74,36 @@ with st.sidebar:
                 else:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 
-                # Guardado automático al crear
+                # GUARDADO AUTOMÁTICO AL CREAR
                 guardar_datos_nube()
                 st.rerun()
 
     st.divider()
-    
+    st.subheader("📥 Exportar Árbol")
+
     def generar_png_arbol():
-        fig, ax = plt.subplots(figsize=(16, 14)) 
+        fig, ax = plt.subplots(figsize=(16, 12)) 
         ax.set_xlim(0, 10); ax.set_ylim(-1, 7.5); ax.axis('off')
         datos = st.session_state['arbol_tarjetas']
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
-            espacio = 10 / (len(items) + 1)
+            n = len(items)
+            ancho_caja = min(2.2, (8.5/n) - 0.3)
+            espaciado = 10 / (n + 1)
             y_base = conf["y"] * 1.5 
             for i, item in enumerate(items):
-                x = (i + 1) * espacio
+                x = (i + 1) * espaciado
                 texto = item["texto"] if isinstance(item, dict) else item
                 txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
                 num_lineas = txt_ajustado.count('\n') + 1
-                rect = plt.Rectangle((x-1.0, y_base-0.3), 2.0, max(0.6, num_lineas * 0.18), 
+                alto_caja = max(0.6, num_lineas * 0.18)
+                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), ancho_caja, alto_caja, 
                                      facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
                 ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
+                if i == 0:
+                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
         plt.close(fig)
@@ -119,9 +127,12 @@ def render_simple(nombre):
         items = st.session_state['arbol_tarjetas'].get(nombre, [])
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
-            if nombre != "Problema Principal" and st.button("🗑️", key=f"del_{nombre}"):
+            # BOTÓN DE BORRADO RESTAURADO PARA TODOS
+            if st.button("🗑️", key=f"del_{nombre}"):
                 st.session_state['arbol_tarjetas'][nombre] = []
-                guardar_datos_nube(); st.rerun()
+                # GUARDADO AUTOMÁTICO AL BORRAR
+                guardar_datos_nube()
+                st.rerun()
         else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
@@ -141,13 +152,13 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                 for i, p_txt in enumerate(padres):
                     with cols[i]:
                         if es_hijo:
-                            # SOLUCIÓN AL TYPEERROR: Validación de tipo antes de filtrar
                             h_del_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_txt]
                             for h_idx, h_data in enumerate(h_del_p):
                                 st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"del_h_{seccion_actual}_{i}_{h_idx}"):
                                     st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data)
-                                    guardar_datos_nube(); st.rerun()
+                                    guardar_datos_nube() # Guardado automático
+                                    st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
                             if st.button("🗑️", key=f"del_p_{seccion_actual}_{i}"):
@@ -155,7 +166,8 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                 if h_asoc: st.error("Borre indirectos primero")
                                 else: 
                                     st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
-                                    guardar_datos_nube(); st.rerun()
+                                    guardar_datos_nube() # Guardado automático
+                                    st.rerun()
 
 # --- CONSTRUCCIÓN ---
 st.divider()
