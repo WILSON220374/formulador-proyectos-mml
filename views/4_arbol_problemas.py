@@ -3,14 +3,21 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 
+# --- SINCRONIZACIÓN DE LLAVES (MIGRACIÓN DE DATOS) ---
+# Esto evita que se pierda la información guardada al cambiar el nombre de la sección
+if 'arbol_tarjetas' in st.session_state:
+    if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
+        # Recuperamos el dato de 'Problema Central' si existe, o inicializamos vacío
+        st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
+
 st.title("🌳 4. Árbol de Problemas (Vista Jerárquica e Imagen)")
 
-# 1. Configuración Maestra (Colores y Coordenadas para la Imagen)
+# 1. Configuración Maestra - Se cambia la etiqueta visual a 'Problema Principal'
 CONFIG = {
     "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple", "y": 5},
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
-    "Problema Central": {"color": "#FFB3BA", "limite": 1, "tipo": "simple", "y": 2},
+    "Problema Principal": {"color": "#FFB3BA", "limite": 1, "tipo": "simple", "y": 2}, # <-- CAMBIO REALIZADO
     "Causas Directas": {"color": "#FFFFBA", "limite": 99, "tipo": "simple", "y": 1},
     "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
@@ -24,12 +31,12 @@ with st.sidebar:
         texto_input = st.text_area("2. Descripción de la idea:")
         padre_asociado = None
         if CONFIG[tipo_sel]["tipo"] == "hijo":
-            opciones_p = st.session_state['arbol_tarjetas'][CONFIG[tipo_sel]["padre"]]
+            opciones_p = st.session_state['arbol_tarjetas'].get(CONFIG[tipo_sel]["padre"], [])
             if opciones_p:
                 padre_asociado = st.selectbox(f"3. Vincular a {CONFIG[tipo_sel]['padre']}:", opciones_p)
         
         if st.form_submit_button("Generar Ficha") and texto_input:
-            if len(st.session_state['arbol_tarjetas'][tipo_sel]) < CONFIG[tipo_sel]["limite"]:
+            if len(st.session_state['arbol_tarjetas'].get(tipo_sel, [])) < CONFIG[tipo_sel]["limite"]:
                 if CONFIG[tipo_sel]["tipo"] == "hijo" and padre_asociado:
                     st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto_input, "padre": padre_asociado})
                 else:
@@ -49,7 +56,7 @@ with st.sidebar:
         datos = st.session_state['arbol_tarjetas']
         
         for seccion, conf in CONFIG.items():
-            items = datos[seccion]
+            items = datos.get(seccion, [])
             if not items: continue
             n = len(items)
             espaciado = 10 / (n + 1)
@@ -89,7 +96,7 @@ def render_simple(nombre):
     with col_l:
         st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
     with col_c:
-        items = st.session_state['arbol_tarjetas'][nombre]
+        items = st.session_state['arbol_tarjetas'].get(nombre, [])
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
             if st.button("🗑️ Borrar", key=f"del_{nombre}"):
@@ -98,8 +105,8 @@ def render_simple(nombre):
         else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
-    padres = st.session_state['arbol_tarjetas'][nombre_padre]
-    hijos = st.session_state['arbol_tarjetas'][nombre_hijo]
+    padres = st.session_state['arbol_tarjetas'].get(nombre_padre, [])
+    hijos = st.session_state['arbol_tarjetas'].get(nombre_hijo, [])
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
 
     for seccion_actual, es_hijo in orden:
@@ -136,7 +143,7 @@ render_simple("Problema Superior")
 st.markdown("---")
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
-# Banner '📍 ÁREA DEL PROBLEMA CENTRAL' eliminado para limpieza visual
-render_simple("Problema Central")
+# Llamada actualizada a 'Problema Principal'
+render_simple("Problema Principal") 
 st.markdown("---")
 render_rama("Causas Directas", "Causas Indirectas", inversion=False)
