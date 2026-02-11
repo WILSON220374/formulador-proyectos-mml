@@ -3,35 +3,36 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 
-# --- SINCRONIZACIÓN DE DATOS ---
+# --- SINCRONIZACIÓN DE LLAVES (MIGRACIÓN) ---
+# Asegura que los datos de 'Problema Central' pasen a 'Problema Principal' automáticamente
 if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
 
-st.title("🌳 4. Árbol de Problemas (Vista Jerárquica)")
+st.title("🌳 4. Árbol de Problemas (Vista Jerárquica e Imagen)")
 
 # 1. Configuración Maestra
 CONFIG = {
     "Problema Superior": {"color": "#C1E1C1", "limite": 1, "tipo": "simple", "y": 5},
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
-    "Problema Principal": {"color": "#FFB3BA", "limite": 1, "tipo": "simple", "y": 2}, # Nombre actualizado
+    "Problema Principal": {"color": "#FFB3BA", "limite": 1, "tipo": "simple", "y": 2},
     "Causas Directas": {"color": "#FFFFBA", "limite": 99, "tipo": "simple", "y": 1},
     "Causas Indirectas": {"color": "#FFDFBA", "limite": 99, "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN Y DESCARGA ---
+# --- SIDEBAR: GESTIÓN Y EXPORTACIÓN ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
-    tipo_sel = st.selectbox("1. Seleccione Sección:", list(CONFIG.keys()))
+    tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG.keys()))
     
     with st.form("crear_ficha", clear_on_submit=True):
-        texto_input = st.text_area("2. Descripción de la idea:")
+        texto_input = st.text_area("Descripción de la idea:")
         padre_asociado = None
         if CONFIG[tipo_sel]["tipo"] == "hijo":
             opciones_p = st.session_state['arbol_tarjetas'].get(CONFIG[tipo_sel]["padre"], [])
             if opciones_p:
-                padre_asociado = st.selectbox(f"3. Vincular a {CONFIG[tipo_sel]['padre']}:", opciones_p)
+                padre_asociado = st.selectbox(f"Vincular a {CONFIG[tipo_sel]['padre']}:", opciones_p)
         
         if st.form_submit_button("Generar Ficha") and texto_input:
             if len(st.session_state['arbol_tarjetas'].get(tipo_sel, [])) < CONFIG[tipo_sel]["limite"]:
@@ -41,17 +42,19 @@ with st.sidebar:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 st.rerun()
             else:
-                st.error("Límite alcanzado.")
+                st.error("Límite de fichas alcanzado.")
 
     st.divider()
     st.subheader("📥 Exportar Árbol")
 
+    # FUNCIÓN OPTIMIZADA PARA EVITAR DISTORSIÓN
     def generar_png_arbol():
-        fig, ax = plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(14, 12)) 
         ax.set_xlim(0, 10)
-        ax.set_ylim(-0.5, 6)
+        ax.set_ylim(-0.8, 6.2)
         ax.axis('off')
         datos = st.session_state['arbol_tarjetas']
+        
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
@@ -61,18 +64,26 @@ with st.sidebar:
                 x = (i + 1) * espaciado
                 y = conf["y"]
                 texto = item["texto"] if isinstance(item, dict) else item
-                rect = plt.Rectangle((x-0.8, y-0.3), 1.6, 0.6, facecolor=conf["color"], edgecolor='gray', lw=1, alpha=0.8)
+                
+                # Ajuste de texto dinámico para evitar solapamientos
+                txt_ajustado = "\n".join(textwrap.wrap(texto, width=25))
+                num_lineas = txt_ajustado.count('\n') + 1
+                alto_caja = max(0.5, num_lineas * 0.16)
+                ancho_caja = 2.0 if n > 3 else 2.5
+                
+                rect = plt.Rectangle((x-(ancho_caja/2), y-(alto_caja/2)), ancho_caja, alto_caja, 
+                                     facecolor=conf["color"], edgecolor='#444444', lw=1.5, alpha=0.9)
                 ax.add_patch(rect)
-                txt_ajustado = "\n".join(textwrap.wrap(texto, width=15))
                 ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black')
+        
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.5)
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button(label="🖼️ Descargar PNG", data=generar_png_arbol(), file_name="arbol.png", mime="image/png", use_container_width=True)
+    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_problemas.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO (ESTILO ORIGINAL) ---
+# --- FUNCIONES DE RENDERIZADO (ESTILO ORIGINAL) ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
@@ -103,7 +114,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
             st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:25px;'>{seccion_actual.upper()}</div>", unsafe_allow_html=True)
         with col_c:
             if not padres:
-                st.caption(f"Cree un {nombre_padre} primero.")
+                st.caption(f"Debe crear un {nombre_padre} primero.")
             else:
                 cols = st.columns(len(padres))
                 for i, p_txt in enumerate(padres):
@@ -116,18 +127,18 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                     st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data); st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
-                            h_asociados = [h for h in hijos if h["padre"] == p_txt]
                             if st.button("🗑️ Borrar", key=f"del_p_{seccion_actual}_{i}"):
+                                h_asociados = [h for h in hijos if h["padre"] == p_txt]
                                 if h_asociados: st.error("Borre indirectos primero")
                                 else: st.session_state['arbol_tarjetas'][seccion_actual].pop(i); st.rerun()
 
-# --- CONSTRUCCIÓN ---
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
 render_simple("Problema Superior")
 st.markdown("---")
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
-# Se eliminó definitivamente el banner de '📍 ÁREA DEL PROBLEMA CENTRAL'
+# Se eliminó el banner redundante de 'ÁREA DEL PROBLEMA CENTRAL'
 render_simple("Problema Principal") 
 st.markdown("---")
 render_rama("Causas Directas", "Causas Indirectas", inversion=False)
