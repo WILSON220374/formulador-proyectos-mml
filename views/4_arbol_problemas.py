@@ -3,21 +3,28 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 
-# --- ESTILO CSS: BOTONES ESTÁNDAR CON ICONO ROJO ---
+# --- ESTILO CSS CORREGIDO: SEPARA BOTONES NORMALES DE PRIMARIOS ---
 st.markdown("""
     <style>
-    /* Mantiene el diseño de botón original pero cambia el color del emoji */
-    .stButton button p {
+    /* 1. Botones de Papelera (Normales): Solo icono en rojo */
+    .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold;
-        font-size: 1.1rem;
+        font-size: 1.2rem;
     }
-    /* Estilo del borde para que sea sutilmente rojo */
-    .stButton button {
+    
+    /* 2. Botones Primarios (Guardar en Nube): Texto SIEMPRE blanco y visible */
+    .stButton button[kind="primary"] p {
+        color: white !important;
+        font-weight: bold;
+    }
+
+    /* Estilo del borde para papeleras */
+    .stButton button:not([kind="primary"]) {
         border-color: rgba(255, 75, 75, 0.2) !important;
         border-radius: 6px;
     }
-    .stButton button:hover {
+    .stButton button:not([kind="primary"]):hover {
         border-color: #ff4b4b !important;
         background-color: rgba(255, 75, 75, 0.05) !important;
     }
@@ -29,7 +36,7 @@ if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
 
-st.title("🌳 4. Árbol de Problemas (Vista Final)")
+st.title("🌳 4. Árbol de Problemas")
 
 # 1. Configuración Maestra
 CONFIG = {
@@ -67,20 +74,15 @@ with st.sidebar:
 
     def generar_png_arbol():
         fig, ax = plt.subplots(figsize=(16, 14)) 
-        ax.set_xlim(0, 10)
-        ax.set_ylim(-1, 9)
-        ax.axis('off')
+        ax.set_xlim(0, 10); ax.set_ylim(-1, 9); ax.axis('off')
         datos = st.session_state['arbol_tarjetas']
-        
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
             n = len(items)
-            ancho_max_fila = 8.5 / n
-            ancho_caja = min(2.2, ancho_max_fila - 0.3)
+            ancho_caja = min(2.2, (8.5/n) - 0.3)
             espaciado = 10 / (n + 1)
             y_base = conf["y"] * 1.5 
-            
             for i, item in enumerate(items):
                 x = (i + 1) * espaciado
                 texto = item["texto"] if isinstance(item, dict) else item
@@ -91,9 +93,6 @@ with st.sidebar:
                                      facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
                 ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
-                if i == 0:
-                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
-
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
         plt.close(fig)
@@ -101,7 +100,7 @@ with st.sidebar:
 
     st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO (VISUALIZACIÓN ORIGINAL MEJORADA) ---
+# --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
@@ -147,7 +146,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                     st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data); st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
-                            # Solo icono papelera
+                            # Eliminamos el texto "Borrar" para dejar solo el icono 🗑️
                             if st.button("🗑️", key=f"del_p_{seccion_actual}_{i}"):
                                 h_asociados = [h for h in hijos if h["padre"] == p_txt]
                                 if h_asociados: st.error("Borre indirectos primero")
