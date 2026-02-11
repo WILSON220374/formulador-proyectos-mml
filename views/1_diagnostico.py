@@ -1,84 +1,96 @@
 import streamlit as st
-import time
+from session_state import inicializar_session, guardar_datos_nube
 
-# --- CONFIGURACIÓN Y ESTADO ---
-st.header("1. Diagnóstico del Problema")
+# Inicializar memoria al cargar la página
+inicializar_session()
 
-if 'datos_problema' not in st.session_state:
-    st.session_state['datos_problema'] = {}
+st.title("🎯 1. Diagnóstico del Problema")
 
+# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
+def calcular_altura(texto, min_h=150):
+    """Calcula la altura necesaria según la cantidad de caracteres y saltos de línea."""
+    if not texto:
+        return min_h
+    # Estimamos 80 caracteres por línea y sumamos los saltos de línea reales
+    lineas = texto.count('\n') + (len(texto) // 80)
+    # Cada línea suele ocupar unos 22 píxeles
+    altura_calculada = max(min_h, (lineas + 1) * 22)
+    return altura_calculada
+
+# --- CÁLCULO DE COMPLETITUD ---
 datos = st.session_state['datos_problema']
+campos = [datos['problema_central'], datos['sintomas'], datos['causas_inmediatas'], datos['factores_agravantes']]
+completos = sum(1 for c in campos if c and len(c.strip()) > 10)
+progreso = completos / len(campos)
 
-# --- LÓGICA DE PROGRESO ---
-campos_totales = 4
-campos_llenos = 0
-if datos.get('problema_central'): campos_llenos += 1
-if datos.get('sintomas'): campos_llenos += 1
-if datos.get('causas_inmediatas'): campos_llenos += 1
-if datos.get('factores_agravantes'): campos_llenos += 1
+st.progress(progreso)
+st.caption(f"Nivel de Completitud: {int(progreso * 100)}%")
 
-progreso = campos_llenos / campos_totales
-st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
-
-# --- TARJETA 1: EL NÚCLEO ---
+# --- SECCIÓN 1: EL PROBLEMA CENTRAL ---
 with st.container(border=True):
     st.subheader("🎯 El Problema Central")
     st.markdown("Defina claramente la situación negativa. No lo confunda con la falta de una solución.")
     
-    problema = st.text_area(
+    # Altura dinámica para el Problema Central
+    h_p = calcular_altura(datos['problema_central'])
+    p_central = st.text_area(
         "Descripción del Problema",
-        value=datos.get('problema_central', ""),
-        height=100,
-        placeholder="Ej: Aumento de tiempos de viaje en el corredor Soracá-Tunja...",
-        help="Debe ser una situación existente y negativa. Evite frases como 'Falta de...' o 'No hay...'"
+        value=datos['problema_central'],
+        height=h_p,
+        key="txt_p_central",
+        help="Ej: La inoperancia de la PTAR genera contaminación en el río Chicamocha."
     )
 
-# --- TARJETA 2: ANÁLISIS CAUSAL ---
-with st.container(border=True):
-    st.subheader("🔍 Análisis de Causas y Efectos")
-    col1, col2 = st.columns(2)
-    
-    with col1:
+# --- SECCIÓN 2: ANÁLISIS DE CAUSAS Y EFECTOS ---
+st.subheader("🔍 Análisis de Causas y Efectos")
+col1, col2 = st.columns(2)
+
+with col1:
+    with st.container(border=True):
+        st.markdown("**Síntomas (Efectos Visibles)**")
+        h_s = calcular_altura(datos['sintomas'])
         sintomas = st.text_area(
-            "Síntomas (Efectos Visibles)",
-            value=datos.get('sintomas', ""),
-            height=150,
-            help="¿Qué evidencia visible demuestra que el problema existe? (Ej: Huecos, accidentes, quejas)",
-            placeholder="Describa lo que se ve..."
-        )
-    
-    with col2:
-        causas = st.text_area(
-            "Causas Inmediatas",
-            value=datos.get('causas_inmediatas', ""),
-            height=150,
-            help="¿Por qué está ocurriendo esto? Busque el origen directo.",
-            placeholder="Describa el origen..."
+            "Evidencias del problema:",
+            value=datos['sintomas'],
+            height=h_s,
+            key="txt_sintomas"
         )
 
-# --- TARJETA 3: CONTEXTO ---
+with col2:
+    with st.container(border=True):
+        st.markdown("**Causas Inmediatas**")
+        h_c = calcular_altura(datos['causas_inmediatas'])
+        causas = st.text_area(
+            "¿Por qué ocurre el problema?",
+            value=datos['causas_inmediatas'],
+            height=h_c,
+            key="txt_causas"
+        )
+
+# --- SECCIÓN 3: FACTORES AGRAVANTES ---
 with st.container(border=True):
     st.subheader("⚠️ Factores Agravantes")
+    st.markdown("Factores externos o del entorno que empeoran la situación.")
+    h_a = calcular_altura(datos['factores_agravantes'])
     agravantes = st.text_area(
-        "Factores externos",
-        value=datos.get('factores_agravantes', ""),
-        help="Elementos que no causan el problema pero lo empeoran (Ej: Clima, Topografía)",
-        placeholder="Ej: Temporada de lluvias intensa..."
+        "Factores externos:",
+        value=datos['factores_agravantes'],
+        height=h_a,
+        key="txt_agravantes"
     )
 
-# --- BOTÓN DE ACCIÓN ---
-st.markdown("###") # Espacio extra
-col_izq, col_der = st.columns([1, 2])
-
-with col_izq:
-    if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
-        # Guardado en Memoria
-        st.session_state['datos_problema']['problema_central'] = problema
-        st.session_state['datos_problema']['sintomas'] = sintomas
-        st.session_state['datos_problema']['causas_inmediatas'] = causas
-        st.session_state['datos_problema']['factores_agravantes'] = agravantes
-        
-        # Notificación Toast (Estilo moderno)
-        st.toast("✅ ¡Diagnóstico guardado exitosamente!", icon="🎉")
-        time.sleep(0.5) # Pequeña pausa para efecto visual
-        st.rerun() # Recargar para actualizar la barra de progreso
+# --- LÓGICA DE GUARDADO AUTOMÁTICO ---
+# Si algún campo cambió, actualizamos sesión y nube
+if (p_central != datos['problema_central'] or 
+    sintomas != datos['sintomas'] or 
+    causas != datos['causas_inmediatas'] or 
+    agravantes != datos['factores_agravantes']):
+    
+    st.session_state['datos_problema'] = {
+        "problema_central": p_central,
+        "sintomas": sintomas,
+        "causas_inmediatas": causas,
+        "factores_agravantes": agravantes
+    }
+    guardar_datos_nube()
+    st.rerun() # Refresca para aplicar la nueva altura calculada
