@@ -4,185 +4,171 @@ import io
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# Asegurar persistencia del estado
+# 1. Persistencia: Carga datos al abrir la pestaña
 inicializar_session()
 
-# --- ESTILO MAESTRO UNIFICADO (IGUAL A PROBLEMAS) ---
+# --- ESTILO MAESTRO: TARJETAS EDITABLES CON COLOR TOTAL ---
 st.markdown("""
     <style>
-    /* 1. Tipografía base */
-    html, body, [class*="st-"] {
+    html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
-        color: #31333F;
     }
     
-    /* 2. Sidebar: Guardar (Blanco/Negrita) y Cerrar Sesión (Negro/Fino) */
+    /* HACER TRANSPARENTE EL EDITOR DE TEXTO: Para que se vea el color de la tarjeta detrás */
+    div[data-testid="stTextArea"] {
+        background-color: transparent !important;
+    }
+    div[data-testid="stTextArea"] textarea {
+        background-color: transparent !important;
+        color: #31333F !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 10px !important;
+        font-weight: 500 !important;
+        text-align: center !important;
+        font-size: 14px !important;
+    }
+    div[data-baseweb="textarea"] {
+        background-color: transparent !important;
+        border: none !important;
+    }
+
+    /* Diseño de la tarjeta editable (Idéntico a Problemas) */
+    .editable-card {
+        border-radius: 10px;
+        border-left: 8px solid rgba(0,0,0,0.1);
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
+    }
+    
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
-    }
-    [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
-        color: black !important;
-        font-weight: normal !important;
-        font-size: 1rem;
-    }
-
-    /* 3. Papeleras en Rojo */
-    .main .stButton button:not([kind="primary"]) p {
-        color: #ff4b4b !important;
-        font-weight: bold !important;
-        font-size: 1.1rem;
-    }
-    
-    .stButton button {
-        border-color: rgba(49, 51, 63, 0.2) !important;
-        border-radius: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# 1. Configuración de Colores (Idéntico a Problemas)
+# Configuración de Colores y Posiciones
 CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "y": 5, "tipo": "simple"},
-    "Fines Indirectos": {"color": "#B3D9FF", "y": 4, "tipo": "hijo", "padre": "Fines Directos"},
-    "Fines Directos": {"color": "#80BFFF", "y": 3, "tipo": "simple"},
-    "Objetivo General": {"color": "#FFB3BA", "y": 2, "tipo": "simple"},
-    "Medios Directos": {"color": "#FFFFBA", "y": 1, "tipo": "simple"},
-    "Medios Indirectos": {"color": "#FFDFBA", "y": 0, "tipo": "hijo", "padre": "Medios Directos"}
+    "Fin Último": {"color": "#C1E1C1", "y": 5},
+    "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
+    "Fines Directos": {"color": "#80BFFF", "y": 3},
+    "Objetivo General": {"color": "#FFB3BA", "y": 2},
+    "Medios Directos": {"color": "#FFFFBA", "y": 1},
+    "Medios Indirectos": {"color": "#FFDFBA", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN Y EXPORTACIÓN ---
+# --- SIDEBAR: HERRAMIENTAS EXCLUSIVAS (Sin Generar Fichas) ---
 with st.sidebar:
-    st.header("➕ Gestión de Objetivos")
-    tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_OBJ.keys()))
+    st.header("⚙️ Herramientas")
     
-    with st.form("crear_objetivo", clear_on_submit=True):
-        texto_input = st.text_area("Descripción (Redactar en positivo):")
-        padre_asoc = None
-        if CONFIG_OBJ[tipo_sel]["tipo"] == "hijo":
-            opciones = st.session_state['arbol_objetivos'].get(CONFIG_OBJ[tipo_sel]["padre"], [])
-            if opciones:
-                padre_asoc = st.selectbox(f"Vincular a {CONFIG_OBJ[tipo_sel]['padre']}:", opciones)
-        
-        if st.form_submit_button("Añadir al Árbol") and texto_input:
-            if CONFIG_OBJ[tipo_sel]["tipo"] == "hijo" and padre_asoc:
-                st.session_state['arbol_objetivos'][tipo_sel].append({"texto": texto_input, "padre": padre_asoc})
-            else:
-                st.session_state['arbol_objetivos'][tipo_sel].append(texto_input)
-            st.rerun()
-
-    st.divider()
-    
-    # BOTÓN ✨ TRAER DATOS
+    # Botón para traer datos desde el Árbol de Problemas
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
-            "Efectos Indirectos": "Fines Indirectos", "Efectos Directos": "Fines Directos", 
-            "Problema Principal": "Objetivo General", "Causas Directas": "Medios Directos", 
+            "Efectos Indirectos": "Fines Indirectos",
+            "Efectos Directos": "Fines Directos", 
+            "Problema Principal": "Objetivo General", 
+            "Causas Directas": "Medios Directos", 
             "Causas Indirectas": "Medios Indirectos"
         }
+        # Limpiar objetivos previos para evitar duplicados
+        for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
+        
+        # Mapear datos negativos a sus contenedores de objetivos
         for p_sec, o_sec in mapeo.items():
             if p_sec in problemas:
-                st.session_state['arbol_objetivos'][o_sec] = []
                 for item in problemas[p_sec]:
                     txt = item['texto'] if isinstance(item, dict) else item
                     if isinstance(item, dict):
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
                     else:
                         st.session_state['arbol_objetivos'][o_sec].append(txt)
-        st.success("¡Datos convertidos!")
+        
+        # El Fin Último es el único que no viene de problemas, lo inicializamos vacío
+        if not st.session_state['arbol_objetivos']["Fin Último"]:
+            st.session_state['arbol_objetivos']["Fin Último"] = ["Redactar aquí el Impacto Final Positivo"]
+            
+        guardar_datos_nube()
+        st.success("¡Datos convertidos! Redacte en positivo sobre las tarjetas.")
         st.rerun()
 
     st.divider()
-    st.subheader("📥 Exportar Árbol")
 
-    # FUNCIÓN DE EXPORTACIÓN PNG (SIN DISTORSIÓN)
+    # Función de exportación PNG
     def generar_png_objetivos():
-        fig, ax = plt.subplots(figsize=(16, 14)) 
-        ax.set_xlim(0, 10); ax.set_ylim(-1, 9); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(16, 14))
+        ax.set_xlim(0, 10); ax.set_ylim(-1, 8.5); ax.axis('off')
         datos = st.session_state['arbol_objetivos']
-        for seccion, conf in CONFIG_OBJ.items():
-            items = datos.get(seccion, [])
+        for sec, conf in CONFIG_OBJ.items():
+            items = datos.get(sec, [])
             if not items: continue
-            n = len(items)
-            ancho_caja = min(2.2, (8.5/n) - 0.3)
-            espaciado = 10 / (n + 1)
+            espacio = 10 / (len(items) + 1)
             y_base = conf["y"] * 1.5 
             for i, item in enumerate(items):
-                x = (i + 1) * espaciado
-                texto = item["texto"] if isinstance(item, dict) else item
-                txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
-                num_lineas = txt_ajustado.count('\n') + 1
-                alto_caja = max(0.6, num_lineas * 0.18)
-                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), ancho_caja, alto_caja, 
-                                     facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
+                x = (i + 1) * espacio
+                txt = item["texto"] if isinstance(item, dict) else item
+                rect = plt.Rectangle((x-1.1, y_base-0.4), 2.2, 0.7, facecolor=conf["color"], edgecolor='#333', lw=1.2)
                 ax.add_patch(rect)
-                ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
-                if i == 0:
-                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
+                txt_wrap = "\n".join(textwrap.wrap(txt, width=22))
+                ax.text(x, y_base, txt_wrap, ha='center', va='center', fontsize=9, fontweight='bold')
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button(label="🖼️ Descargar PNG", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO (ESTILO PROBLEMAS) ---
+# --- FUNCIÓN DE RENDERIZADO DE TARJETAS EDITABLES ---
 
-def card_html(texto, color):
-    return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; 
-               border-left:8px solid rgba(0,0,0,0.1); color:#31333F; font-weight:500; 
-               margin-bottom:8px; min-height:80px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); 
-               display: flex; align-items: center; justify-content: center; text-align: center; font-size:14px;">
-               {texto}</div>"""
+def render_editable_card(seccion, indice, item):
+    texto_actual = item["texto"] if isinstance(item, dict) else item
+    color = CONFIG_OBJ[seccion]["color"]
+    
+    # Tarjeta con color y editor transparente integrado
+    st.markdown(f'<div class="editable-card" style="background-color:{color};">', unsafe_allow_html=True)
+    nuevo_texto = st.text_area(
+        f"edit_{seccion}_{indice}", 
+        value=texto_actual, 
+        label_visibility="collapsed", 
+        key=f"area_{seccion}_{indice}"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Si detectamos cambio al perder el foco, guardamos en la nube
+    if nuevo_texto != texto_actual:
+        if isinstance(item, dict):
+            st.session_state['arbol_objetivos'][seccion][indice]["texto"] = nuevo_texto
+        else:
+            st.session_state['arbol_objetivos'][seccion][indice] = nuevo_texto
+        guardar_datos_nube()
+        st.rerun()
 
-def render_simple_obj(nombre):
+# --- DIBUJO DEL ÁRBOL ---
+
+def mostrar_seccion_objetivos(nombre):
     col_l, col_c = st.columns([1, 4])
     with col_l:
-        st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:25px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
     with col_c:
         items = st.session_state['arbol_objetivos'].get(nombre, [])
         if items:
-            st.markdown(card_html(items[0], CONFIG_OBJ[nombre]["color"]), unsafe_allow_html=True)
-            if nombre != "Objetivo General" and st.button("🗑️", key=f"del_{nombre}"):
-                st.session_state['arbol_objetivos'][nombre] = []; st.rerun()
-        else: st.caption("Sección vacía")
+            cols = st.columns(len(items))
+            for i, item in enumerate(items):
+                with cols[i]:
+                    render_editable_card(nombre, i, item)
+        else:
+            st.caption("Sección vacía. Use el panel lateral para traer los datos.")
 
-def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
-    padres = st.session_state['arbol_objetivos'].get(nombre_padre, [])
-    hijos = st.session_state['arbol_objetivos'].get(nombre_hijo, [])
-    orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
-
-    for seccion, es_hijo in orden:
-        col_l, col_c = st.columns([1, 4])
-        with col_l:
-            st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:30px;'>{seccion.upper()}</div>", unsafe_allow_html=True)
-        with col_c:
-            if not padres: st.caption(f"Cree un {nombre_padre} primero.")
-            else:
-                cols = st.columns(len(padres))
-                for i, p_txt in enumerate(padres):
-                    p_nombre = p_txt["texto"] if isinstance(p_txt, dict) else p_txt
-                    with cols[i]:
-                        if es_hijo:
-                            hijos_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_nombre]
-                            for idx, h_data in enumerate(hijos_p):
-                                st.markdown(card_html(h_data["texto"], CONFIG_OBJ[nombre_hijo]["color"]), unsafe_allow_html=True)
-                                if st.button("🗑️", key=f"del_h_{seccion}_{i}_{idx}"):
-                                    st.session_state['arbol_objetivos'][seccion].remove(h_data); st.rerun()
-                        else:
-                            st.markdown(card_html(p_nombre, CONFIG_OBJ[nombre_padre]["color"]), unsafe_allow_html=True)
-                            if st.button("🗑️", key=f"del_p_{seccion}_{i}"):
-                                st.session_state['arbol_objetivos'][seccion].pop(i); st.rerun()
-
-# --- DIBUJO ---
 st.divider()
-render_simple_obj("Fin Último")
-st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
-render_rama_objetivos("Fines Directos", "Fines Indirectos", inversion=True)
-st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
-render_simple_obj("Objetivo General") 
-st.markdown("<hr style='border: 1.5px solid #31333F; opacity: 0.1;'>", unsafe_allow_html=True)
-render_rama_objetivos("Medios Directos", "Medios Indirectos", inversion=False)
+mostrar_seccion_objetivos("Fin Último")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
+mostrar_seccion_objetivos("Fines Indirectos")
+mostrar_seccion_objetivos("Fines Directos")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
+mostrar_seccion_objetivos("Objetivo General")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
+mostrar_seccion_objetivos("Medios Directos")
+mostrar_seccion_objetivos("Medios Indirectos")
