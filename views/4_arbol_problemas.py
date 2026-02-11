@@ -2,10 +2,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# 1. IMPORTACIÓN CRÍTICA: Funciones que conectan con tu base de datos
+# IMPORTACIÓN IGUAL A INTERESADOS
 from session_state import inicializar_session, guardar_datos_nube
 
-# 2. ACTIVACIÓN DEL MOTOR: Esta línea busca tus datos en la nube al abrir la página
+# 1. ARRANQUE CRÍTICO: Carga los datos al entrar a la pestaña
 inicializar_session()
 
 # --- ESTILO MAESTRO UNIFICADO ---
@@ -19,7 +19,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- MIGRACIÓN Y SINCRONIZACIÓN ---
+# --- SINCRONIZACIÓN Y MIGRACIÓN ---
 if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
@@ -56,7 +56,7 @@ with st.sidebar:
                 else:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 
-                # 3. AUTO-GUARDADO: Sincroniza con la nube inmediatamente
+                # 2. GUARDADO AL INSTANTE (Igual que Interesados)
                 guardar_datos_nube()
                 st.rerun()
 
@@ -69,6 +69,7 @@ with st.sidebar:
         datos = st.session_state['arbol_tarjetas']
         for seccion, conf in CONFIG.items():
             items_raw = datos.get(seccion, [])
+            # Filtrado para que el PNG no muestre la ficha "a" fantasma
             if conf["tipo"] == "hijo":
                 padres_ref = datos.get(conf["padre"], [])
                 items = [h for h in items_raw if isinstance(h, dict) and h.get("padre") in padres_ref]
@@ -93,9 +94,9 @@ with st.sidebar:
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button(label="🖼️ Descargar PNG", data=generar_png_arbol(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
+    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO EN PANTALLA ---
+# --- RENDERIZADO ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; border-left:8px solid rgba(0,0,0,0.1); 
                color:#31333F; font-weight:500; margin-bottom:8px; min-height:75px; box-shadow: 2px 2px 5px #eee; 
@@ -109,7 +110,8 @@ def render_simple(nombre):
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
             if st.button("🗑️", key=f"del_{nombre}"):
-                st.session_state['arbol_tarjetas'][nombre] = []; guardar_datos_nube(); st.rerun()
+                st.session_state['arbol_tarjetas'][nombre] = []
+                guardar_datos_nube(); st.rerun() # Sincronización nube
         else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
@@ -139,7 +141,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                 st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
                                 guardar_datos_nube(); st.rerun()
     
-    # SECCIÓN DE LIMPIEZA DE FANTASMAS
+    # SECCIÓN ESPECIAL: Limpieza de huérfanos (Para borrar la ficha 'a' que mencionas)
     huerfanos = [h for h in hijos if not isinstance(h, dict) or h.get("padre") not in padres]
     if huerfanos:
         with st.expander("⚠️ Fichas sin vínculo (Fantasmas)"):
@@ -147,7 +149,8 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                 txt = h["texto"] if isinstance(h, dict) else h
                 st.write(f"- {txt}")
                 if st.button(f"Eliminar fantasma: {txt[:20]}...", key=f"cln_{txt}"):
-                    st.session_state['arbol_tarjetas'][nombre_hijo].remove(h); guardar_datos_nube(); st.rerun()
+                    st.session_state['arbol_tarjetas'][nombre_hijo].remove(h)
+                    guardar_datos_nube(); st.rerun()
 
 # --- CONSTRUCCIÓN ---
 st.divider()
