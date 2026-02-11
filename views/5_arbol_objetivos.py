@@ -7,16 +7,16 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia del estado
 inicializar_session()
 
-# --- ESTILO MAESTRO UNIFICADO ---
+# --- ESTILO MAESTRO: COLOR TOTAL Y TRANSPARENCIA ---
 st.markdown("""
     <style>
-    /* 1. Tipografía y diseño base */
+    /* 1. Tipografía base */
     html, body, [class*="st-"] {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
     
-    /* 2. Botones de Sidebar */
+    /* 2. Sidebar: Botón Guardar (Blanco/Negrita) y Cerrar Sesión (Negro/Fino) */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
@@ -26,23 +26,24 @@ st.markdown("""
         font-weight: normal !important;
     }
 
-    /* 3. Papeleras en Rojo y Negrita */
+    /* 3. Papeleras Rojas en el árbol */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold !important;
-        font-size: 1.1rem;
     }
     
-    /* 4. Transparencia para que el color de la tarjeta se vea completo */
-    .main textarea {
-        background-color: rgba(255, 255, 255, 0.2) !important;
-        border: 1px solid rgba(0,0,0,0.05) !important;
+    /* 4. TRUCO DE TRANSPARENCIA: Forzamos que el área de texto no tenga fondo gris */
+    div[data-baseweb="textarea"], 
+    div[data-baseweb="textarea"] textarea,
+    [data-testid="stTextArea"] {
+        background-color: transparent !important;
+        border: none !important;
         color: #31333F !important;
     }
     
-    /* Ajuste de margen para las tarjetas de color */
+    /* Contenedor de la tarjeta con color total */
     .colored-card {
-        padding: 15px;
+        padding: 10px;
         border-radius: 10px;
         border: 1px solid rgba(0,0,0,0.1);
         box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
@@ -53,7 +54,7 @@ st.markdown("""
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# 1. Configuración Maestra
+# Configuración Maestra (Colores para tarjetas e imagen)
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
@@ -84,7 +85,7 @@ with st.sidebar:
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": item['texto'], "padre": item['padre']})
                     else:
                         st.session_state['arbol_objetivos'][o_sec].append(item)
-        st.success("¡Datos convertidos! Fin Último vacío.")
+        st.success("¡Datos convertidos! Fin Último se mantiene vacío.")
         st.rerun()
 
     st.divider()
@@ -125,10 +126,10 @@ def render_simple_obj(nombre):
             if st.button(f"➕ Definir {nombre}", key=f"add_{nombre}"):
                 st.session_state['arbol_objetivos'][nombre] = ["Nueva idea"]; st.rerun()
         else:
-            # Tarjeta con color de fondo total
+            # Contenedor con color de fondo total
             st.markdown(f'<div class="colored-card" style="background-color:{CONFIG_OBJ[nombre]["color"]};">', unsafe_allow_html=True)
             val_actual = items[0]["texto"] if isinstance(items[0], dict) else items[0]
-            nuevo_val = st.text_area(f"Edit_{nombre}", value=val_actual, key=f"edit_{nombre}", label_visibility="collapsed")
+            nuevo_val = st.text_area(f"edit_{nombre}", value=val_actual, key=f"edit_{nombre}", label_visibility="collapsed")
             st.markdown('</div>', unsafe_allow_html=True)
             
             if nuevo_val != val_actual:
@@ -158,9 +159,8 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                             hijos_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_nombre]
                             for h_idx, h_data in enumerate(hijos_p):
                                 st.markdown(f'<div class="colored-card" style="background-color:{color};">', unsafe_allow_html=True)
-                                n_val_h = st.text_area(f"H_{seccion}_{i}_{h_idx}", value=h_data["texto"], key=f"ed_h_{seccion}_{i}_{h_idx}", label_visibility="collapsed")
+                                n_val_h = st.text_area(f"h_{seccion}_{i}_{h_idx}", value=h_data["texto"], key=f"ed_h_{seccion}_{i}_{h_idx}", label_visibility="collapsed")
                                 st.markdown('</div>', unsafe_allow_html=True)
-                                
                                 if n_val_h != h_data["texto"]:
                                     real_idx = next(idx for idx, x in enumerate(hijos) if x == h_data)
                                     st.session_state['arbol_objetivos'][seccion][real_idx]["texto"] = n_val_h; st.rerun()
@@ -169,9 +169,8 @@ def render_rama_objetivos(nombre_padre, nombre_hijo, inversion=False):
                         else:
                             p_txt = p_item["texto"] if isinstance(p_item, dict) else p_item
                             st.markdown(f'<div class="colored-card" style="background-color:{color};">', unsafe_allow_html=True)
-                            n_val_p = st.text_area(f"P_{seccion}_{i}", value=p_txt, key=f"ed_p_{seccion}_{i}", label_visibility="collapsed")
+                            n_val_p = st.text_area(f"p_{seccion}_{i}", value=p_txt, key=f"ed_p_{seccion}_{i}", label_visibility="collapsed")
                             st.markdown('</div>', unsafe_allow_html=True)
-                            
                             if n_val_p != p_txt:
                                 if isinstance(p_item, dict): st.session_state['arbol_objetivos'][seccion][i]["texto"] = n_val_p
                                 else: st.session_state['arbol_objetivos'][seccion][i] = n_val_p
