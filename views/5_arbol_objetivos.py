@@ -4,17 +4,17 @@ import io
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Persistencia: Carga datos de la nube al iniciar
+# 1. PERSISTENCIA: Carga datos de la nube al iniciar
 inicializar_session()
 
-# --- ESTILO MAESTRO: TARJETAS CON COLOR TOTAL Y EDICIÓN ---
+# --- ESTILO MAESTRO: COLOR TOTAL Y TRANSPARENCIA ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
     }
     
-    /* ELIMINACIÓN DE CUADROS GRISES: Transparencia total para que brille el color de la tarjeta */
+    /* ELIMINACIÓN DE CAPAS GRISES: Forzamos transparencia total en el editor */
     div[data-testid="stTextArea"] textarea {
         background-color: transparent !important;
         color: #31333F !important;
@@ -24,21 +24,22 @@ st.markdown("""
         text-align: center !important;
         font-size: 14px !important;
     }
-    div[data-baseweb="textarea"] {
+    div[data-testid="stTextArea"] {
         background-color: transparent !important;
         border: none !important;
     }
 
-    /* TARJETA CON COLOR TOTAL: Igual al Árbol de Problemas */
-    .objective-card-full {
+    /* TARJETA DE COLOR TOTAL: Sin bordes grises ni recuadros internos */
+    .full-color-card {
         padding: 15px;
         border-radius: 12px;
-        border-left: 10px solid rgba(0,0,0,0.15);
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 12px;
+        border: 1px solid rgba(0,0,0,0.05);
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
         min-height: 100px;
         display: flex;
         align-items: center;
+        justify-content: center;
     }
     
     .stButton button[kind="primary"] p {
@@ -64,37 +65,37 @@ CONFIG_OBJ = {
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # IMPORTACIÓN CON FILTRO DE SEGURIDAD (Elimina fichas 'a', 'c' o huérfanas)
+    # IMPORTACIÓN CON FILTRO DE CALIDAD: Elimina letras sueltas y huérfanos
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
-            "Efectos Indirectos": "Fines Indirectos", "Efectos Directos": "Fines Directos", 
-            "Problema Principal": "Objetivo General", "Causas Directas": "Medios Directos", 
+            "Efectos Indirectos": "Fines Indirectos",
+            "Efectos Directos": "Fines Directos", 
+            "Problema Principal": "Objetivo General", 
+            "Causas Directas": "Medios Directos", 
             "Causas Indirectas": "Medios Indirectos"
         }
         
-        # Limpiar objetivos previos para la nueva carga
+        # Limpiar datos previos
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
         
+        # FILTRO DE LIMPIEZA: Solo traemos textos reales (> 2 caracteres)
         for p_sec, o_sec in mapeo.items():
             items_raw = problemas.get(p_sec, [])
-            # FILTRO DE SEGURIDAD: Solo traemos lo que es un diccionario válido o texto real
-            if p_sec in ["Efectos Indirectos", "Causas Indirectas"]:
-                padres_validos = problemas.get("Efectos Directos" if "Efectos" in p_sec else "Causas Directas", [])
-                for item in items_raw:
-                    if isinstance(item, dict) and item.get('padre') in padres_validos:
-                        st.session_state['arbol_objetivos'][o_sec].append({"texto": item['texto'], "padre": item['padre']})
-            else:
-                for item in items_raw:
-                    # Ignora letras sueltas como 'a' o 'c'
-                    if isinstance(item, str) and len(item.strip()) > 2:
-                        st.session_state['arbol_objetivos'][o_sec].append(item)
+            for item in items_raw:
+                txt = item['texto'] if isinstance(item, dict) else item
+                # Ignoramos fichas vacías o letras sueltas como 'a', 'c'
+                if isinstance(txt, str) and len(txt.strip()) > 2:
+                    if isinstance(item, dict):
+                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
+                    else:
+                        st.session_state['arbol_objetivos'][o_sec].append(txt)
         
         if not st.session_state['arbol_objetivos']["Fin Último"]:
             st.session_state['arbol_objetivos']["Fin Último"] = ["MEJORAR LA CALIDAD DE VIDA"]
             
         guardar_datos_nube()
-        st.success("¡Datos importados y depurados!")
+        st.success("¡Datos importados y depurados! Redacte en positivo sobre las tarjetas.")
         st.rerun()
 
     st.divider()
@@ -128,28 +129,37 @@ def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
     
-    # Contenedor con COLOR TOTAL de fondo
-    st.markdown(f'<div class="objective-card-full" style="background-color:{color};">', unsafe_allow_html=True)
-    nuevo_texto = st.text_area(f"e_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", key=f"area_{seccion}_{indice}")
+    # TARJETA CON COLOR TOTAL DE FONDO
+    st.markdown(f'<div class="full-color-card" style="background-color:{color};">', unsafe_allow_html=True)
+    nuevo_texto = st.text_area(
+        f"e_{seccion}_{indice}", 
+        value=texto_actual, 
+        label_visibility="collapsed", 
+        key=f"area_{seccion}_{indice}"
+    )
     st.markdown('</div>', unsafe_allow_html=True)
     
     if nuevo_texto != texto_actual:
-        if isinstance(item, dict): st.session_state['arbol_objetivos'][seccion][indice]["texto"] = nuevo_texto
-        else: st.session_state['arbol_objetivos'][seccion][indice] = nuevo_texto
+        if isinstance(item, dict):
+            st.session_state['arbol_objetivos'][seccion][indice]["texto"] = nuevo_texto
+        else:
+            st.session_state['arbol_objetivos'][seccion][indice] = nuevo_texto
         guardar_datos_nube()
         st.rerun()
 
 def mostrar_seccion(nombre):
     col_l, col_c = st.columns([1, 4])
-    with col_l: 
+    with col_l:
         st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
     with col_c:
         items = st.session_state['arbol_objetivos'].get(nombre, [])
         if items:
             cols = st.columns(len(items))
             for i, item in enumerate(items):
-                with cols[i]: render_objective_card(nombre, i, item)
-        else: st.caption("Sección vacía")
+                with cols[i]:
+                    render_objective_card(nombre, i, item)
+        else:
+            st.caption("Sección vacía. Traiga los datos desde el panel lateral.")
 
 # --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
