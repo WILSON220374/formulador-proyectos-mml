@@ -2,35 +2,34 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# 1. IMPORTACIÓN IGUAL A INTERESADOS
+# 1. IMPORTACIÓN: Conexión con las herramientas de nube que ya arreglamos
 from session_state import inicializar_session, guardar_datos_nube
 
-# 2. SEGURO DE CARGA: Busca tus datos en la nube antes de dibujar nada
+# 2. ARRANQUE: Esta línea es la que evita que se borre todo al cerrar el navegador
 inicializar_session()
 
-# --- ESTILO MAESTRO (CORREGIDO PARA NO DAÑAR ICONOS) ---
+# --- ESTILO MAESTRO (REPARADO PARA ICONOS) ---
 st.markdown("""
     <style>
-    /* Tipografía solo en áreas de contenido para evitar el error 'keyboard_double' */
+    /* Aplicamos la fuente solo al contenedor principal para no dañar los iconos del sistema */
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
     
-    /* Botón de Guardar: Texto blanco siempre visible */
+    /* Botón de Guardar: Siempre visible */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
     }
     
-    /* Papeleras: Solo icono en rojo */
+    /* Papeleras en el árbol: Rojo */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold;
-        font-size: 1.1rem;
     }
 
-    /* Cerrar Sesión: Texto negro y fino */
+    /* Botón Cerrar Sesión: Negro y fino */
     [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
         color: black !important;
         font-weight: normal !important;
@@ -38,19 +37,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- INICIALIZACIÓN DE MEMORIA (Si la nube falla, crea el espacio) ---
+# --- SINCRONIZACIÓN DE MEMORIA ---
 if 'arbol_tarjetas' not in st.session_state:
     st.session_state['arbol_tarjetas'] = {
         "Efectos Indirectos": [], "Efectos Directos": [], 
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
-# Sincronización de nombres antiguos
-if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
-    st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
-
 st.title("🌳 4. Árbol de Problemas")
 
+# Configuración Maestra de Colores
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 3},
@@ -77,7 +73,7 @@ with st.sidebar:
             else:
                 st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
             
-            # GUARDADO INSTANTÁNEO
+            # GUARDADO AUTOMÁTICO
             guardar_datos_nube()
             st.rerun()
 
