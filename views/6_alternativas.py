@@ -11,7 +11,7 @@ st.title("⚖️ 6. Análisis de Alternativas")
 objetivos_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CARDS) ---
+# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
 def inicializar_tabla_evaluacion():
@@ -25,11 +25,10 @@ def inicializar_tabla_evaluacion():
                 "ACTIVIDAD": act_txt,
                 "ENFOQUE": "NO",
                 "ALCANCE": "NO",
-                "NATURALEZA": "Complementaria" # Nueva columna técnica
+                "NATURALEZA": "Complementaria"
             })
     return pd.DataFrame(datos)
 
-# Seguridad: Validamos columnas para evitar KeyError
 if 'df_evaluacion_alternativas' not in st.session_state or \
    st.session_state['df_evaluacion_alternativas'].empty or \
    'NATURALEZA' not in st.session_state['df_evaluacion_alternativas'].columns:
@@ -37,7 +36,6 @@ if 'df_evaluacion_alternativas' not in st.session_state or \
 
 df_master = st.session_state['df_evaluacion_alternativas']
 
-# Renderizado de Tarjetas de Selección
 for index, row in df_master.iterrows():
     with st.container(border=True):
         st.markdown(f"**📍 COMBINACIÓN {index + 1}**")
@@ -68,7 +66,6 @@ st.divider()
 # --- 2. ANÁLISIS DE COMPLEMENTARIEDAD Y EXCLUSIVIDAD ---
 st.subheader("🛠️ 2. Análisis de Complementariedad y Exclusividad")
 
-# Filtramos solo las que pasaron la primera fase
 opciones_aprobadas = st.session_state['df_evaluacion_alternativas'][
     (st.session_state['df_evaluacion_alternativas']["ENFOQUE"] == "SI") & 
     (st.session_state['df_evaluacion_alternativas']["ALCANCE"] == "SI")
@@ -77,27 +74,19 @@ opciones_aprobadas = st.session_state['df_evaluacion_alternativas'][
 if opciones_aprobadas.empty:
     st.warning("⚠️ DEBE SELECCIONAR POR LO MENOS UNA COMBINACION DE OBJETIVO Y ACTIVIDAD RESPONDIENDO SI A AMBOS CRITERIOS")
 else:
-    st.info("Identifique si las actividades seleccionadas pueden ejecutarse juntas (Complementarias) o si representan opciones mutuamente excluyentes.")
+    st.info("Identifique si las actividades seleccionadas pueden ejecutarse juntas (Complementarias) o si son excluyentes.")
     
-    # Editor de tabla para definir naturaleza
     df_naturaleza = st.data_editor(
         opciones_aprobadas,
         column_config={
-            "OBJETIVO": st.column_config.TextColumn("OBJETIVO", disabled=True, width="medium"),
-            "ACTIVIDAD": st.column_config.TextColumn("ACTIVIDAD", disabled=True, width="medium"),
-            "ENFOQUE": None, "ALCANCE": None, # Ocultamos columnas de la fase anterior
-            "NATURALEZA": st.column_config.SelectboxColumn(
-                "NATURALEZA TÉCNICA", 
-                options=["Complementaria", "Excluyente"],
-                help="Las actividades excluyentes no pueden pertenecer a la misma alternativa."
-            )
+            "OBJETIVO": st.column_config.TextColumn("OBJETIVO", disabled=True),
+            "ACTIVIDAD": st.column_config.TextColumn("ACTIVIDAD", disabled=True),
+            "ENFOQUE": None, "ALCANCE": None,
+            "NATURALEZA": st.column_config.SelectboxColumn("NATURALEZA TÉCNICA", options=["Complementaria", "Excluyente"])
         },
-        use_container_width=True,
-        hide_index=True,
-        key="editor_naturaleza_tecnica"
+        use_container_width=True, hide_index=True, key="editor_naturaleza_tecnica"
     )
 
-    # Guardamos la naturaleza definida
     if not df_naturaleza.equals(opciones_aprobadas):
         for idx, row in df_naturaleza.iterrows():
             st.session_state['df_evaluacion_alternativas'].at[idx, "NATURALEZA"] = row["NATURALEZA"]
@@ -106,45 +95,49 @@ else:
 
     st.divider()
 
-    # --- 3. CONFIGURACIÓN DE PAQUETES (ALTERNATIVAS) ---
+    # --- 3. CONFIGURACIÓN DE PAQUETES ---
     st.subheader("📦 3. Configuración de Paquetes (Alternativas)")
     
     with st.container(border=True):
         nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa 1: Solución Biológica")
-        
-        # Multiselect que muestra la naturaleza para ayudar al usuario
         opciones_formateadas = [f"{r['ACTIVIDAD']} ({r['NATURALEZA']})" for _, r in df_naturaleza.iterrows()]
         items_sel_raw = st.multiselect("Seleccione componentes complementarios:", options=opciones_formateadas)
-        
-        # Limpiamos el formato para guardar solo el nombre de la actividad
         items_limpios = [item.split(" (")[0] for item in items_sel_raw]
-        
         justificacion = st.text_area("Justificación técnica de la alternativa:")
         
         if st.button("🚀 Consolidar Alternativa", type="primary"):
             if nombre_alt and items_limpios:
-                # Verificación de seguridad: No mezclar excluyentes
                 excluyentes_en_pack = [i for i in items_sel_raw if "Excluyente" in i]
                 if len(excluyentes_en_pack) > 1:
-                    st.error("⚠️ Error técnico: Ha seleccionado más de una actividad 'Excluyente'. Estas deben formar alternativas separadas.")
+                    st.error("⚠️ Error técnico: Ha seleccionado más de una actividad 'Excluyente'.")
                 else:
                     nueva_alt = {"nombre": nombre_alt, "componentes": items_limpios, "justificacion": justificacion}
-                    if 'lista_alternativas' not in st.session_state: st.session_state['lista_alternativas'] = []
+                    # Inicialización segura de la lista
+                    if 'lista_alternativas' not in st.session_state or not isinstance(st.session_state['lista_alternativas'], list):
+                        st.session_state['lista_alternativas'] = []
+                    
                     st.session_state['lista_alternativas'].append(nueva_alt)
                     guardar_datos_nube()
                     st.rerun()
-            else:
-                st.error("Asigne un nombre y seleccione componentes.")
 
-# --- 4. VISUALIZACIÓN ---
-if st.session_state.get('lista_alternativas'):
+# --- 4. VISUALIZACIÓN PROTEGIDA (SOLUCIÓN AL KEYERROR) ---
+# Solo intentamos mostrar alternativas si la lista existe y no es basura técnica
+alternativas_guardadas = st.session_state.get('lista_alternativas')
+
+if isinstance(alternativas_guardadas, list) and len(alternativas_guardadas) > 0:
     st.divider()
     st.subheader("📋 Alternativas Consolidadas")
-    for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        with st.expander(f"🔹 Alternativa {idx+1}: {alt['nombre']}"):
-            st.write(f"**Justificación:** {alt.get('justificacion', 'N/A')}")
-            st.write("**Componentes:**")
-            for comp in alt.get('componentes', []): st.markdown(f"- {comp}")
-            if st.button("🗑️ Eliminar", key=f"del_alt_{idx}"):
-                st.session_state['lista_alternativas'].pop(idx)
-                guardar_datos_nube(); st.rerun()
+    
+    for idx, alt in enumerate(alternativas_guardadas):
+        # PROTECCIÓN CRÍTICA: Verificamos que sea un diccionario con nombre antes de dibujar
+        if isinstance(alt, dict) and 'nombre' in alt:
+            with st.expander(f"🔹 Alternativa {idx+1}: {alt['nombre']}"):
+                st.write(f"**Justificación:** {alt.get('justificacion', 'No definida')}")
+                st.write("**Componentes:**")
+                for comp in alt.get('componentes', []):
+                    st.markdown(f"- {comp}")
+                
+                if st.button("🗑️ Eliminar", key=f"del_alt_{idx}"):
+                    st.session_state['lista_alternativas'].pop(idx)
+                    guardar_datos_nube()
+                    st.rerun()
