@@ -4,11 +4,11 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO MAESTRO UNIFICADO ---
+# --- ESTILO MAESTRO UNIFICADO (CORREGIDO PARA EVITAR SUPERPOSICIÓN) ---
 st.markdown("""
     <style>
-    /* 1. Tipografía general */
-    html, body, [class*="st-"] {
+    /* 1. Tipografía y color general - Sin afectar clases internas 'st-' */
+    html, body, .stApp {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
@@ -39,7 +39,6 @@ st.header("2. Caracterización de la Zona de Estudio")
 def calcular_altura(texto, min_h=100, en_columna=False):
     """Calcula la altura dinámica según el contenido y el ancho del contenedor."""
     if not texto: return min_h
-    # Si está en columna (ancho reducido), el texto se corta antes (~40 carac. vs ~85)
     divisor = 40 if en_columna else 85
     lineas = str(texto).count('\n') + (len(str(texto)) // divisor)
     return max(min_h, (lineas + 1) * 23)
@@ -85,7 +84,7 @@ with st.container(border=True):
     col_a, col_b = st.columns(2)
     with col_a:
         txt_eco = datos.get('economia', "")
-        # Ajustamos el cálculo para que reconozca el ancho de columna
+        # Ajustado para que el texto de Sogamoso se vea completo en la columna
         economia = st.text_area("Principal Actividad Económica", value=txt_eco, height=calcular_altura(txt_eco, en_columna=True))
     with col_b:
         txt_vias = datos.get('vias', "")
