@@ -4,27 +4,23 @@ import io
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Persistencia: Carga datos al abrir la pestaña
+# 1. Persistencia: Carga datos de la nube al iniciar
 inicializar_session()
 
-# --- ESTILO MAESTRO: TARJETAS EDITABLES CON COLOR TOTAL ---
+# --- ESTILO MAESTRO: TARJETAS CON COLOR TOTAL Y EDICIÓN ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
     }
     
-    /* HACER TRANSPARENTE EL EDITOR DE TEXTO: Para que se vea el color de la tarjeta detrás */
-    div[data-testid="stTextArea"] {
-        background-color: transparent !important;
-    }
+    /* ELIMINACIÓN DE CUADROS GRISES: Transparencia total para que brille el color de la tarjeta */
     div[data-testid="stTextArea"] textarea {
         background-color: transparent !important;
         color: #31333F !important;
         border: none !important;
         box-shadow: none !important;
-        padding: 10px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         text-align: center !important;
         font-size: 14px !important;
     }
@@ -33,12 +29,16 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Diseño de la tarjeta editable (Idéntico a Problemas) */
-    .editable-card {
-        border-radius: 10px;
-        border-left: 8px solid rgba(0,0,0,0.1);
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
+    /* TARJETA CON COLOR TOTAL: Igual al Árbol de Problemas */
+    .objective-card-full {
+        padding: 15px;
+        border-radius: 12px;
+        border-left: 10px solid rgba(0,0,0,0.15);
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 12px;
+        min-height: 100px;
+        display: flex;
+        align-items: center;
     }
     
     .stButton button[kind="primary"] p {
@@ -50,7 +50,7 @@ st.markdown("""
 
 st.title("🎯 5. Árbol de Objetivos")
 
-# Configuración de Colores y Posiciones
+# Configuración Maestra de Colores
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 5},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 4},
@@ -60,44 +60,45 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "y": 0}
 }
 
-# --- SIDEBAR: HERRAMIENTAS EXCLUSIVAS (Sin Generar Fichas) ---
+# --- SIDEBAR: HERRAMIENTAS DE LIMPIEZA ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # Botón para traer datos desde el Árbol de Problemas
+    # IMPORTACIÓN CON FILTRO DE SEGURIDAD (Elimina fichas 'a', 'c' o huérfanas)
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
-            "Efectos Indirectos": "Fines Indirectos",
-            "Efectos Directos": "Fines Directos", 
-            "Problema Principal": "Objetivo General", 
-            "Causas Directas": "Medios Directos", 
+            "Efectos Indirectos": "Fines Indirectos", "Efectos Directos": "Fines Directos", 
+            "Problema Principal": "Objetivo General", "Causas Directas": "Medios Directos", 
             "Causas Indirectas": "Medios Indirectos"
         }
-        # Limpiar objetivos previos para evitar duplicados
+        
+        # Limpiar objetivos previos para la nueva carga
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
         
-        # Mapear datos negativos a sus contenedores de objetivos
         for p_sec, o_sec in mapeo.items():
-            if p_sec in problemas:
-                for item in problemas[p_sec]:
-                    txt = item['texto'] if isinstance(item, dict) else item
-                    if isinstance(item, dict):
-                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
-                    else:
-                        st.session_state['arbol_objetivos'][o_sec].append(txt)
+            items_raw = problemas.get(p_sec, [])
+            # FILTRO DE SEGURIDAD: Solo traemos lo que es un diccionario válido o texto real
+            if p_sec in ["Efectos Indirectos", "Causas Indirectas"]:
+                padres_validos = problemas.get("Efectos Directos" if "Efectos" in p_sec else "Causas Directas", [])
+                for item in items_raw:
+                    if isinstance(item, dict) and item.get('padre') in padres_validos:
+                        st.session_state['arbol_objetivos'][o_sec].append({"texto": item['texto'], "padre": item['padre']})
+            else:
+                for item in items_raw:
+                    # Ignora letras sueltas como 'a' o 'c'
+                    if isinstance(item, str) and len(item.strip()) > 2:
+                        st.session_state['arbol_objetivos'][o_sec].append(item)
         
-        # El Fin Último es el único que no viene de problemas, lo inicializamos vacío
         if not st.session_state['arbol_objetivos']["Fin Último"]:
-            st.session_state['arbol_objetivos']["Fin Último"] = ["Redactar aquí el Impacto Final Positivo"]
+            st.session_state['arbol_objetivos']["Fin Último"] = ["MEJORAR LA CALIDAD DE VIDA"]
             
         guardar_datos_nube()
-        st.success("¡Datos convertidos! Redacte en positivo sobre las tarjetas.")
+        st.success("¡Datos importados y depurados!")
         st.rerun()
 
     st.divider()
 
-    # Función de exportación PNG
     def generar_png_objetivos():
         fig, ax = plt.subplots(figsize=(16, 14))
         ax.set_xlim(0, 10); ax.set_ylim(-1, 8.5); ax.axis('off')
@@ -121,54 +122,43 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIÓN DE RENDERIZADO DE TARJETAS EDITABLES ---
+# --- RENDERIZADO CON COLOR TOTAL ---
 
-def render_editable_card(seccion, indice, item):
+def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
     
-    # Tarjeta con color y editor transparente integrado
-    st.markdown(f'<div class="editable-card" style="background-color:{color};">', unsafe_allow_html=True)
-    nuevo_texto = st.text_area(
-        f"edit_{seccion}_{indice}", 
-        value=texto_actual, 
-        label_visibility="collapsed", 
-        key=f"area_{seccion}_{indice}"
-    )
+    # Contenedor con COLOR TOTAL de fondo
+    st.markdown(f'<div class="objective-card-full" style="background-color:{color};">', unsafe_allow_html=True)
+    nuevo_texto = st.text_area(f"e_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", key=f"area_{seccion}_{indice}")
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Si detectamos cambio al perder el foco, guardamos en la nube
     if nuevo_texto != texto_actual:
-        if isinstance(item, dict):
-            st.session_state['arbol_objetivos'][seccion][indice]["texto"] = nuevo_texto
-        else:
-            st.session_state['arbol_objetivos'][seccion][indice] = nuevo_texto
+        if isinstance(item, dict): st.session_state['arbol_objetivos'][seccion][indice]["texto"] = nuevo_texto
+        else: st.session_state['arbol_objetivos'][seccion][indice] = nuevo_texto
         guardar_datos_nube()
         st.rerun()
 
-# --- DIBUJO DEL ÁRBOL ---
-
-def mostrar_seccion_objetivos(nombre):
+def mostrar_seccion(nombre):
     col_l, col_c = st.columns([1, 4])
-    with col_l:
+    with col_l: 
         st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{nombre.upper()}</div>", unsafe_allow_html=True)
     with col_c:
         items = st.session_state['arbol_objetivos'].get(nombre, [])
         if items:
             cols = st.columns(len(items))
             for i, item in enumerate(items):
-                with cols[i]:
-                    render_editable_card(nombre, i, item)
-        else:
-            st.caption("Sección vacía. Use el panel lateral para traer los datos.")
+                with cols[i]: render_objective_card(nombre, i, item)
+        else: st.caption("Sección vacía")
 
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
-mostrar_seccion_objetivos("Fin Último")
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
-mostrar_seccion_objetivos("Fines Indirectos")
-mostrar_seccion_objetivos("Fines Directos")
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
-mostrar_seccion_objetivos("Objetivo General")
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.3;'>", unsafe_allow_html=True)
-mostrar_seccion_objetivos("Medios Directos")
-mostrar_seccion_objetivos("Medios Indirectos")
+mostrar_seccion("Fin Último")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
+mostrar_seccion("Fines Indirectos")
+mostrar_seccion("Fines Directos")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
+mostrar_seccion("Objetivo General")
+st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
+mostrar_seccion("Medios Directos")
+mostrar_seccion("Medios Indirectos")
