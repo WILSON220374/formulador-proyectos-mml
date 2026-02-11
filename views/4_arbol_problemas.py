@@ -3,17 +3,21 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 
-# --- ESTILO CSS PARA ICONOS ROJOS ---
+# --- ESTILO CSS: BOTONES ESTÁNDAR CON ICONO ROJO ---
 st.markdown("""
     <style>
-    button p {
+    /* Mantiene el diseño de botón original pero cambia el color del emoji */
+    .stButton button p {
         color: #ff4b4b !important;
+        font-weight: bold;
+        font-size: 1.1rem;
     }
-    button {
+    /* Estilo del borde para que sea sutilmente rojo */
+    .stButton button {
         border-color: rgba(255, 75, 75, 0.2) !important;
-        background-color: transparent !important;
+        border-radius: 6px;
     }
-    button:hover {
+    .stButton button:hover {
         border-color: #ff4b4b !important;
         background-color: rgba(255, 75, 75, 0.05) !important;
     }
@@ -23,10 +27,9 @@ st.markdown("""
 # --- SINCRONIZACIÓN Y MIGRACIÓN ---
 if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
-        # Migramos los datos para mantener consistencia con el nombre nuevo
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
 
-st.title("🌳 4. Árbol de Problemas (Vista Jerárquica)")
+st.title("🌳 4. Árbol de Problemas (Vista Final)")
 
 # 1. Configuración Maestra
 CONFIG = {
@@ -72,7 +75,6 @@ with st.sidebar:
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
-            
             n = len(items)
             ancho_max_fila = 8.5 / n
             ancho_caja = min(2.2, ancho_max_fila - 0.3)
@@ -85,14 +87,10 @@ with st.sidebar:
                 txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
                 num_lineas = txt_ajustado.count('\n') + 1
                 alto_caja = max(0.6, num_lineas * 0.18)
-                
-                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), 
-                                     ancho_caja, alto_caja, 
+                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), ancho_caja, alto_caja, 
                                      facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
-                ax.text(x, y_base, txt_ajustado, ha='center', va='center', 
-                        fontsize=9, fontweight='bold', color='black', zorder=3)
-                
+                ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
                 if i == 0:
                     ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
 
@@ -101,9 +99,9 @@ with st.sidebar:
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_ajustado.png", mime="image/png", use_container_width=True)
+    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO EN PANTALLA (VISUALIZACIÓN ORIGINAL) ---
+# --- RENDERIZADO (VISUALIZACIÓN ORIGINAL MEJORADA) ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
@@ -119,7 +117,7 @@ def render_simple(nombre):
         items = st.session_state['arbol_tarjetas'].get(nombre, [])
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
-            # Solo icono papelera, sin texto
+            # Solo icono papelera
             if nombre != "Problema Principal" and st.button("🗑️", key=f"del_{nombre}"):
                 st.session_state['arbol_tarjetas'][nombre] = []; st.rerun()
         else: st.caption("Sección vacía")
@@ -135,7 +133,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
             st.markdown(f"<div style='font-weight:bold; color:#666; text-align:right; margin-top:25px;'>{seccion_actual.upper()}</div>", unsafe_allow_html=True)
         with col_c:
             if not padres:
-                st.caption(f"Debe crear un {nombre_padre} primero.")
+                st.caption(f"Cree un {nombre_padre} primero.")
             else:
                 cols = st.columns(len(padres))
                 for i, p_txt in enumerate(padres):
