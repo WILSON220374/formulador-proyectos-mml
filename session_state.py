@@ -9,7 +9,7 @@ def inicializar_session():
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     
-    # Variables de Fase I y II
+    # --- Fases I y II ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     if 'datos_zona' not in st.session_state:
@@ -23,13 +23,11 @@ def inicializar_session():
     if 'arbol_objetivos' not in st.session_state:
         st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
 
-    # Variables de Fase III
+    # --- Fase III: Planificación (Alternativas) ---
     if 'relaciones_medios' not in st.session_state:
         st.session_state['relaciones_medios'] = []
     if 'lista_alternativas' not in st.session_state:
         st.session_state['lista_alternativas'] = []
-    
-    # CONTADOR PARA RESETEO DE WIDGETS (Solución al error)
     if 'alt_counter' not in st.session_state:
         st.session_state['alt_counter'] = 0
 
