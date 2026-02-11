@@ -2,36 +2,33 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
+# Importamos las funciones críticas de persistencia
+from session_state import inicializar_session, guardar_datos_nube
+
+# 1. ESTA LÍNEA ES LA CLAVE: Trae los datos de la nube al abrir la página
+inicializar_session()
 
 # --- ESTILO MAESTRO UNIFICADO ---
 st.markdown("""
     <style>
-    /* 1. Tipografía general */
     html, body, [class*="st-"] {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
-    
-    /* 2. Botón de Guardar (Primario): Texto blanco siempre visible */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
     }
-    
-    /* 3. Papeleras en el área central: Rojo y negrita */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold !important;
         font-size: 1.1rem;
     }
-
-    /* 4. Botón Cerrar Sesión (Sidebar): Negro y sin negrilla */
     [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
         color: black !important;
         font-weight: normal !important;
         font-size: 1rem;
     }
-    
     .stButton button {
         border-color: rgba(49, 51, 63, 0.2) !important;
         border-radius: 6px;
@@ -41,16 +38,12 @@ st.markdown("""
 
 # --- SINCRONIZACIÓN Y MIGRACIÓN ---
 if 'arbol_tarjetas' in st.session_state:
-    # Aseguramos la persistencia del Problema Principal
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
-    # Eliminamos rastro del Problema Superior de la memoria si existía
-    if 'Problema Superior' in st.session_state['arbol_tarjetas']:
-        st.session_state['arbol_tarjetas'].pop('Problema Superior')
 
 st.title("🌳 4. Árbol de Problemas")
 
-# 1. Configuración Maestra (Se eliminó Problema Superior)
+# Configuración Maestra
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
@@ -78,14 +71,16 @@ with st.sidebar:
                     st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto_input, "padre": padre_asociado})
                 else:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
+                
+                # GUARDADO AUTOMÁTICO AL CREAR
+                guardar_datos_nube()
                 st.rerun()
 
     st.divider()
     st.subheader("📥 Exportar Árbol")
 
     def generar_png_arbol():
-        # Lienzo ajustado para la nueva estructura
-        fig, ax = plt.subplots(figsize=(16, 12)) 
+        fig, ax = plt.subplots(figsize=(16, 14)) 
         ax.set_xlim(0, 10); ax.set_ylim(-1, 7.5); ax.axis('off')
         datos = st.session_state['arbol_tarjetas']
         for seccion, conf in CONFIG.items():
@@ -105,8 +100,6 @@ with st.sidebar:
                                      facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
                 ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
-                if i == 0:
-                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
         plt.close(fig)
@@ -131,7 +124,10 @@ def render_simple(nombre):
         if items:
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
             if nombre != "Problema Principal" and st.button("🗑️", key=f"del_{nombre}"):
-                st.session_state['arbol_tarjetas'][nombre] = []; st.rerun()
+                st.session_state['arbol_tarjetas'][nombre] = []
+                # GUARDADO AUTOMÁTICO AL BORRAR
+                guardar_datos_nube()
+                st.rerun()
         else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
@@ -151,19 +147,24 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                 for i, p_txt in enumerate(padres):
                     with cols[i]:
                         if es_hijo:
-                            h_del_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_txt]
+                            h_del_p = [h for h in hijos if h["padre"] == p_txt]
                             for h_idx, h_data in enumerate(h_del_p):
                                 st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"del_h_{seccion_actual}_{i}_{h_idx}"):
-                                    st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data); st.rerun()
+                                    st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data)
+                                    guardar_datos_nube() # Guardado automático
+                                    st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
                             if st.button("🗑️", key=f"del_p_{seccion_actual}_{i}"):
-                                h_asoc = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_txt]
-                                if h_asoc: st.error("Borre indirectos primero")
-                                else: st.session_state['arbol_tarjetas'][seccion_actual].pop(i); st.rerun()
+                                h_asociados = [h for h in hijos if h["padre"] == p_txt]
+                                if h_asociados: st.error("Borre indirectos primero")
+                                else: 
+                                    st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
+                                    guardar_datos_nube() # Guardado automático
+                                    st.rerun()
 
-# --- CONSTRUCCIÓN DEL ÁRBOL (PROBLEMA SUPERIOR ELIMINADO) ---
+# --- CONSTRUCCIÓN DEL ÁRBOL ---
 st.divider()
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
