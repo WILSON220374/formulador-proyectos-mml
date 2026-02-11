@@ -2,10 +2,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# Importamos las funciones críticas de persistencia
+# Importación de funciones críticas de persistencia
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. ESTA LÍNEA ES LA CLAVE: Trae los datos de la nube al abrir la página
+# 1. RECUPERACIÓN DE DATOS: Carga la información de la nube al entrar
 inicializar_session()
 
 # --- ESTILO MAESTRO UNIFICADO ---
@@ -43,7 +43,7 @@ if 'arbol_tarjetas' in st.session_state:
 
 st.title("🌳 4. Árbol de Problemas")
 
-# Configuración Maestra
+# Configuración Visual
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "limite": 99, "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "limite": 99, "tipo": "simple", "y": 3},
@@ -72,13 +72,12 @@ with st.sidebar:
                 else:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 
-                # GUARDADO AUTOMÁTICO AL CREAR
+                # Guardado automático al crear
                 guardar_datos_nube()
                 st.rerun()
 
     st.divider()
-    st.subheader("📥 Exportar Árbol")
-
+    
     def generar_png_arbol():
         fig, ax = plt.subplots(figsize=(16, 14)) 
         ax.set_xlim(0, 10); ax.set_ylim(-1, 7.5); ax.axis('off')
@@ -86,17 +85,14 @@ with st.sidebar:
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
-            n = len(items)
-            ancho_caja = min(2.2, (8.5/n) - 0.3)
-            espaciado = 10 / (n + 1)
+            espacio = 10 / (len(items) + 1)
             y_base = conf["y"] * 1.5 
             for i, item in enumerate(items):
-                x = (i + 1) * espaciado
+                x = (i + 1) * espacio
                 texto = item["texto"] if isinstance(item, dict) else item
                 txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
                 num_lineas = txt_ajustado.count('\n') + 1
-                alto_caja = max(0.6, num_lineas * 0.18)
-                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), ancho_caja, alto_caja, 
+                rect = plt.Rectangle((x-1.0, y_base-0.3), 2.0, max(0.6, num_lineas * 0.18), 
                                      facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
                 ax.text(x, y_base, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black', zorder=3)
@@ -125,9 +121,7 @@ def render_simple(nombre):
             st.markdown(card_html(items[0], CONFIG[nombre]["color"]), unsafe_allow_html=True)
             if nombre != "Problema Principal" and st.button("🗑️", key=f"del_{nombre}"):
                 st.session_state['arbol_tarjetas'][nombre] = []
-                # GUARDADO AUTOMÁTICO AL BORRAR
-                guardar_datos_nube()
-                st.rerun()
+                guardar_datos_nube(); st.rerun()
         else: st.caption("Sección vacía")
 
 def render_rama(nombre_padre, nombre_hijo, inversion=False):
@@ -147,24 +141,23 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                 for i, p_txt in enumerate(padres):
                     with cols[i]:
                         if es_hijo:
-                            h_del_p = [h for h in hijos if h["padre"] == p_txt]
+                            # SOLUCIÓN AL TYPEERROR: Validación de tipo antes de filtrar
+                            h_del_p = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_txt]
                             for h_idx, h_data in enumerate(h_del_p):
                                 st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"del_h_{seccion_actual}_{i}_{h_idx}"):
                                     st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data)
-                                    guardar_datos_nube() # Guardado automático
-                                    st.rerun()
+                                    guardar_datos_nube(); st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
                             if st.button("🗑️", key=f"del_p_{seccion_actual}_{i}"):
-                                h_asociados = [h for h in hijos if h["padre"] == p_txt]
-                                if h_asociados: st.error("Borre indirectos primero")
+                                h_asoc = [h for h in hijos if isinstance(h, dict) and h.get("padre") == p_txt]
+                                if h_asoc: st.error("Borre indirectos primero")
                                 else: 
                                     st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
-                                    guardar_datos_nube() # Guardado automático
-                                    st.rerun()
+                                    guardar_datos_nube(); st.rerun()
 
-# --- CONSTRUCCIÓN DEL ÁRBOL ---
+# --- CONSTRUCCIÓN ---
 st.divider()
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
