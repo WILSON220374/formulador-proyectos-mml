@@ -2,21 +2,30 @@ import streamlit as st
 import pandas as pd
 from session_state import inicializar_session, guardar_datos_nube
 
+# Inicializar sesión para asegurar que los datos estén disponibles
 inicializar_session()
 
 st.title("👥 3. Análisis de Interesados")
 
-# Contexto
+# Contexto del proyecto
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
-# Función auto-ajuste
-def calcular_altura(texto, min_h=100):
+# --- FUNCIONES DE AUTO-AJUSTE ---
+def calcular_altura_texto(texto, min_h=100):
+    """Ajusta la altura de los cuadros de texto."""
     if not texto: return min_h
     lineas = str(texto).count('\n') + (len(str(texto)) // 85)
     return max(min_h, (lineas + 1) * 23)
 
-# Columnas SIN el '#' manual
+def calcular_altura_tabla(df):
+    """Calcula la altura de la tabla para mostrar todas las filas."""
+    # Estimamos 35px por fila + 40px de encabezado + margen de seguridad
+    num_filas = len(df)
+    # Si la tabla está vacía, damos un mínimo para que se vea el botón de agregar
+    return max(200, (num_filas + 2) * 35 + 50)
+
+# Configuración de columnas
 columnas_finales = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
@@ -31,15 +40,20 @@ def calcular_estrategia(row):
 
 # Preparar DataFrame
 df_actual = st.session_state['df_interesados']
+# Limpieza de columnas viejas si existen
 if "#" in df_actual.columns: df_actual = df_actual.drop(columns=["#"])
 for col in columnas_finales:
     if col not in df_actual.columns: df_actual[col] = None
 df_actual = df_actual[columnas_finales]
 
-# Asegurar que el índice empiece en 1 para la vista
+# Ajustar el índice para que empiece en 1
 df_actual.index = range(1, len(df_actual) + 1)
 
 st.subheader("📝 Matriz de Datos")
+
+# CÁLCULO DE ALTURA PARA LA TABLA
+h_tabla = calcular_altura_tabla(df_actual)
+
 df_editado = st.data_editor(
     df_actual,
     column_config={
@@ -50,16 +64,16 @@ df_editado = st.data_editor(
     },
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=False, # MOSTRAMOS EL ÍNDICE DEL SISTEMA COMO ÚNICA NUMERACIÓN
-    key="editor_interesados_SISTEMA"
+    hide_index=False, # Mantenemos el índice del sistema
+    height=h_tabla,  # <--- ESTO HACE QUE LA TABLA SE AUTO-AJUSTE HACIA ABAJO
+    key="editor_interesados_AUTO_H"
 )
 
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
-        # Solo calculamos la estrategia, el índice lo maneja el sistema
         df_editado["ESTRATEGIA DE INVOLUCRAMIENTO"] = df_editado.apply(calcular_estrategia, axis=1)
     st.session_state['df_interesados'] = df_editado
-    guardar_datos_nube()
+    guardar_datos_nube() #
     st.rerun()
 
 # --- MAPA ESTRATÉGICO ---
@@ -87,14 +101,14 @@ if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
             st.info("📧 **MANTENER INFORMADOS**")
             for i in obtener_lista("Bajo", "Alto"): st.markdown(i)
 
-# --- CONCLUSIONES CON AUTO-AJUSTE ---
+# --- CONCLUSIONES ---
 st.divider()
 st.subheader("📝 Análisis de Participantes")
 txt_concl = st.session_state.get('analisis_participantes', "")
 analisis = st.text_area(
     "Conclusiones:", 
     value=txt_concl, 
-    height=calcular_altura(txt_concl), 
+    height=calcular_altura_texto(txt_concl), 
     key="area_concl"
 )
 
