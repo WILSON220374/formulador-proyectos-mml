@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from session_state import inicializar_session, guardar_datos_nube
 
+# Inicialización de seguridad
 inicializar_session()
 
 st.title("⚖️ 6. Análisis de Alternativas")
@@ -17,7 +18,7 @@ if not todos_los_medios_dir:
 
 # --- SECCIÓN 1: EVALUACIÓN DE RELACIONES ---
 st.header("🧩 1. Evaluación de Relaciones")
-with st.expander("➕ Registrar Nueva Relación Técnia", expanded=False):
+with st.expander("➕ Registrar Nueva Relación Técnica", expanded=False):
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         m1 = st.selectbox("Medio Directo A", todos_los_medios_dir, key="sel_m1")
@@ -56,7 +57,6 @@ with st.container(border=True):
         key=ms_key
     )
     
-    # Validación lógica
     if medios_seleccionados:
         for m in medios_seleccionados:
             for rel in st.session_state['relaciones_medios']:
@@ -78,25 +78,29 @@ with st.container(border=True):
             st.success(f"Alternativa '{nombre_alt}' registrada.")
             st.rerun()
 
-# --- SECCIÓN 3: RESUMEN Y GESTIÓN (NUEVO) ---
+# --- SECCIÓN 3: RESUMEN Y GESTIÓN CORREGIDA ---
 if st.session_state.get('lista_alternativas'):
     st.divider()
     st.subheader("📋 Resumen y Gestión de Alternativas")
-    st.info("💡 Para borrar una alternativa, selecciónala en la tabla y presiona la tecla 'Suprimir' o usa el icono de papelera.")
+    st.info("💡 **Para borrar:** Haz clic en el recuadro a la izquierda de la fila para seleccionarla. Aparecerá un icono de papelera 🗑️ en la esquina superior derecha de la tabla.")
     
     df_resumen = pd.DataFrame(st.session_state['lista_alternativas'])
     
-    # Usamos data_editor con num_rows="dynamic" para permitir borrado individual
     df_gestion = st.data_editor(
         df_resumen,
         use_container_width=True,
         num_rows="dynamic",
-        hide_index=True,
+        # Quitamos hide_index para que aparezca el selector de filas (el recuadro de borrado)
+        hide_index=False, 
         key="editor_gestion_alternativas"
     )
     
-    # Si el usuario borró alguna fila, actualizamos la memoria y la nube
-    if not df_gestion.equals(df_resumen):
-        st.session_state['lista_alternativas'] = df_gestion.to_dict('records')
+    # Lógica de limpieza: Solo guardamos si la fila tiene un "Nombre" válido
+    # Esto elimina automáticamente los "espacios vacíos"
+    df_limpio = df_gestion.dropna(subset=['Nombre'])
+    df_limpio = df_limpio[df_limpio['Nombre'].str.strip() != ""]
+    
+    if len(df_limpio) != len(df_resumen):
+        st.session_state['lista_alternativas'] = df_limpio.to_dict('records')
         guardar_datos_nube()
         st.rerun()
