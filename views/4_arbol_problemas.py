@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 
-# --- SINCRONIZACIÓN DE LLAVES (MIGRACIÓN) ---
-# Asegura que los datos de 'Problema Central' pasen a 'Problema Principal' automáticamente
+# --- SINCRONIZACIÓN Y MIGRACIÓN ---
 if 'arbol_tarjetas' in st.session_state:
     if 'Problema Principal' not in st.session_state['arbol_tarjetas']:
+        # Migramos los datos de 'Central' a 'Principal' para no perder información
         st.session_state['arbol_tarjetas']['Problema Principal'] = st.session_state['arbol_tarjetas'].pop('Problema Central', [])
 
-st.title("🌳 4. Árbol de Problemas (Vista Jerárquica e Imagen)")
+st.title("🌳 4. Árbol de Problemas (Vista Jerárquica)")
 
 # 1. Configuración Maestra
 CONFIG = {
@@ -41,49 +41,62 @@ with st.sidebar:
                 else:
                     st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
                 st.rerun()
-            else:
-                st.error("Límite de fichas alcanzado.")
 
     st.divider()
     st.subheader("📥 Exportar Árbol")
 
-    # FUNCIÓN OPTIMIZADA PARA EVITAR DISTORSIÓN
+    # FUNCIÓN CON AJUSTE AUTOMÁTICO DE ESPACIADO
     def generar_png_arbol():
-        fig, ax = plt.subplots(figsize=(14, 12)) 
+        # Aumentamos el tamaño y la escala vertical para evitar solapamientos
+        fig, ax = plt.subplots(figsize=(16, 14)) 
         ax.set_xlim(0, 10)
-        ax.set_ylim(-0.8, 6.2)
+        ax.set_ylim(-1, 9) # Más espacio vertical
         ax.axis('off')
         datos = st.session_state['arbol_tarjetas']
         
         for seccion, conf in CONFIG.items():
             items = datos.get(seccion, [])
             if not items: continue
+            
             n = len(items)
+            # Cálculo de ancho dinámico para dejar un hueco entre cajas
+            ancho_max_fila = 8.5 / n
+            ancho_caja = min(2.2, ancho_max_fila - 0.3)
             espaciado = 10 / (n + 1)
+            
+            # Multiplicamos Y por 1.5 para separar las filas físicamente
+            y_base = conf["y"] * 1.5 
+            
             for i, item in enumerate(items):
                 x = (i + 1) * espaciado
-                y = conf["y"]
                 texto = item["texto"] if isinstance(item, dict) else item
                 
-                # Ajuste de texto dinámico para evitar solapamientos
-                txt_ajustado = "\n".join(textwrap.wrap(texto, width=25))
+                # Envoltura de texto más estrecha para que las cajas no sean tan anchas
+                txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
                 num_lineas = txt_ajustado.count('\n') + 1
-                alto_caja = max(0.5, num_lineas * 0.16)
-                ancho_caja = 2.0 if n > 3 else 2.5
+                alto_caja = max(0.6, num_lineas * 0.18)
                 
-                rect = plt.Rectangle((x-(ancho_caja/2), y-(alto_caja/2)), ancho_caja, alto_caja, 
-                                     facecolor=conf["color"], edgecolor='#444444', lw=1.5, alpha=0.9)
+                # Dibujo de la caja
+                rect = plt.Rectangle((x-(ancho_caja/2), y_base-(alto_caja/2)), 
+                                     ancho_caja, alto_caja, 
+                                     facecolor=conf["color"], edgecolor='#333333', lw=1.2, zorder=2)
                 ax.add_patch(rect)
-                ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', color='black')
-        
+                
+                # Texto con tamaño adaptado
+                ax.text(x, y_base, txt_ajustado, ha='center', va='center', 
+                        fontsize=9, fontweight='bold', color='black', zorder=3)
+                
+                if i == 0:
+                    ax.text(0.1, y_base, seccion.upper(), fontsize=7, color='#777', fontweight='bold', va='center')
+
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.5)
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', pad_inches=0.4)
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_problemas.png", mime="image/png", use_container_width=True)
+    st.download_button(label="🖼️ Descargar Árbol (PNG)", data=generar_png_arbol(), file_name="arbol_ajustado.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO (ESTILO ORIGINAL) ---
+# --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:12px; border-radius:8px; 
                border-left:8px solid rgba(0,0,0,0.1); color:black; font-weight:500; 
@@ -138,7 +151,6 @@ render_simple("Problema Superior")
 st.markdown("---")
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
-# Se eliminó el banner redundante de 'ÁREA DEL PROBLEMA CENTRAL'
 render_simple("Problema Principal") 
 st.markdown("---")
 render_rama("Causas Directas", "Causas Indirectas", inversion=False)
