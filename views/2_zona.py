@@ -4,13 +4,44 @@ from session_state import inicializar_session, guardar_datos_nube
 # Asegurar persistencia y memoria
 inicializar_session()
 
+# --- ESTILO MAESTRO UNIFICADO ---
+st.markdown("""
+    <style>
+    /* 1. Tipografía general */
+    html, body, [class*="st-"] {
+        font-family: 'Source Sans Pro', sans-serif;
+        color: #31333F;
+    }
+    
+    /* 2. Botón de Guardar (Primario): Texto blanco siempre visible */
+    .stButton button[kind="primary"] p {
+        color: white !important;
+        font-weight: bold !important;
+    }
+    
+    /* 3. Botón Cerrar Sesión (Sidebar): Negro y sin negrilla */
+    [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
+        color: black !important;
+        font-weight: normal !important;
+        font-size: 1rem;
+    }
+    
+    .stButton button {
+        border-color: rgba(49, 51, 63, 0.2) !important;
+        border-radius: 6px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.header("2. Caracterización de la Zona de Estudio")
 
-# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
-def calcular_altura(texto, min_h=100):
-    """Calcula la altura dinámica según el contenido."""
+# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA OPTIMIZADA ---
+def calcular_altura(texto, min_h=100, en_columna=False):
+    """Calcula la altura dinámica según el contenido y el ancho del contenedor."""
     if not texto: return min_h
-    lineas = str(texto).count('\n') + (len(str(texto)) // 85)
+    # Si está en columna (ancho reducido), el texto se corta antes (~40 carac. vs ~85)
+    divisor = 40 if en_columna else 85
+    lineas = str(texto).count('\n') + (len(str(texto)) // divisor)
     return max(min_h, (lineas + 1) * 23)
 
 if 'datos_zona' not in st.session_state:
@@ -54,13 +85,13 @@ with st.container(border=True):
     col_a, col_b = st.columns(2)
     with col_a:
         txt_eco = datos.get('economia', "")
-        economia = st.text_area("Principal Actividad Económica", value=txt_eco, height=calcular_altura(txt_eco))
+        # Ajustamos el cálculo para que reconozca el ancho de columna
+        economia = st.text_area("Principal Actividad Económica", value=txt_eco, height=calcular_altura(txt_eco, en_columna=True))
     with col_b:
         txt_vias = datos.get('vias', "")
-        vias = st.text_area("División del territorio", value=txt_vias, height=calcular_altura(txt_vias))
+        vias = st.text_area("División del territorio", value=txt_vias, height=calcular_altura(txt_vias, en_columna=True))
 
-# --- LÓGICA DE GUARDADO AUTOMÁTICO (REEMPLAZA AL BOTÓN ROJO) ---
-# Detectamos si los valores locales son diferentes a los guardados en el session_state
+# --- LÓGICA DE GUARDADO AUTOMÁTICO ---
 if (p_total != datos.get('pob_total') or 
     p_urbana != datos.get('pob_urbana') or 
     p_rural != datos.get('pob_rural') or 
@@ -69,7 +100,6 @@ if (p_total != datos.get('pob_total') or
     economia != datos.get('economia') or 
     vias != datos.get('vias')):
     
-    # Actualizamos la memoria
     st.session_state['datos_zona'] = {
         'pob_total': p_total,
         'pob_urbana': p_urbana,
@@ -79,6 +109,5 @@ if (p_total != datos.get('pob_total') or
         'economia': economia,
         'vias': vias
     }
-    # Guardamos en Supabase inmediatamente
     guardar_datos_nube()
-    st.rerun() # Refrescamos para ajustar alturas y barra de progreso
+    st.rerun()
