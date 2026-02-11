@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from session_state import inicializar_session, guardar_datos_nube
 
-# Inicialización de seguridad para la memoria
+# Inicialización de seguridad
 inicializar_session()
 
 st.title("👥 3. Análisis de Interesados")
@@ -11,7 +11,7 @@ st.title("👥 3. Análisis de Interesados")
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
 st.info(f"**Problema Central:** {problema}")
 
-# --- FUNCIONES DE SOPORTE ---
+# --- FUNCIONES DE SOPORTE Y ESTILO ---
 def calcular_altura_texto(texto, min_h=100):
     if not texto: return min_h
     lineas = str(texto).count('\n') + (len(str(texto)) // 85)
@@ -21,7 +21,7 @@ def calcular_altura_tabla(df):
     num_filas = len(df)
     return max(200, (num_filas + 2) * 35 + 50)
 
-# Estilo para líneas divisorias gruesas
+# Divisor reforzado
 LINEA_GRUESA = "<hr style='border: 3px solid #31333F; border-radius: 5px; opacity: 0.3;'>"
 
 def calcular_estrategia(row):
@@ -39,14 +39,11 @@ columnas_finales = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION
 opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
 opciones_nivel = ["Alto", "Bajo"]
 
-# Limpieza y preparación
 if "#" in df_actual.columns: df_actual = df_actual.drop(columns=["#"])
 for col in columnas_finales:
     if col not in df_actual.columns: df_actual[col] = None
 df_actual = df_actual[columnas_finales]
 df_actual.index = range(1, len(df_actual) + 1)
-
-h_tabla = calcular_altura_tabla(df_actual)
 
 df_editado = st.data_editor(
     df_actual,
@@ -56,11 +53,9 @@ df_editado = st.data_editor(
         "INTERÉS": st.column_config.SelectboxColumn("INTERÉS", options=opciones_nivel),
         "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA", disabled=True),
     },
-    num_rows="dynamic",
-    use_container_width=True,
-    hide_index=False,
-    height=h_tabla,
-    key="editor_final_H"
+    num_rows="dynamic", use_container_width=True, hide_index=False,
+    height=calcular_altura_tabla(df_actual),
+    key="editor_interesados_V_LEGENDA"
 )
 
 if not df_editado.equals(df_actual):
@@ -79,7 +74,8 @@ if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     def obtener_lista(p, i):
         filtro = df_editado[(df_editado['PODER'] == p) & (df_editado['INTERÉS'] == i) & (df_editado['NOMBRE'].notna())]
-        return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}** ({r['GRUPO']})" for _, r in filtro.iterrows()] or ["*Vacío*"]
+        # Incluimos el GRUPO para mayor detalle visual
+        return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}** ({r['GRUPO']})" for _, r in filtro.iterrows()] or ["*Sin actores*"]
 
     c1, c2 = st.columns(2)
     with c1:
@@ -96,8 +92,11 @@ if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
         with st.container(border=True):
             st.info("📧 **MANTENER INFORMADOS**")
             for i in obtener_lista("Bajo", "Alto"): st.markdown(i)
+    
+    # RESTAURACIÓN DE LA LEYENDA
+    st.caption("📌 **Leyenda de Actitud:** 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
 else:
-    st.warning("Complete la tabla superior para generar el mapa.")
+    st.warning("Complete la tabla para visualizar el mapa.")
 
 # --- SEGUNDO DIVISOR GRUESO ---
 st.markdown(LINEA_GRUESA, unsafe_allow_html=True)
@@ -106,10 +105,10 @@ st.markdown(LINEA_GRUESA, unsafe_allow_html=True)
 st.subheader("📝 Análisis de Participantes")
 txt_concl = st.session_state.get('analisis_participantes', "")
 analisis = st.text_area(
-    "Escriba sus conclusiones aquí:", 
+    "Conclusiones del análisis:", 
     value=txt_concl, 
     height=calcular_altura_texto(txt_concl), 
-    key="area_concl_vFinal"
+    key="area_concl_FINAL"
 )
 
 if analisis != txt_concl:
