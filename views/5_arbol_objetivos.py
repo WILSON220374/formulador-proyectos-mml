@@ -7,32 +7,31 @@ from session_state import inicializar_session, guardar_datos_nube
 
 inicializar_session()
 
-# --- ESTILO MAESTRO: TRANSPARENCIA TOTAL PARA EL EDITOR ---
+# --- ESTILO: FRANJA DELGADA Y TARJETA GRIS ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
     }
     
-    /* HACER TRANSPARENTE EL EDITOR DE STREAMLIT: Para que no tape el color del fondo */
-    div[data-testid="stTextArea"] textarea {
-        background-color: transparent !important;
-        color: #31333F !important;
-        border: none !important;
-        box-shadow: none !important;
-        font-weight: 600 !important;
-        text-align: center !important;
-        font-size: 14px !important;
-        line-height: 1.4 !important;
+    /* Contenedor de la tarjeta */
+    .card-container {
+        margin-bottom: 15px;
     }
-    div[data-testid="stTextArea"] {
-        background-color: transparent !important;
-        border: none !important;
+
+    /* Estilo para el área de texto (tarjeta gris estándar) */
+    div[data-testid="stTextArea"] textarea {
+        background-color: #f0f2f6 !important; /* Gris estándar de Streamlit */
+        border-radius: 0 0 10px 10px !important;
+        border: 1px solid #e6e9ef !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        color: #31333F !important;
     }
     
-    /* Eliminar el espacio del label oculto */
-    div[data-testid="stTextArea"] label {
-        display: none !important;
+    .stButton button[kind="primary"] p {
+        color: white !important;
+        font-weight: bold !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -53,7 +52,7 @@ CONFIG_OBJ = {
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # IMPORTACIÓN CON FILTRO DE LIMPIEZA (Ya soluciona las fichas 'a' o 'c')
+    # Importación con filtro de limpieza (Sin fichas fantasmas)
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
@@ -70,7 +69,7 @@ with st.sidebar:
             items_raw = problemas.get(p_sec, [])
             for item in items_raw:
                 txt = item['texto'] if isinstance(item, dict) else item
-                # Solo traemos fichas con contenido real (más de 2 letras)
+                # Solo traemos contenido real (> 2 letras)
                 if isinstance(txt, str) and len(txt.strip()) > 2:
                     if isinstance(item, dict):
                         st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
@@ -109,34 +108,31 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIÓN DE TARJETA CON COLOR TOTAL ---
+# --- FUNCIÓN DE TARJETA CON FRANJA DELGADA ---
 
 def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
     
-    # 1. CAPA DE COLOR (Fondo sólido)
+    # 1. Franja de color muy delgada (5px)
     st.markdown(f"""
         <div style="
             background-color: {color}; 
-            height: 100px; 
-            border-radius: 12px; 
-            border-left: 10px solid rgba(0,0,0,0.1);
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+            height: 6px; 
+            border-radius: 10px 10px 0 0; 
             margin-bottom: 0px;
+            width: 100%;
         "></div>
     """, unsafe_allow_html=True)
     
-    # 2. CAPA DE TEXTO (Subimos el editor con un margen negativo)
-    st.markdown('<div style="margin-top: -100px;">', unsafe_allow_html=True)
+    # 2. Tarjeta gris de edición
     nuevo_texto = st.text_area(
         label=f"edit_{seccion}_{indice}",
         value=texto_actual,
         label_visibility="collapsed",
         key=f"area_{seccion}_{indice}",
-        height=100
+        height=85
     )
-    st.markdown('</div>', unsafe_allow_html=True)
     
     if nuevo_texto != texto_actual:
         if isinstance(item, dict):
@@ -160,7 +156,7 @@ def mostrar_seccion(nombre):
         else:
             st.caption("Sección vacía. Traiga los datos desde el panel lateral.")
 
-# --- CONSTRUCCIÓN DEL ÁRBOL ---
+# --- CONSTRUCCIÓN ---
 st.divider()
 mostrar_seccion("Fin Último")
 st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
