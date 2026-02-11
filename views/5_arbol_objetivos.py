@@ -2,24 +2,19 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# 1. Persistencia: Carga datos de la nube al iniciar
+# Persistencia: Carga datos de la nube al iniciar
 from session_state import inicializar_session, guardar_datos_nube
 
 inicializar_session()
 
-# --- ESTILO: FRANJA DELGADA Y TARJETA GRIS ---
+# --- ESTILO: CENTRADO TOTAL Y FRANJA DELGADA ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
     }
     
-    /* Contenedor de la tarjeta */
-    .card-container {
-        margin-bottom: 15px;
-    }
-
-    /* Estilo para el área de texto (tarjeta gris estándar) */
+    /* CENTRADO DEL TEXTO Y ESTILO DE TARJETA GRIS */
     div[data-testid="stTextArea"] textarea {
         background-color: #f0f2f6 !important; /* Gris estándar de Streamlit */
         border-radius: 0 0 10px 10px !important;
@@ -27,8 +22,20 @@ st.markdown("""
         font-size: 14px !important;
         font-weight: 500 !important;
         color: #31333F !important;
+        
+        /* Centrado horizontal y vertical */
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding-top: 25px !important; /* Ajuste para centrar visualmente el texto */
     }
     
+    /* Eliminar contornos de enfoque */
+    div[data-testid="stTextArea"] textarea:focus {
+        border-color: #d0d4dc !important;
+    }
+
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
@@ -52,7 +59,7 @@ CONFIG_OBJ = {
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # Importación con filtro de limpieza (Sin fichas fantasmas)
+    # Importación con filtro (Sin fichas fantasmas)
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {
@@ -69,18 +76,17 @@ with st.sidebar:
             items_raw = problemas.get(p_sec, [])
             for item in items_raw:
                 txt = item['texto'] if isinstance(item, dict) else item
-                # Solo traemos contenido real (> 2 letras)
                 if isinstance(txt, str) and len(txt.strip()) > 2:
                     if isinstance(item, dict):
-                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt, "padre": item['padre']})
+                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt.upper(), "padre": item['padre']})
                     else:
-                        st.session_state['arbol_objetivos'][o_sec].append(txt)
+                        st.session_state['arbol_objetivos'][o_sec].append(txt.upper())
         
         if not st.session_state['arbol_objetivos']["Fin Último"]:
             st.session_state['arbol_objetivos']["Fin Último"] = ["MEJORAR LA CALIDAD DE VIDA"]
             
         guardar_datos_nube()
-        st.success("¡Datos importados y depurados!")
+        st.success("¡Datos importados!")
         st.rerun()
 
     st.divider()
@@ -108,30 +114,24 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
 
-# --- FUNCIÓN DE TARJETA CON FRANJA DELGADA ---
+# --- FUNCIÓN DE TARJETA CON TEXTO CENTRADO ---
 
 def render_objective_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
     
-    # 1. Franja de color muy delgada (5px)
+    # 1. Franja de color delgada (6px)
     st.markdown(f"""
-        <div style="
-            background-color: {color}; 
-            height: 6px; 
-            border-radius: 10px 10px 0 0; 
-            margin-bottom: 0px;
-            width: 100%;
-        "></div>
+        <div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>
     """, unsafe_allow_html=True)
     
-    # 2. Tarjeta gris de edición
+    # 2. Tarjeta gris de edición con texto centrado
     nuevo_texto = st.text_area(
         label=f"edit_{seccion}_{indice}",
         value=texto_actual,
         label_visibility="collapsed",
         key=f"area_{seccion}_{indice}",
-        height=85
+        height=90
     )
     
     if nuevo_texto != texto_actual:
@@ -154,7 +154,7 @@ def mostrar_seccion(nombre):
                 with cols[i]:
                     render_objective_card(nombre, i, item)
         else:
-            st.caption("Sección vacía. Traiga los datos desde el panel lateral.")
+            st.caption("Sección vacía.")
 
 # --- CONSTRUCCIÓN ---
 st.divider()
