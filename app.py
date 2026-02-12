@@ -9,31 +9,37 @@ inicializar_session()
 # --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     
-    # ESTILOS CSS REFORZADOS
+    # ESTILOS CSS REFORZADOS PARA CORREGIR DESPROPORCIÓN Y ALINEACIÓN
     st.markdown("""
         <style>
         .titulo-acceso { font-size: 45px !important; font-weight: 800 !important; color: #4F8BFF; text-align: center; margin-bottom: 20px; }
         .label-grande { font-size: 32px !important; font-weight: bold; color: #1E3A8A; margin-top: 20px; margin-bottom: 5px; }
         
-        /* 1. TEXTO CENTRADO Y GRANDE EN LOS CUADROS */
+        /* 1. TEXTO PERFECTAMENTE CENTRADO EN LOS CUADROS */
         input { 
-            font-size: 32px !important; 
-            height: 80px !important; 
-            text-align: center !important; /* <--- ESTO CENTRA EL TEXTO QUE DIGITAN */
+            font-size: 35px !important; 
+            height: 85px !important; 
+            text-align: center !important; /* Centrado horizontal */
+            line-height: 85px !important;  /* Centrado vertical forzado */
+            padding: 0px !important;       /* Elimina márgenes internos que desalinean */
         }
         
-        /* 2. BOTÓN CON TEXTO GIGANTE E IMPACTANTE */
+        /* 2. TEXTO DEL BOTÓN PROPORCIONAL Y GIGANTE */
         div.stButton > button { 
-            font-size: 42px !important; /* <--- TEXTO MUCHO MÁS GRANDE */
-            height: 2.5em !important; 
-            font-weight: 900 !important; 
-            margin-top: 30px; 
+            height: 120px !important;      /* Botón robusto */
             background-color: #4F8BFF !important; 
-            color: white !important;
             border-radius: 20px !important;
+            border: none !important;
         }
 
-        /* 3. MENSAJE DE ERROR MÁS CLARO */
+        /* Selector específico para el texto dentro del botón */
+        div.stButton > button p {
+            font-size: 45px !important;    /* Texto proporcional al botón */
+            font-weight: 900 !important;
+            color: white !important;
+        }
+
+        /* 3. MENSAJE DE ERROR */
         .stAlert p { font-size: 22px !important; font-weight: bold; }
         </style>
     """, unsafe_allow_html=True)
@@ -41,7 +47,6 @@ if not st.session_state['autenticado']:
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        # Validación del logo JC Flow
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True)
         else:
@@ -50,13 +55,13 @@ if not st.session_state['autenticado']:
         st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
         
         with st.container(border=True):
-            # Campos con etiquetas manuales gigantes
             st.markdown('<p class="label-grande">USUARIO (GRUPO)</p>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed")
             
             st.markdown('<p class="label-grande">CONTRASEÑA</p>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
+            # Botón con la nueva escala de fuente
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
@@ -72,5 +77,38 @@ if not st.session_state['autenticado']:
                     st.error("Error de conexión. Revisa tus Secrets de Supabase.")
     st.stop()
 
-# --- CONTINUACIÓN DEL CÓDIGO (SideBar y Navegación) ---
-# ... (Mantiene tu lógica de integrantes y páginas del Paso 1 al 8)
+# --- CONTINUACIÓN DEL CÓDIGO (Sidebar y Navegación) ---
+with st.sidebar:
+    st.header(f"👷 {st.session_state['usuario_id']}")
+    integrantes = st.session_state.get('integrantes', [])
+    if integrantes:
+        for persona in integrantes:
+            nombre_full = persona.get("Nombre Completo", "").strip()
+            if nombre_full:
+                nombre_pila = nombre_full.split()[0].upper()
+                st.markdown(f"**👤 {nombre_pila}**")
+    st.divider()
+    if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
+        guardar_datos_nube()
+        st.toast("✅ ¡Avance guardado!", icon="🚀")
+    st.divider()
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
+        st.session_state['autenticado'] = False
+        st.rerun()
+
+pg = st.navigation({
+    "Configuración": [st.Page("views/0_equipo.py", title="Equipo", icon="👥")],
+    "Fase I: Identificación": [
+        st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
+        st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
+        st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
+    ],
+    "Fase II: Análisis": [
+        st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
+        st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
+        st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
+        st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
+        st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
+    ]
+})
+pg.run()
