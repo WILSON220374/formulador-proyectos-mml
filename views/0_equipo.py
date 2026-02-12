@@ -42,43 +42,17 @@ with col2:
 
 st.divider()
 
-# --- BLOQUE 1: EDITOR (LA TABLA TÉCNICA) ---
-st.subheader("📝 Editor de Datos (Uso Técnico)")
-integrantes_actuales = st.session_state.get('integrantes', [])
-df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
-
-edited_df = st.data_editor(
-    df_equipo,
-    num_rows="dynamic",
-    use_container_width=True,
-    key="editor_visual_final",
-    column_config={
-        "Nombre Completo": st.column_config.TextColumn(width="large"),
-        "Teléfono": st.column_config.TextColumn(width="medium"),
-        "Correo Electrónico": st.column_config.TextColumn(width="large")
-    }
-)
-
-if st.button("💾 GUARDAR Y ACTUALIZAR FICHAS", type="primary", use_container_width=True):
-    st.session_state['integrantes'] = edited_df.to_dict('records')
-    guardar_datos_nube()
-    st.rerun()
-
-st.divider()
-
-# --- BLOQUE 2: FICHAS VISUALES (LO QUE SE VE GRANDE) ---
+# --- BLOQUE 1: FICHAS VISUALES (MUESTRA LOS DATOS GRANDES) ---
 if st.session_state['integrantes']:
-    st.subheader("👥 Integrantes Registrados")
-    
-    # Creamos columnas para que las fichas no ocupen todo el largo si son muchos
+    # Solo mostramos las fichas si hay gente registrada
     cols = st.columns(2) 
     for idx, persona in enumerate(st.session_state['integrantes']):
-        with cols[idx % 2]: # Distribuye entre columna izquierda y derecha
-            nombre = persona.get("Nombre Completo", "Sin Nombre").upper()
+        with cols[idx % 2]: 
+            nombre = persona.get("Nombre Completo", "").upper()
             tel = persona.get("Teléfono", "N/A")
             email = persona.get("Correo Electrónico", "N/A")
             
-            if len(nombre) > 2: # Solo muestra si hay datos reales
+            if len(nombre) > 2: 
                 st.markdown(f"""
                     <div class="ficha-equipo">
                         <div class="nombre-gigante">👤 {nombre}</div>
@@ -87,4 +61,30 @@ if st.session_state['integrantes']:
                     </div>
                 """, unsafe_allow_html=True)
 else:
-    st.info("Aún no hay integrantes registrados. Use la tabla de arriba para empezar.")
+    st.info("No hay integrantes registrados. Use el panel de edición inferior para empezar.")
+
+st.divider()
+
+# --- BLOQUE 2: EDITOR OCULTO (SOLO PARA CAMBIOS) ---
+with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
+    st.write("Diligencie la tabla para actualizar las fichas visuales.")
+    
+    integrantes_actuales = st.session_state.get('integrantes', [])
+    df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
+
+    edited_df = st.data_editor(
+        df_equipo,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_oculto",
+        column_config={
+            "Nombre Completo": st.column_config.TextColumn(width="large"),
+            "Teléfono": st.column_config.TextColumn(width="medium"),
+            "Correo Electrónico": st.column_config.TextColumn(width="large")
+        }
+    )
+
+    if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
+        st.session_state['integrantes'] = edited_df.to_dict('records')
+        guardar_datos_nube()
+        st.rerun() # Para actualizar las fichas y el sidebar
