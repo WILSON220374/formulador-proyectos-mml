@@ -9,7 +9,7 @@ from session_state import inicializar_session
 inicializar_session()
 
 st.title("🎯 Árbol de Objetivos Final")
-st.info("Este diagrama muestra la cadena de valor completa: desde las actividades seleccionadas hasta los fines que estas impactan.")
+st.info("Este diagrama muestra la cadena de valor definitiva del proyecto.")
 
 # --- 1. DETERMINACIÓN DE LA RUTA TÉCNICA GANADORA ---
 alts = st.session_state.get('lista_alternativas', [])
@@ -29,26 +29,42 @@ else:
     alt_ganadora = alts[totales.index(max(totales))]
     st.success(f"🏆 **Alternativa Seleccionada:** {alt_ganadora['nombre'].upper()}")
 
-    # --- 2. LÓGICA DE FILTRADO JERÁRQUICO (ASCENDENTE Y DESCENDENTE) ---
+    # --- 2. LÓGICA DE FILTRADO JERÁRQUICO (RESISTENTE A ERRORES) ---
     base = st.session_state['arbol_objetivos']
     
     # A. MEDIOS: Lo que el formulador seleccionó explícitamente
     objs_sel_txt = [c['objetivo'] for c in alt_ganadora['configuracion']]
     acts_sel_txt = []
-    for c in alt_ganadora['configuracion']: acts_sel_txt.extend(c['actividades'])
+    for c in alt_ganadora['configuracion']: 
+        acts_sel_txt.extend(c['actividades'])
 
-    # B. FINES: Filtrado por relación jerárquica
-    # Solo quedan los Fines Directos cuyo padre sea el Objetivo General O uno de los objetivos seleccionados
-    fines_d_final = [f for f in base.get("Fines Directos", []) 
-                     if (f.get("padre") == base.get("Objetivo General", [""])[0] or f.get("padre") in objs_sel_txt)]
+    # Obtener el texto del Objetivo General para comparaciones
+    obj_gen_lista = base.get("Objetivo General", [])
+    obj_gen_txt = obj_gen_lista[0] if obj_gen_lista else ""
+
+    # B. FINES DIRECTOS: Filtrado seguro
+    fines_d_final = []
+    for f in base.get("Fines Directos", []):
+        if isinstance(f, dict):
+            padre = f.get("padre")
+            if padre == obj_gen_txt or padre in objs_sel_txt:
+                fines_d_final.append(f)
+        else:
+            # Si es un texto simple, no tiene padre asignado. 
+            # Lo incluimos por defecto para no perder información si no hay vínculos.
+            fines_d_final.append(f)
     
     fines_d_txt = [f['texto'] if isinstance(f, dict) else f for f in fines_d_final]
     
-    # Solo quedan los Fines Indirectos cuyos padres sean Fines Directos que sobrevivieron
-    fines_i_final = [f for f in base.get("Fines Indirectos", []) 
-                     if (f['padre'] if isinstance(f, dict) else "") in fines_d_txt]
-    
-    fines_i_txt = [f['texto'] if isinstance(f, dict) else f for f in fines_i_final]
+    # C. FINES INDIRECTOS: Filtrado seguro
+    fines_i_final = []
+    for f in base.get("Fines Indirectos", []):
+        if isinstance(f, dict):
+            padre = f.get("padre")
+            if padre in fines_d_txt:
+                fines_i_final.append(f)
+        else:
+            fines_i_final.append(f)
 
     # Reconstrucción del diccionario para el gráfico
     arbol_final = {
@@ -82,7 +98,9 @@ else:
                 txt = it["texto"] if isinstance(it, dict) else it
                 ax.add_patch(plt.Rectangle((x-1.1, y-0.4), 2.2, 0.7, facecolor=c["color"], edgecolor='#333', lw=1.5))
                 ax.text(x, y, "\n".join(textwrap.wrap(txt, width=25)), ha='center', va='center', fontsize=9, fontweight='bold')
-        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+        plt.close(fig)
         return buf.getvalue()
 
     st.image(dibujar_final(), use_container_width=True)
