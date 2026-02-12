@@ -6,24 +6,30 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS CSS PARA AMPLIAR EL INTERIOR DE LA TABLA ---
+# --- ESTILOS CSS REFORZADOS PARA EL INTERIOR DE LA TABLA ---
 st.markdown("""
     <style>
-    /* 1. Aumenta la fuente de TODO el contenido dentro del editor de datos */
-    [data-testid="stDataEditor"] div {
-        font-size: 48px !important;
+    /* 1. Aumenta la fuente de las celdas y el texto base del editor */
+    div[data-testid="stDataEditor"] {
+        font-size: 30px !important; /* Ajusta este valor según prefieras */
     }
 
-    /* 2. Aumenta la fuente específicamente cuando se está escribiendo en la celda */
-    [data-testid="stDataEditor"] input {
-        font-size: 48px !important;
+    /* 2. Aumenta la fuente específicamente en las filas de datos */
+    div[data-testid="stDataEditor"] div[role="gridcell"] {
+        font-size: 30px !important;
     }
 
-    /* 3. Estilos de títulos y logo JC Flow */
+    /* 3. Aumenta la fuente del campo de texto cuando estás escribiendo */
+    div[data-testid="stDataEditor"] input {
+        font-size: 30px !important;
+        font-weight: bold !important;
+    }
+
+    /* 4. Estilos de títulos y logo JC Flow (Manteniendo proporciones) */
     h2 { font-size: 42px !important; font-weight: 700 !important; }
     .stInfo { font-size: 24px !important; }
     
-    /* 4. Estilo del botón de guardado destacado */
+    /* 5. Estilo del botón de guardado */
     .stButton button {
         font-size: 26px !important;
         height: 3em !important;
@@ -37,7 +43,6 @@ st.markdown("""
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
-    # Verificación del archivo de logo
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
@@ -48,16 +53,16 @@ with col2:
 
 st.divider()
 
-# --- SECCIÓN DE TABLA DE DATOS (Interior del Registro) ---
+# --- SECCIÓN DE TABLA DE DATOS ---
 integrantes_actuales = st.session_state.get('integrantes', [])
 df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
 
-# Editor de datos configurado para el tamaño de letra grande
+# Editor de datos con configuración de columnas
 edited_df = st.data_editor(
     df_equipo,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor_equipo_v5",
+    key="editor_equipo_vFinal",
     column_config={
         "Nombre Completo": st.column_config.TextColumn(width="large"),
         "Teléfono": st.column_config.TextColumn(width="medium"),
@@ -67,9 +72,9 @@ edited_df = st.data_editor(
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Sincronización con la nube al guardar
+# Sincronización con la nube
 if st.button("💾 GUARDAR INFORMACIÓN DEL EQUIPO", type="primary", use_container_width=True):
     st.session_state['integrantes'] = edited_df.to_dict('records')
     guardar_datos_nube()
-    st.toast("✅ ¡Información sincronizada con éxito!", icon="👥")
-    st.rerun() # Actualiza el sidebar con los nombres de pila
+    st.toast("✅ ¡Información sincronizada!", icon="👥")
+    st.rerun()
