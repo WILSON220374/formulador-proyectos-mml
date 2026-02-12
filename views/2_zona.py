@@ -1,31 +1,21 @@
 import streamlit as st
+import os # <--- Importante para verificar la existencia del logo
 from session_state import inicializar_session, guardar_datos_nube
 
-# Asegurar persistencia y memoria
+# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO MAESTRO UNIFICADO (CORREGIDO PARA EVITAR SUPERPOSICIÓN) ---
+# --- ESTILO MAESTRO UNIFICADO ---
 st.markdown("""
     <style>
-    /* 1. Tipografía y color general - Sin afectar clases internas 'st-' */
     html, body, .stApp {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
-    
-    /* 2. Botón de Guardar (Primario): Texto blanco siempre visible */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
     }
-    
-    /* 3. Botón Cerrar Sesión (Sidebar): Negro y sin negrilla */
-    [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
-        color: black !important;
-        font-weight: normal !important;
-        font-size: 1rem;
-    }
-    
     .stButton button {
         border-color: rgba(49, 51, 63, 0.2) !important;
         border-radius: 6px;
@@ -33,11 +23,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.header("2. Caracterización de la Zona de Estudio")
+# --- ENCABEZADO CON LOGO (MISMA LÓGICA QUE HOJA 1) ---
+col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 
-# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA OPTIMIZADA ---
+with col_titulo:
+    st.title("🗺️ 2. Zona de Estudio") # Título en formato grande
+
+with col_logo:
+    # Ubicación en la parte superior derecha con alta resolución
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
+
+# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
 def calcular_altura(texto, min_h=100, en_columna=False):
-    """Calcula la altura dinámica según el contenido y el ancho del contenedor."""
     if not texto: return min_h
     divisor = 40 if en_columna else 85
     lineas = str(texto).count('\n') + (len(str(texto)) // divisor)
@@ -61,7 +59,6 @@ progreso = campos_llenos / campos_totales
 st.progress(progreso, text=f"Progreso de la Fase: {int(progreso * 100)}%")
 
 # --- SECCIONES DE CAPTURA ---
-
 with st.container(border=True):
     st.subheader("👥 Población Afectada")
     col1, col2, col3 = st.columns(3)
@@ -84,7 +81,6 @@ with st.container(border=True):
     col_a, col_b = st.columns(2)
     with col_a:
         txt_eco = datos.get('economia', "")
-        # Ajustado para que el texto de Sogamoso se vea completo en la columna
         economia = st.text_area("Principal Actividad Económica", value=txt_eco, height=calcular_altura(txt_eco, en_columna=True))
     with col_b:
         txt_vias = datos.get('vias', "")
