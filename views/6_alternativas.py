@@ -3,19 +3,16 @@ import pandas as pd
 import itertools
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Carga de datos y persistencia
 inicializar_session()
 
 st.title("⚖️ 6. Análisis de Alternativas")
 
-# --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. SELECCIÓN DE ACTIVIDADES A ATENDER ---
+# --- 1. SELECCIÓN DE ACTIVIDADES ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# Lógica Dinámica: Inicializamos solo si la tabla está realmente vacía
 if st.session_state['df_evaluacion_alternativas'].empty:
     datos_nuevos = []
     for obj in obj_especificos:
@@ -24,24 +21,21 @@ if st.session_state['df_evaluacion_alternativas'].empty:
         for a_txt in hijas:
             datos_nuevos.append({"OBJETIVO": o_txt, "ACTIVIDAD": a_txt, "ENFOQUE": "NO", "ALCANCE": "NO"})
     st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(datos_nuevos)
-    guardar_datos_nube()
 
 df_master = st.session_state['df_evaluacion_alternativas']
 
 for index, row in df_master.iterrows():
     with st.container(border=True):
-        # SOLUCIÓN AL TYPEERROR: Convertimos el index a entero
+        # Convertimos index a int para evitar el TypeError al recargar
         st.markdown(f"**📍 COMBINACIÓN {int(index) + 1}**")
         st.write(f"**Objetivo:** {row['OBJETIVO']}")
         st.write(f"**Actividad:** {row['ACTIVIDAD']}")
         
         c1, c2, c3 = st.columns([1, 1, 1])
         with c1:
-            nuevo_enf = st.selectbox("¿Enfoque?", ["SI", "NO"], 
-                                     index=0 if row["ENFOQUE"]=="SI" else 1, key=f"e_{index}")
+            nuevo_enf = st.selectbox("¿Enfoque?", ["SI", "NO"], index=0 if row["ENFOQUE"]=="SI" else 1, key=f"e_{index}")
         with c2:
-            nuevo_alc = st.selectbox("¿Alcance?", ["SI", "NO"], 
-                                     index=0 if row["ALCANCE"]=="SI" else 1, key=f"a_{index}")
+            nuevo_alc = st.selectbox("¿Alcance?", ["SI", "NO"], index=0 if row["ALCANCE"]=="SI" else 1, key=f"a_{index}")
         with c3:
             if nuevo_enf == "SI" and nuevo_alc == "SI": st.success("✅ SELECCIONADO")
             else: st.error("❌ DESCARTADO")
@@ -53,8 +47,8 @@ for index, row in df_master.iterrows():
 
 st.divider()
 
-# --- 2. ANÁLISIS DE RELACIONES (SINCRONIZACIÓN DINÁMICA) ---
-st.subheader("🔄 2. Análisis de Relaciones entre Objetivos")
+# --- 2. RELACIONES ENTRE OBJETIVOS ---
+st.subheader("🔄 2. Análisis de Relaciones")
 
 aprobadas = st.session_state['df_evaluacion_alternativas'][
     (st.session_state['df_evaluacion_alternativas']["ENFOQUE"] == "SI") & 
@@ -86,24 +80,27 @@ if len(objetivos_seleccionados) >= 2:
             "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
             "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN", options=["Por definir", "Complementario", "Excluyente"])
         },
-        hide_index=True, use_container_width=True, key="tabla_rel_final_v4"
+        hide_index=True, use_container_width=True, key="tabla_rel_final_v5"
     )
 
     if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
         st.session_state['df_relaciones_objetivos'] = df_rel_editado
         guardar_datos_nube(); st.rerun()
-else:
-    st.info("Seleccione actividades de al menos dos objetivos diferentes.")
 
 st.divider()
 
-# --- 3. CONSTRUCTOR DE PAQUETES ---
+# --- 3. CONSTRUCTOR DE PAQUETES (SIN TRUNCAMIENTO) ---
 st.subheader("📦 3. Constructor de Alternativas")
 
 if objetivos_seleccionados:
     with st.container(border=True):
         nombre_alt = st.text_input("🚀 Nombre de la Alternativa:")
+        
+        # Selección de Objetivos: Mostramos los nombres completos abajo para evitar el truncamiento del multiselect
         objs_en_paquete = st.multiselect("1. Seleccione los Objetivos:", options=objetivos_seleccionados)
+        if objs_en_paquete:
+            st.write("**Objetivos incluidos en este paquete:**")
+            for o in objs_en_paquete: st.markdown(f"- {o}")
 
         conflicto = False
         if len(objs_en_paquete) > 1:
@@ -113,23 +110,30 @@ if objetivos_seleccionados:
                     ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
                 ]
                 if not rel.empty:
-                    res_rel = rel.iloc[0]["RELACIÓN"]
-                    if res_rel == "Excluyente":
+                    if rel.iloc[0]["RELACIÓN"] == "Excluyente":
                         st.error(f"❌ Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."); conflicto = True
-                    elif res_rel == "Por definir":
-                        st.warning(f"⚠️ Defina la relación entre '{o_a}' y '{o_b}'."); conflicto = True
 
         config_final = []
         if objs_en_paquete and not conflicto:
+            st.info("2. Marque las actividades específicas que incluirá (El texto se ajusta automáticamente):")
             for obj_p in objs_en_paquete:
-                with st.expander(f"📌 Actividades: {obj_p}", expanded=True):
+                # Usamos un expander con nombre corto y el texto completo ADENTRO
+                with st.expander(f"📌 Configurar Actividades", expanded=True):
+                    st.markdown(f"**Objetivo:** {obj_p}")
                     acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
-                    sel = st.multiselect("Marque actividades:", options=acts_aprob, default=acts_aprob, key=f"m_{obj_p}")
-                    if sel: config_final.append({"objetivo": obj_p, "actividades": sel})
+                    
+                    # CAMBIO CLAVE: Usamos Checkboxes para evitar que el texto de la actividad se corte
+                    sel_del_obj = []
+                    for act in acts_aprob:
+                        if st.checkbox(act, value=True, key=f"chk_{obj_p}_{act}"):
+                            sel_del_obj.append(act)
+                    
+                    if sel_del_obj:
+                        config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
 
         if st.button("🚀 Consolidar Alternativa", type="primary", disabled=conflicto or not config_final):
             if nombre_alt:
-                st.session_state['lista_alternativas'].append({"nombre": nombre_alt, "configuracion": config_final, "justificacion": ""})
+                st.session_state['lista_alternativas'].append({"nombre": nombre_alt, "configuracion": config_final})
                 guardar_datos_nube(); st.rerun()
 
 # --- 4. VISUALIZACIÓN ---
