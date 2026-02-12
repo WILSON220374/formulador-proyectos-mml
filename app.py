@@ -9,44 +9,51 @@ inicializar_session()
 # --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     
-    # ESTILOS CSS REFORZADOS PARA CORREGIR DESPROPORCIÓN Y ALINEACIÓN
+    # CSS BALANCEADO: Ni muy grande, ni desalineado
     st.markdown("""
         <style>
-        .titulo-acceso { font-size: 45px !important; font-weight: 800 !important; color: #4F8BFF; text-align: center; margin-bottom: 20px; }
-        .label-grande { font-size: 32px !important; font-weight: bold; color: #1E3A8A; margin-top: 20px; margin-bottom: 5px; }
-        
-        /* 1. TEXTO PERFECTAMENTE CENTRADO EN LOS CUADROS */
-        input { 
-            font-size: 35px !important; 
-            height: 85px !important; 
-            text-align: center !important; /* Centrado horizontal */
-            line-height: 85px !important;  /* Centrado vertical forzado */
-            padding: 0px !important;       /* Elimina márgenes internos que desalinean */
+        /* Título Principal */
+        .titulo-acceso {
+            font-size: 36px !important;
+            font-weight: 800 !important;
+            color: #4F8BFF;
+            text-align: center;
+            margin-bottom: 25px;
         }
         
-        /* 2. TEXTO DEL BOTÓN PROPORCIONAL Y GIGANTE */
-        div.stButton > button { 
-            height: 120px !important;      /* Botón robusto */
-            background-color: #4F8BFF !important; 
-            border-radius: 20px !important;
-            border: none !important;
+        /* Etiquetas de Usuario y Contraseña */
+        .label-mediana {
+            font-size: 20px !important;
+            font-weight: bold;
+            color: #1E3A8A;
+            margin-bottom: -15px; /* Reduce espacio con el cuadro */
+            margin-left: 5px;      /* Alinea con el inicio del cuadro */
         }
-
-        /* Selector específico para el texto dentro del botón */
-        div.stButton > button p {
-            font-size: 45px !important;    /* Texto proporcional al botón */
-            font-weight: 900 !important;
-            color: white !important;
+        
+        /* Cuadros de entrada de texto */
+        input {
+            font-size: 20px !important;
+            height: 55px !important;
+            text-align: center !important;
+            border-radius: 10px !important;
         }
-
-        /* 3. MENSAJE DE ERROR */
-        .stAlert p { font-size: 22px !important; font-weight: bold; }
+        
+        /* Botón de Ingreso (Tamaño Proporcional) */
+        div.stButton > button {
+            font-size: 24px !important;
+            height: 2.5em !important;
+            font-weight: bold !important;
+            background-color: #4F8BFF !important;
+            border-radius: 12px !important;
+            margin-top: 20px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 1.5, 1])
     
     with col2:
+        # Logo JC Flow
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True)
         else:
@@ -55,13 +62,14 @@ if not st.session_state['autenticado']:
         st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
         
         with st.container(border=True):
-            st.markdown('<p class="label-grande">USUARIO (GRUPO)</p>', unsafe_allow_html=True)
-            u = st.text_input("u", label_visibility="collapsed")
+            # Usuario
+            st.markdown('<p class="label-mediana">USUARIO (GRUPO)</p>', unsafe_allow_html=True)
+            u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
             
-            st.markdown('<p class="label-grande">CONTRASEÑA</p>', unsafe_allow_html=True)
+            # Contraseña
+            st.markdown('<p class="label-mediana">CONTRASEÑA</p>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
-            # Botón con la nueva escala de fuente
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
@@ -72,14 +80,15 @@ if not st.session_state['autenticado']:
                         cargar_datos_nube(u)
                         st.rerun()
                     else:
-                        st.error("Credenciales incorrectas. Verifique usuario y contraseña.")
+                        st.error("Credenciales incorrectas.")
                 except Exception as e:
-                    st.error("Error de conexión. Revisa tus Secrets de Supabase.")
+                    st.error("Error de conexión. Verifique sus Secrets.")
     st.stop()
 
-# --- CONTINUACIÓN DEL CÓDIGO (Sidebar y Navegación) ---
+# --- CONTINUACIÓN DEL SISTEMA (SideBar y Navegación) ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
+    
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
         for persona in integrantes:
@@ -87,11 +96,16 @@ with st.sidebar:
             if nombre_full:
                 nombre_pila = nombre_full.split()[0].upper()
                 st.markdown(f"**👤 {nombre_pila}**")
+            
     st.divider()
+    
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
-        guardar_datos_nube()
-        st.toast("✅ ¡Avance guardado!", icon="🚀")
+        with st.spinner("Sincronizando..."):
+            guardar_datos_nube()
+            st.toast("✅ ¡Avance guardado!", icon="🚀")
+    
     st.divider()
+    
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
         st.rerun()
@@ -111,4 +125,5 @@ pg = st.navigation({
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ]
 })
+
 pg.run()
