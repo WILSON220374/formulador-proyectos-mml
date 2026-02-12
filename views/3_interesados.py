@@ -1,11 +1,21 @@
 import streamlit as st
 import pandas as pd
+import os # <--- Necesario para verificar el logo
 from session_state import inicializar_session, guardar_datos_nube
 
 # Inicialización de seguridad
 inicializar_session()
 
-st.title("👥 3. Análisis de Interesados")
+# --- ENCABEZADO CON LOGO (AJUSTE SEGÚN IMAGEN) ---
+col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
+
+with col_titulo:
+    st.title("👥 3. Análisis de Interesados")
+
+with col_logo:
+    # Ubicación en la parte superior derecha (Zona Amarilla)
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
 
 # --- CONTEXTO ---
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
@@ -74,7 +84,6 @@ if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     def obtener_lista(p, i):
         filtro = df_editado[(df_editado['PODER'] == p) & (df_editado['INTERÉS'] == i) & (df_editado['NOMBRE'].notna())]
-        # Incluimos el GRUPO para mayor detalle visual
         return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}** ({r['GRUPO']})" for _, r in filtro.iterrows()] or ["*Sin actores*"]
 
     c1, c2 = st.columns(2)
@@ -93,7 +102,6 @@ if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
             st.info("📧 **MANTENER INFORMADOS**")
             for i in obtener_lista("Bajo", "Alto"): st.markdown(i)
     
-    # RESTAURACIÓN DE LA LEYENDA
     st.caption("📌 **Leyenda de Actitud:** 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
 else:
     st.warning("Complete la tabla para visualizar el mapa.")
@@ -103,15 +111,3 @@ st.markdown(LINEA_GRUESA, unsafe_allow_html=True)
 
 # --- 3. ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
-txt_concl = st.session_state.get('analisis_participantes', "")
-analisis = st.text_area(
-    "Conclusiones del análisis:", 
-    value=txt_concl, 
-    height=calcular_altura_texto(txt_concl), 
-    key="area_concl_FINAL"
-)
-
-if analisis != txt_concl:
-    st.session_state['analisis_participantes'] = analisis
-    guardar_datos_nube()
-    st.rerun()
