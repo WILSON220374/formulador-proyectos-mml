@@ -35,7 +35,6 @@ if 'arbol_tarjetas' not in st.session_state:
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
-# Ajuste de coordenadas Y para dar espacio al apilamiento vertical
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 6},
     "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 4.5},
@@ -66,30 +65,37 @@ with st.sidebar:
 
     st.divider()
     
-    # --- FUNCIÓN DE GENERACIÓN DE PNG (APILAMIENTO VERTICAL FIEL) ---
+    # --- GENERACIÓN DE PNG CON AJUSTE DINÁMICO ---
     def generar_png():
-        fig, ax = plt.subplots(figsize=(18, 14))
-        ax.set_xlim(0, 10); ax.set_ylim(-2, 10); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(20, 16)) 
+        ax.set_xlim(0, 10); ax.set_ylim(-3, 10); ax.axis('off')
         
-        # 1. Título principal
         ax.text(5, 9.5, "ÁRBOL DE PROBLEMAS", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_tarjetas']
         
         def dibujar_caja(x, y, texto, color):
-            txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
-            rect_w, rect_h = 2.0, 0.8
+            # Envoltura inteligente para evitar bordes laterales
+            lineas = textwrap.wrap(texto, width=18)
+            txt_ajustado = "\n".join(lineas)
+            n_lineas = len(lineas)
+            
+            # ALTURA DINÁMICA: La caja crece con el texto
+            rect_h = max(0.85, 0.4 + (n_lineas * 0.22))
+            rect_w = 2.2
+            
+            # ESCALADO DE FUENTE: Si el texto es muy largo, lo achicamos un poco
+            f_size = 9 if n_lineas <= 4 else 8
+            
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
                                  facecolor=color, edgecolor='#333', lw=1.2, zorder=3)
             ax.add_patch(rect)
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, 
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=f_size, 
                     fontweight='bold', zorder=4, color='#31333F')
 
-        # 2. Dibujar Problema Principal
         if datos["Problema Principal"]:
             dibujar_caja(5, CONFIG["Problema Principal"]["y"], datos["Problema Principal"][0], CONFIG["Problema Principal"]["color"])
 
-        # 3. Dibujar Ramas con Apilamiento Vertical (Copia Fiel de Pantalla)
         for principal in ["Efectos Directos", "Causas Directas"]:
             items = datos[principal]
             if items:
@@ -99,15 +105,14 @@ with st.sidebar:
                     y_p = CONFIG[principal]["y"]
                     dibujar_caja(x_p, y_p, p_txt, CONFIG[principal]["color"])
                     
-                    # Identificar sección hija y apilar verticalmente
                     sec_hija = "Efectos Indirectos" if principal == "Efectos Directos" else "Causas Indirectas"
                     hijos = [h for h in datos[sec_hija] if isinstance(h, dict) and h.get("padre") == p_txt]
                     
                     if hijos:
-                        # Los hijos se apilan hacia arriba (efectos) o hacia abajo (causas)
                         direccion = 1 if principal == "Efectos Directos" else -1
+                        # Aumentamos la separación vertical para evitar colisiones entre cajas altas
                         for j, h_data in enumerate(hijos):
-                            h_y = y_p + (direccion * (j + 1) * 0.9)
+                            h_y = y_p + (direccion * (j + 1) * 1.2)
                             dibujar_caja(x_p, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
 
         buf = io.BytesIO()
