@@ -9,43 +9,44 @@ inicializar_session()
 # --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     
-    # CSS BALANCEADO: Ni muy grande, ni desalineado
+    # CSS AJUSTADO: Subimos la posición de las etiquetas
     st.markdown("""
         <style>
-        /* Título Principal */
         .titulo-acceso {
-            font-size: 36px !important;
+            font-size: 38px !important;
             font-weight: 800 !important;
             color: #4F8BFF;
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
-        /* Etiquetas de Usuario y Contraseña */
+        /* AJUSTE DE POSICIÓN DE ETIQUETAS */
         .label-mediana {
-            font-size: 20px !important;
+            font-size: 22px !important;
             font-weight: bold;
             color: #1E3A8A;
-            margin-bottom: -15px; /* Reduce espacio con el cuadro */
-            margin-left: 5px;      /* Alinea con el inicio del cuadro */
+            margin-bottom: 8px !important;  /* Crea espacio sobre el recuadro */
+            margin-top: 15px !important;   /* Separa de la sección anterior */
+            margin-left: 5px;
+            display: block;
         }
         
-        /* Cuadros de entrada de texto */
+        /* Centrado de texto ingresado */
         input {
-            font-size: 20px !important;
-            height: 55px !important;
+            font-size: 22px !important;
+            height: 60px !important;
             text-align: center !important;
-            border-radius: 10px !important;
+            border-radius: 12px !important;
         }
         
-        /* Botón de Ingreso (Tamaño Proporcional) */
+        /* Botón Proporcional */
         div.stButton > button {
-            font-size: 24px !important;
-            height: 2.5em !important;
+            font-size: 26px !important;
+            height: 2.8em !important;
             font-weight: bold !important;
             background-color: #4F8BFF !important;
-            border-radius: 12px !important;
-            margin-top: 20px;
+            border-radius: 15px !important;
+            margin-top: 25px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -62,12 +63,12 @@ if not st.session_state['autenticado']:
         st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
         
         with st.container(border=True):
-            # Usuario
-            st.markdown('<p class="label-mediana">USUARIO (GRUPO)</p>', unsafe_allow_html=True)
+            # Usuario con posición elevada
+            st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
             
-            # Contraseña
-            st.markdown('<p class="label-mediana">CONTRASEÑA</p>', unsafe_allow_html=True)
+            # Contraseña con posición elevada
+            st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
@@ -82,13 +83,12 @@ if not st.session_state['autenticado']:
                     else:
                         st.error("Credenciales incorrectas.")
                 except Exception as e:
-                    st.error("Error de conexión. Verifique sus Secrets.")
+                    st.error("Error de conexión.")
     st.stop()
 
-# --- CONTINUACIÓN DEL SISTEMA (SideBar y Navegación) ---
+# --- SIDEBAR Y NAVEGACIÓN ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
-    
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
         for persona in integrantes:
@@ -96,16 +96,11 @@ with st.sidebar:
             if nombre_full:
                 nombre_pila = nombre_full.split()[0].upper()
                 st.markdown(f"**👤 {nombre_pila}**")
-            
     st.divider()
-    
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
-        with st.spinner("Sincronizando..."):
-            guardar_datos_nube()
-            st.toast("✅ ¡Avance guardado!", icon="🚀")
-    
+        guardar_datos_nube()
+        st.toast("✅ Avance guardado", icon="🚀")
     st.divider()
-    
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
         st.rerun()
@@ -125,5 +120,4 @@ pg = st.navigation({
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ]
 })
-
 pg.run()
