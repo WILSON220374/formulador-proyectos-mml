@@ -16,7 +16,7 @@ st.markdown("""
 
     /* 2. Aumenta la fuente específicamente cuando se está escribiendo en la celda */
     [data-testid="stDataEditor"] input {
-        font-size: 24px !important;
+        font-size: 48px !important;
     }
 
     /* 3. Estilos de títulos y logo JC Flow */
