@@ -9,6 +9,10 @@ def inicializar_session():
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     
+    # --- DATOS DEL EQUIPO ---
+    if 'integrantes' not in st.session_state:
+        st.session_state['integrantes'] = []
+    
     # --- FASE I: IDENTIFICACIÓN (Páginas 1 y 2) ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
@@ -51,6 +55,9 @@ def cargar_datos_nube(user_id):
         res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
         if res.data and res.data[0]['datos']:
             d = res.data[0]['datos']
+            # Carga de datos del equipo
+            st.session_state['integrantes'] = d.get('integrantes', [])
+            
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['datos_zona'] = d.get('zona', {})
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
@@ -58,8 +65,6 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-            
-            # Carga de versiones finales podadas
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             
@@ -74,6 +79,7 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
         paquete = {
+            "integrantes": st.session_state['integrantes'], # Guardar equipo
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['datos_zona'],
             "interesados": st.session_state['df_interesados'].to_dict(),
@@ -85,7 +91,6 @@ def guardar_datos_nube():
             "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
             "pesos_eval": st.session_state['ponderacion_criterios'],
             "calificaciones": st.session_state['df_calificaciones'].to_dict(),
-            # Empaque de árboles podados para la nube
             "arbol_f": st.session_state['arbol_objetivos_final'],
             "arbol_p_f": st.session_state['arbol_problemas_final']
         }
