@@ -3,32 +3,44 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 import copy
+import os # <--- Necesario para el logo
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Carga de datos persistentes
 inicializar_session()
 
-# --- ESTILO DE TARJETAS (Consistente con la interfaz) ---
+# --- ESTILO DE TARJETAS ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
         background-color: #f8f9fb !important;
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 12px !important;
+        font-size: 13px !important;
         font-weight: 500 !important;
+        padding-top: 10px !important;
     }
-    .stButton button:not([kind="primary"]) {
+    /* Estilo para que la papelera se vea limpia */
+    .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
-        padding: 0 !important;
         font-weight: bold !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎯 7. Árbol de Objetivos Final")
+# --- 1 y 2. ENCABEZADO CON LOGO Y TÍTULO SOLICITADO ---
+col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
+
+with col_titulo:
+    st.title("🎯 7. Árbol de Objetivos Final") # Título corregido
+
+with col_logo:
+    # Traemos la imagen 'unnamed-1.jpg' igual que en la Hoja 1 y 4
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
+
 st.info("Podado Manual: Los cambios aquí no afectan al Árbol original de la Fase 5.")
 
 CONFIG_OBJ = {
@@ -50,56 +62,39 @@ with st.sidebar:
     st.divider()
     
     def generar_png_final():
-        # Aumentamos el lienzo para dar espacio a las pilas de actividades
         fig, ax = plt.subplots(figsize=(18, 16))
         ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
         datos = st.session_state.get('arbol_objetivos_final', {})
         
-        # 1. Mapeo de X basado en Medios Directos (Base técnica)
         m_dir = datos.get("Medios Directos", [])
         n_cols = len(m_dir) if m_dir else 1
         esp_x = 10 / (n_cols + 1)
         pos_x_medios = { (m['texto'] if isinstance(m, dict) else m): (i+1)*esp_x for i, m in enumerate(m_dir) }
         
-        # 2. Mapeo de X basado en Fines Directos
         f_dir = datos.get("Fines Directos", [])
         n_f_cols = len(f_dir) if f_dir else 1
         esp_f = 10 / (n_f_cols + 1)
         pos_x_fines = { (f['texto'] if isinstance(f, dict) else f): (i+1)*esp_f for i, f in enumerate(f_dir) }
 
-        # Niveles Y fijos
-        Y_LEVELS = {
-            "Fin Último": 10.0, "Fines Indirectos": 8.5, "Fines Directos": 7.0,
-            "Objetivo General": 5.0, "Medios Directos": 3.0, "Medios Indirectos": 1.5
-        }
-
-        stacks = {} # Registro para apilar hijos verticalmente
+        Y_LEVELS = {"Fin Último": 10.0, "Fines Indirectos": 8.5, "Fines Directos": 7.0, "Objetivo General": 5.0, "Medios Directos": 3.0, "Medios Indirectos": 1.5}
+        stacks = {}
 
         for sec, y_base in Y_LEVELS.items():
             items = datos.get(sec, [])
             for it in items:
                 txt = it["texto"] if isinstance(it, dict) else it
-                
-                # Determinación de coordenada X según jerarquía
                 if sec in ["Fin Último", "Objetivo General"]: x = 5.0
                 elif sec == "Medios Directos": x = pos_x_medios.get(txt, 5.0)
                 elif sec == "Fines Directos": x = pos_x_fines.get(txt, 5.0)
-                elif sec == "Medios Indirectos":
-                    p_txt = it.get("padre") if isinstance(it, dict) else None
-                    x = pos_x_medios.get(p_txt, 5.0)
-                elif sec == "Fines Indirectos":
-                    p_txt = it.get("padre") if isinstance(it, dict) else None
-                    x = pos_x_fines.get(p_txt, 5.0)
+                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre") if isinstance(it, dict) else None, 5.0)
+                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre") if isinstance(it, dict) else None, 5.0)
                 
-                # Lógica de apilamiento vertical (Stacking)
                 current_y = y_base
                 if sec in ["Medios Indirectos", "Fines Indirectos"]:
                     offset = stacks.get((sec, x), 0)
-                    # Medios se apilan hacia abajo, Fines hacia arriba
                     current_y = y_base - offset if sec == "Medios Indirectos" else y_base + offset
-                    stacks[(sec, x)] = offset + 1.2 # Espacio entre tarjetas apiladas
+                    stacks[(sec, x)] = offset + 1.2
 
-                # Dibujo de tarjeta con estilo
                 ax.add_patch(plt.Rectangle((x-1.15, current_y-0.45), 2.3, 0.9, facecolor=CONFIG_OBJ[sec]["color"], edgecolor='#333', lw=1.5))
                 txt_wrap = "\n".join(textwrap.wrap(txt, width=24))
                 ax.text(x, current_y, txt_wrap, ha='center', va='center', fontsize=8, fontweight='bold')
@@ -109,22 +104,29 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO Y ALINEACIÓN (LOGICA DE PANTALLA) ---
-
+# --- 3. FUNCIÓN DE RENDERIZADO CON BORRADO CORREGIDO ---
 def render_poda_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
+    
     with st.container():
-        st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
-        nuevo_texto = st.text_area(label=f"p_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", height=90, key=f"txt_{seccion}_{indice}")
-        if st.button("🗑️ Eliminar", key=f"btn_del_{seccion}_{indice}"):
+        st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
+        
+        # Área de edición de texto
+        nuevo_texto = st.text_area(label=f"p_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", height=100, key=f"txt_{seccion}_{indice}")
+        
+        # AJUSTE DE BORRADO: Usamos pop(indice) con un rerun inmediato para asegurar que el cambio se refleje
+        if st.button("🗑️", key=f"btn_del_{seccion}_{indice}"):
             st.session_state['arbol_objetivos_final'][seccion].pop(indice)
-            guardar_datos_nube(); st.rerun()
+            guardar_datos_nube()
+            st.rerun() # <--- Crucial para que no borre el de la derecha
+            
         if nuevo_texto != texto_actual:
             if isinstance(item, dict): st.session_state['arbol_objetivos_final'][seccion][indice]["texto"] = nuevo_texto
             else: st.session_state['arbol_objetivos_final'][seccion][indice] = nuevo_texto
             guardar_datos_nube()
 
+# --- FUNCIONES DE ESTRUCTURA ---
 def mostrar_seccion_simple_poda(key_interna):
     label_visual = CONFIG_OBJ[key_interna]["label"]
     col_l, col_c = st.columns([1, 4])
@@ -138,6 +140,7 @@ def mostrar_rama_jerarquica_poda(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_objetivos_final'].get(nombre_padre, [])
     hijos = st.session_state['arbol_objetivos_final'].get(nombre_hijo, [])
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
+    
     for seccion_actual, es_hijo in orden:
         label_visual = CONFIG_OBJ[seccion_actual]["label"]
         col_l, col_c = st.columns([1, 4])
@@ -149,8 +152,8 @@ def mostrar_rama_jerarquica_poda(nombre_padre, nombre_hijo, inversion=False):
                     p_txt = p_data["texto"] if isinstance(p_data, dict) else p_data
                     with cols[i]:
                         if es_hijo:
-                            h_relacionados = [(idx, h) for idx, h in enumerate(hijos) if isinstance(h, dict) and h.get("padre") == p_txt]
-                            for h_idx_orig, h_data in h_relacionados: render_poda_card(seccion_actual, h_idx_orig, h_data)
+                            h_rel = [(idx, h) for idx, h in enumerate(hijos) if isinstance(h, dict) and h.get("padre") == p_txt]
+                            for h_idx_orig, h_data in h_rel: render_poda_card(seccion_actual, h_idx_orig, h_data)
                         else: render_poda_card(seccion_actual, i, p_data)
             else: st.caption(f"Defina {nombre_padre} primero.")
 
@@ -164,7 +167,7 @@ else:
     mostrar_seccion_simple_poda("Fin Último")
     st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     mostrar_rama_jerarquica_poda("Fines Directos", "Fines Indirectos", inversion=True)
-    st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     mostrar_seccion_simple_poda("Objetivo General")
-    st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     mostrar_rama_jerarquica_poda("Medios Directos", "Medios Indirectos", inversion=False)
