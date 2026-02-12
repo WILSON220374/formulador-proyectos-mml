@@ -57,8 +57,9 @@ pg = st.navigation({
         st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
         st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
-        # NUEVA PÁGINA REGISTRADA AQUÍ
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
+        # NUEVA PÁGINA REGISTRADA CORRECTAMENTE AQUÍ
+        st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ]
 })
 
