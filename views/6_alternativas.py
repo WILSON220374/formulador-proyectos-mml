@@ -3,17 +3,19 @@ import pandas as pd
 import itertools
 from session_state import inicializar_session, guardar_datos_nube
 
+# 1. Carga de datos y persistencia
 inicializar_session()
 
 st.title("⚖️ 6. Análisis de Alternativas")
 
+# --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE ---
+# --- 1. SELECCIÓN DE ACTIVIDADES A ATENDER ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# Lógica Dinámica: Solo inicializamos si la tabla está vacía de verdad
+# Lógica Dinámica: Inicializamos solo si la tabla está realmente vacía
 if st.session_state['df_evaluacion_alternativas'].empty:
     datos_nuevos = []
     for obj in obj_especificos:
@@ -28,14 +30,18 @@ df_master = st.session_state['df_evaluacion_alternativas']
 
 for index, row in df_master.iterrows():
     with st.container(border=True):
-        st.markdown(f"**📍 COMBINACIÓN {index + 1}**")
+        # SOLUCIÓN AL TYPEERROR: Convertimos el index a entero
+        st.markdown(f"**📍 COMBINACIÓN {int(index) + 1}**")
         st.write(f"**Objetivo:** {row['OBJETIVO']}")
         st.write(f"**Actividad:** {row['ACTIVIDAD']}")
+        
         c1, c2, c3 = st.columns([1, 1, 1])
         with c1:
-            nuevo_enf = st.selectbox("¿Enfoque?", ["SI", "NO"], index=0 if row["ENFOQUE"]=="SI" else 1, key=f"e_{index}")
+            nuevo_enf = st.selectbox("¿Enfoque?", ["SI", "NO"], 
+                                     index=0 if row["ENFOQUE"]=="SI" else 1, key=f"e_{index}")
         with c2:
-            nuevo_alc = st.selectbox("¿Alcance?", ["SI", "NO"], index=0 if row["ALCANCE"]=="SI" else 1, key=f"a_{index}")
+            nuevo_alc = st.selectbox("¿Alcance?", ["SI", "NO"], 
+                                     index=0 if row["ALCANCE"]=="SI" else 1, key=f"a_{index}")
         with c3:
             if nuevo_enf == "SI" and nuevo_alc == "SI": st.success("✅ SELECCIONADO")
             else: st.error("❌ DESCARTADO")
@@ -47,7 +53,7 @@ for index, row in df_master.iterrows():
 
 st.divider()
 
-# --- 2. ANÁLISIS DE RELACIONES (CON MEMORIA) ---
+# --- 2. ANÁLISIS DE RELACIONES (SINCRONIZACIÓN DINÁMICA) ---
 st.subheader("🔄 2. Análisis de Relaciones entre Objetivos")
 
 aprobadas = st.session_state['df_evaluacion_alternativas'][
@@ -60,7 +66,6 @@ if len(objetivos_seleccionados) >= 2:
     pares_actuales = list(itertools.combinations(objetivos_seleccionados, 2))
     df_existente = st.session_state['df_relaciones_objetivos']
     
-    # Sincronización inteligente de pares
     nuevas_filas = []
     for o_a, o_b in pares_actuales:
         existe = False
@@ -81,7 +86,7 @@ if len(objetivos_seleccionados) >= 2:
             "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
             "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN", options=["Por definir", "Complementario", "Excluyente"])
         },
-        hide_index=True, use_container_width=True, key="tabla_rel_final_v3"
+        hide_index=True, use_container_width=True, key="tabla_rel_final_v4"
     )
 
     if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
@@ -92,7 +97,7 @@ else:
 
 st.divider()
 
-# --- 3. CONSTRUCTOR DE PAQUETES (CON MEMORIA) ---
+# --- 3. CONSTRUCTOR DE PAQUETES ---
 st.subheader("📦 3. Constructor de Alternativas")
 
 if objetivos_seleccionados:
@@ -108,9 +113,10 @@ if objetivos_seleccionados:
                     ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
                 ]
                 if not rel.empty:
-                    if rel.iloc[0]["RELACIÓN"] == "Excluyente":
-                        st.error(f"❌ Conflicto entre '{o_a}' y '{o_b}'."); conflicto = True
-                    elif rel.iloc[0]["RELACIÓN"] == "Por definir":
+                    res_rel = rel.iloc[0]["RELACIÓN"]
+                    if res_rel == "Excluyente":
+                        st.error(f"❌ Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."); conflicto = True
+                    elif res_rel == "Por definir":
                         st.warning(f"⚠️ Defina la relación entre '{o_a}' y '{o_b}'."); conflicto = True
 
         config_final = []
