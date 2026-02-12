@@ -2,7 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-import os # <--- Necesario para verificar el logo
+import os
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Asegurar persistencia y memoria
@@ -15,40 +15,26 @@ st.markdown("""
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
-    .stButton button[kind="primary"] p {
-        color: white !important;
-        font-weight: bold !important;
-    }
-    .main .stButton button:not([kind="primary"]) p {
-        color: #ff4b4b !important;
-        font-weight: bold;
-    }
-    [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
-        color: black !important;
-        font-weight: normal !important;
-    }
+    .stButton button[kind="primary"] p { color: white !important; font-weight: bold !important; }
+    .main .stButton button:not([kind="primary"]) p { color: #ff4b4b !important; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON LOGO (ZONA AMARILLA) ---
+# --- ENCABEZADO CON LOGO ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
-
 with col_titulo:
     st.title("🌳 4. Árbol de Problemas")
-
 with col_logo:
-    # Ubicación en la parte superior derecha sin desplazar el contenido
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- SINCRONIZACIÓN DE MEMORIA ---
+# --- MEMORIA Y CONFIGURACIÓN ---
 if 'arbol_tarjetas' not in st.session_state:
     st.session_state['arbol_tarjetas'] = {
         "Efectos Indirectos": [], "Efectos Directos": [], 
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
-# Configuración Maestra de Colores
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
     "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 3},
@@ -57,7 +43,7 @@ CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN DE FICHAS ---
+# --- SIDEBAR: GESTIÓN Y EXPORTACIÓN ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG.keys()))
@@ -79,33 +65,51 @@ with st.sidebar:
 
     st.divider()
     
+    # --- FUNCIÓN DE GENERACIÓN DE PNG MEJORADA ---
     def generar_png():
-        fig, ax = plt.subplots(figsize=(16, 12))
-        ax.set_xlim(0, 10); ax.set_ylim(-1, 7.5); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(18, 14)) # Lienzo más grande
+        ax.set_xlim(0, 10); ax.set_ylim(-1, 8.5); ax.axis('off')
+        
+        # 1. Título del Árbol en el PNG
+        ax.text(5, 8, "ÁRBOL DE PROBLEMAS", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
+        
         datos = st.session_state['arbol_tarjetas']
         for sec, conf in CONFIG.items():
             items_raw = datos.get(sec, [])
             items = [h for h in items_raw if isinstance(h, dict) and h.get("padre") in datos.get(conf["padre"], [])] if conf["tipo"] == "hijo" else items_raw
             if not items: continue
+            
             espacio = 10 / (len(items) + 1)
             for i, item in enumerate(items):
                 x = (i + 1) * espacio
                 txt = item["texto"] if isinstance(item, dict) else item
-                rect = plt.Rectangle((x-1.1, (conf["y"]*1.5)-0.4), 2.2, 0.7, facecolor=conf["color"], edgecolor='#333', lw=1.2)
+                
+                # Ajuste de texto centrado y proporcional
+                txt_ajustado = "\n".join(textwrap.wrap(txt, width=20))
+                
+                # Rectángulo más robusto para evitar desbordes
+                rect_w, rect_h = 2.4, 0.9
+                rect = plt.Rectangle((x - (rect_w/2), (conf["y"]*1.5) - (rect_h/2)), 
+                                     rect_w, rect_h, facecolor=conf["color"], 
+                                     edgecolor='#333', lw=1.5, zorder=2)
                 ax.add_patch(rect)
-                txt_ajustado = "\n".join(textwrap.wrap(txt, width=22))
-                ax.text(x, conf["y"]*1.5, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold')
+                
+                # Texto centrado vertical y horizontalmente
+                ax.text(x, conf["y"]*1.5, txt_ajustado, ha='center', va='center', 
+                        fontsize=10, fontweight='bold', zorder=3, color='#31333F')
+        
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar PNG", data=generar_png(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO VISUAL ---
+# --- DIBUJO DEL ÁRBOL EN PANTALLA ---
+# (Se mantiene tu lógica de renderizado por columnas que ya funciona bien)
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; border-left:8px solid rgba(0,0,0,0.1); 
-               color:#31333F; font-weight:500; margin-bottom:8px; min-height:75px; box-shadow: 2px 2px 5px #eee; 
+               color:#31333F; font-weight:500; margin-bottom:8px; min-height:85px; box-shadow: 2px 2px 5px #eee; 
                display: flex; align-items: center; justify-content: center; text-align: center; font-size:14px;">{texto}</div>"""
 
 def render_simple(nombre):
@@ -124,7 +128,6 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_tarjetas'].get(nombre_padre, [])
     hijos = st.session_state['arbol_tarjetas'].get(nombre_hijo, [])
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
-
     for seccion_actual, es_hijo in orden:
         col_l, col_c = st.columns([1, 4])
         with col_l: st.markdown(f"**{seccion_actual.upper()}**")
@@ -138,16 +141,13 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                             for idx, h_data in enumerate(h_del_p):
                                 st.markdown(card_html(h_data["texto"], CONFIG[nombre_hijo]["color"]), unsafe_allow_html=True)
                                 if st.button("🗑️", key=f"del_h_{seccion_actual}_{i}_{idx}"):
-                                    st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data)
-                                    guardar_datos_nube(); st.rerun()
+                                    st.session_state['arbol_tarjetas'][seccion_actual].remove(h_data); guardar_datos_nube(); st.rerun()
                         else:
                             st.markdown(card_html(p_txt, CONFIG[nombre_padre]["color"]), unsafe_allow_html=True)
                             if st.button("🗑️", key=f"del_p_{seccion_actual}_{i}"):
-                                st.session_state['arbol_tarjetas'][seccion_actual].pop(i)
-                                guardar_datos_nube(); st.rerun()
+                                st.session_state['arbol_tarjetas'][seccion_actual].pop(i); guardar_datos_nube(); st.rerun()
             else: st.caption("Esperando datos...")
 
-# --- DIBUJO DEL ÁRBOL ---
 st.divider()
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
