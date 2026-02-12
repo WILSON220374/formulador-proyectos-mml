@@ -34,21 +34,21 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- 3. FUNCIÓN DE AUTO-AJUSTE DE ALTURA PARA WEB ---
+# --- 3. FUNCIÓN DE AUTO-AJUSTE DE ALTURA PARA WEB (CORREGIDA) ---
 def calcular_altura_web(texto, min_h=100):
     if not texto: return min_h
-    # Calculamos líneas: 35 caracteres por línea aproximadamente + saltos de línea
-    lineas = str(texto).count('\n') + (len(str(texto)) // 35)
-    return max(min_h, (lineas + 1) * 22)
+    # Divisor reducido a 20 para forzar mayor crecimiento vertical
+    lineas = str(texto).count('\n') + (len(str(texto)) // 20)
+    return max(min_h, (lineas + 2) * 22)
 
-# Configuración Maestra con espaciado vertical ampliado para el PNG
+# Configuración Maestra con espaciado vertical ampliado
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "y": 10.5, "label": "FIN ÚLTIMO"},
     "Fines Indirectos": {"color": "#B3D9FF", "y": 7.5, "label": "FINES INDIRECTOS"},
     "Fines Directos": {"color": "#80BFFF", "y": 4.5, "label": "FINES DIRECTOS"},
     "Objetivo General": {"color": "#FFB3BA", "y": 1.5, "label": "OBJETIVO GENERAL"},
     "Medios Directos": {"color": "#FFFFBA", "y": -1.5, "label": "OBJETIVOS ESPECÍFICOS"},
-    "Medios Indirectos": {"color": "#FFDFBA", "y": -5.0, "label": "ACTIVIDADES"}
+    "Medios Indirectos": {"color": "#FFDFBA", "y": -5.5, "label": "ACTIVIDADES"}
 }
 
 # --- 4. SIDEBAR: HERRAMIENTAS Y EXPORTACIÓN ---
@@ -76,55 +76,57 @@ with st.sidebar:
 
     st.divider()
 
-    # --- MOTOR DE EXPORTACIÓN FIEL (CORREGIDO) ---
+    # --- MOTOR DE EXPORTACIÓN CON ANCHO DINÁMICO PARA EVITAR SUPERPOSICIÓN ---
     def generar_png_objetivos():
-        fig, ax = plt.subplots(figsize=(22, 22))
+        fig, ax = plt.subplots(figsize=(24, 22))
         ax.set_xlim(0, 10); ax.set_ylim(-9, 13); ax.axis('off')
-        
         ax.text(5, 12, "ÁRBOL DE OBJETIVOS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_objetivos']
         
-        def dibujar_caja(x, y, texto, color):
-            # Envoltura estricta para evitar desbordes laterales
-            lineas = textwrap.wrap(texto, width=18)
+        def dibujar_caja(x, y, texto, color, max_w):
+            # Envoltura ajustada al ancho disponible
+            w_chars = 18 if max_w >= 1.7 else 14
+            lineas = textwrap.wrap(texto, width=w_chars)
             txt_ajustado = "\n".join(lineas[:10])
             n_lineas = len(lineas[:10])
             
-            # Altura dinámica en el PNG para evitar solapamiento vertical
             rect_h = max(1.1, 0.4 + (n_lineas * 0.28))
-            rect_w = 1.8 
+            rect_w = max_w 
             
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
                                  facecolor=color, edgecolor='#333', lw=1.5, zorder=3)
             ax.add_patch(rect)
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=8.5, 
+            f_size = 8.5 if max_w >= 1.5 else 7.0
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=f_size, 
                     fontweight='bold', zorder=4, color='#31333F')
 
         for sec, conf in CONFIG_OBJ.items():
             items = datos.get(sec, [])
             if not items: continue
             espacio = 10 / (len(items) + 1)
+            # ANCHO DINÁMICO: Calcula el ancho máximo para que no se toquen
+            max_w_nivel = min(1.8, espacio * 0.88)
+            
             for i, item in enumerate(items):
                 x_pos = (i + 1) * espacio
                 txt = item["texto"] if isinstance(item, dict) else item
-                dibujar_caja(x_pos, conf["y"], txt, conf["color"])
+                dibujar_caja(x_pos, conf["y"], txt, conf["color"], max_w_nivel)
 
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white')
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos_corregido.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos_fiel.png", mime="image/png", use_container_width=True)
 
 # --- 5. RENDERIZADO WEB CON ALTURA DINÁMICA ---
 def render_objective_card(seccion, indice_global, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
-    
     st.markdown(f'<div style="background-color: {color}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     
-    # CALCULAMOS LA ALTURA PARA QUE NO SE CORTE EL TEXTO
+    # Altura dinámica ajustada para la pantalla
     h_dinamica = calcular_altura_web(texto_actual)
     
     nuevo_texto = st.text_area(
@@ -149,7 +151,7 @@ def render_objective_card(seccion, indice_global, item):
                     h["padre"] = nuevo_texto
         guardar_datos_nube(); st.rerun()
 
-# --- FUNCIONES DE ESTRUCTURA (CONSERVADAS) ---
+# --- FUNCIONES DE ESTRUCTURA ---
 def mostrar_seccion_simple(key_interna):
     label_visual = CONFIG_OBJ[key_interna]["label"]
     col_l, col_c = st.columns([1, 4])
@@ -163,7 +165,6 @@ def mostrar_rama_jerarquica(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_objetivos'].get(nombre_padre, [])
     hijos = st.session_state['arbol_objetivos'].get(nombre_hijo, [])
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
-
     for seccion_actual, es_hijo in orden:
         label_visual = CONFIG_OBJ[seccion_actual]["label"]
         col_l, col_c = st.columns([1, 4])
