@@ -6,28 +6,34 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS PARA LAS FICHAS GIGANTES ---
+# --- ESTILOS PARA FICHAS PEQUEÑAS Y HOMOGÉNEAS ---
 st.markdown("""
     <style>
     .ficha-equipo {
         background-color: #f0f5ff;
-        border-left: 10px solid #4F8BFF;
-        padding: 25px;
-        border-radius: 15px;
-        margin-bottom: 20px;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+        border-left: 8px solid #4F8BFF;
+        padding: 15px; /* Reducido para menor tamaño */
+        border-radius: 12px;
+        margin-bottom: 15px;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+        height: 160px; /* ALTURA FIJA PARA HOMOGENEIDAD */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
-    .nombre-gigante {
-        font-size: 40px !important;
+    .nombre-mediano {
+        font-size: 26px !important; /* Fuente reducida */
         color: #1E3A8A;
         font-weight: bold;
-        margin-bottom: 5px;
+        line-height: 1.1;
+        margin-bottom: 8px;
     }
-    .detalle-gigante {
-        font-size: 22px !important;
+    .detalle-pequeno {
+        font-size: 16px !important; /* Fuente reducida */
         color: #555;
+        margin-bottom: 2px;
     }
-    h2 { font-size: 42px !important; font-weight: 700 !important; }
+    h2 { font-size: 38px !important; font-weight: 700 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -42,12 +48,12 @@ with col2:
 
 st.divider()
 
-# --- BLOQUE 1: FICHAS VISUALES (MUESTRA LOS DATOS GRANDES) ---
+# --- BLOQUE 1: FICHAS VISUALES (PEQUEÑAS Y ALINEADAS) ---
 if st.session_state['integrantes']:
-    # Solo mostramos las fichas si hay gente registrada
-    cols = st.columns(2) 
+    # Usamos 3 columnas para que las fichas sean aún más compactas
+    cols = st.columns(3) 
     for idx, persona in enumerate(st.session_state['integrantes']):
-        with cols[idx % 2]: 
+        with cols[idx % 3]: 
             nombre = persona.get("Nombre Completo", "").upper()
             tel = persona.get("Teléfono", "N/A")
             email = persona.get("Correo Electrónico", "N/A")
@@ -55,20 +61,18 @@ if st.session_state['integrantes']:
             if len(nombre) > 2: 
                 st.markdown(f"""
                     <div class="ficha-equipo">
-                        <div class="nombre-gigante">👤 {nombre}</div>
-                        <div class="detalle-gigante">📞 {tel}</div>
-                        <div class="detalle-gigante">✉️ {email}</div>
+                        <div class="nombre-mediano">👤 {nombre}</div>
+                        <div class="detalle-pequeno">📞 {tel}</div>
+                        <div class="detalle-pequeno">✉️ {email}</div>
                     </div>
                 """, unsafe_allow_html=True)
 else:
-    st.info("No hay integrantes registrados. Use el panel de edición inferior para empezar.")
+    st.info("No hay integrantes registrados.")
 
 st.divider()
 
-# --- BLOQUE 2: EDITOR OCULTO (SOLO PARA CAMBIOS) ---
+# --- BLOQUE 2: EDITOR OCULTO ---
 with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
-    st.write("Diligencie la tabla para actualizar las fichas visuales.")
-    
     integrantes_actuales = st.session_state.get('integrantes', [])
     df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
 
@@ -76,15 +80,10 @@ with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
         df_equipo,
         num_rows="dynamic",
         use_container_width=True,
-        key="editor_oculto",
-        column_config={
-            "Nombre Completo": st.column_config.TextColumn(width="large"),
-            "Teléfono": st.column_config.TextColumn(width="medium"),
-            "Correo Electrónico": st.column_config.TextColumn(width="large")
-        }
+        key="editor_compacto",
     )
 
     if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
         st.session_state['integrantes'] = edited_df.to_dict('records')
         guardar_datos_nube()
-        st.rerun() # Para actualizar las fichas y el sidebar
+        st.rerun()
