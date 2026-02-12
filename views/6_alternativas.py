@@ -82,7 +82,7 @@ if len(objetivos_seleccionados) >= 2:
             "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
             "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN", options=["Por definir", "Complementario", "Excluyente"])
         },
-        hide_index=True, use_container_width=True, key="tabla_rel_final_v9"
+        hide_index=True, use_container_width=True, key="tabla_rel_final_v10"
     )
 
     if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
@@ -101,7 +101,7 @@ if objetivos_seleccionados:
         st.info("1. Seleccione los Objetivos:")
         objs_en_paquete = []
         for obj_opcion in objetivos_seleccionados:
-            if st.checkbox(obj_opcion, key=f"chk_obj_{obj_opcion}"):
+            if st.checkbox(obj_opcion, key=f"chk_paq_{obj_opcion}"):
                 objs_en_paquete.append(obj_opcion)
 
         conflicto = False
@@ -124,7 +124,7 @@ if objetivos_seleccionados:
                     acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
                     sel_del_obj = []
                     for act in acts_aprob:
-                        if st.checkbox(act, value=True, key=f"chk_act_{obj_p}_{act}"):
+                        if st.checkbox(act, value=True, key=f"chk_paq_act_{obj_p}_{act}"):
                             sel_del_obj.append(act)
                     if sel_del_obj:
                         config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
@@ -134,23 +134,25 @@ if objetivos_seleccionados:
                 st.session_state['lista_alternativas'].append({"nombre": nombre_alt, "configuracion": config_final})
                 guardar_datos_nube(); st.rerun()
 
-# --- 4. VISUALIZACIÓN FINAL (NUMERACIÓN Y COLORES) ---
+# --- 4. VISUALIZACIÓN FINAL (CON FIX DE NEGRILAS Y NUMERACIÓN) ---
 if st.session_state.get('lista_alternativas'):
     st.divider()
     st.subheader("📋 Alternativas Consolidadas")
     
-    # Definimos una paleta de colores para las alternativas
-    colores_disponibles = [":blue", ":green", ":orange", ":red", ":violet", ":rainbow"]
+    colores = [":blue", ":green", ":orange", ":red", ":violet", ":rainbow"]
     
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        # Seleccionamos color según el orden de la alternativa
-        color_tema = colores_disponibles[idx % len(colores_disponibles)]
+        color_tema = colores[idx % len(colores)]
         
-        # Título numerado y con color dinámico
-        with st.expander(f"{color_tema}[**{idx + 1}. {alt.get('nombre', 'Sin nombre').upper()}**]", expanded=True):
+        # FIX CRÍTICO: Limpiamos el nombre para que la negrilla funcione siempre
+        nombre_limpio = str(alt.get('nombre', 'Sin nombre')).strip().upper()
+        # Construimos el título SIN espacios internos antes de los asteriscos
+        titulo_numerado = f"{idx + 1}. {nombre_limpio}"
+        
+        with st.expander(f"{color_tema}[**{titulo_numerado}**]", expanded=True):
             
             for item in alt.get('configuracion', []):
-                # Limpiamos espacios para asegurar la negrilla
+                # Limpieza de objetivos
                 texto_obj = str(item['objetivo']).strip()
                 st.markdown(f"**🎯 {texto_obj}**")
                 
@@ -159,5 +161,5 @@ if st.session_state.get('lista_alternativas'):
                     st.markdown(f"   - {texto_act}")
             
             st.write("")
-            if st.button(f"🗑️ Eliminar Alternativa {idx + 1}", key=f"del_alt_{idx}"):
+            if st.button(f"🗑️ Eliminar Alternativa {idx + 1}", key=f"del_final_alt_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx); guardar_datos_nube(); st.rerun()
