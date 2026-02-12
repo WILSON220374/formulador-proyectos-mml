@@ -43,34 +43,73 @@ CONFIG_PROB = {
 with st.sidebar:
     st.header("⚙️ Herramientas")
     if st.button("♻️ Importar desde Paso 4", use_container_width=True):
-        # Clonamos el árbol de tarjetas original
         st.session_state['arbol_problemas_final'] = copy.deepcopy(st.session_state['arbol_tarjetas'])
         guardar_datos_nube(); st.rerun()
     
     st.divider()
     
     def generar_png_problemas_final():
-        fig, ax = plt.subplots(figsize=(16, 12))
-        ax.set_xlim(0, 10); ax.set_ylim(-1, 7.5); ax.axis('off')
+        # Aumentamos el tamaño del lienzo para manejar las pilas verticales
+        fig, ax = plt.subplots(figsize=(18, 16))
+        ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
         datos = st.session_state.get('arbol_problemas_final', {})
-        y_pos = {"Efectos Indirectos": 6.5, "Efectos Directos": 5.0, "Problema Principal": 3.5, 
-                 "Causas Directas": 1.5, "Causas Indirectas": 0}
-        
-        for sec, y in y_pos.items():
+
+        # 1. Mapeo de X basado en Causas Directas (Base del problema)
+        c_dir = datos.get("Causas Directas", [])
+        n_c_cols = len(c_dir) if c_dir else 1
+        esp_c = 10 / (n_c_cols + 1)
+        pos_x_causas = { (c['texto'] if isinstance(c, dict) else c): (i+1)*esp_c for i, c in enumerate(c_dir) }
+
+        # 2. Mapeo de X basado en Efectos Directos
+        e_dir = datos.get("Efectos Directos", [])
+        n_e_cols = len(e_dir) if e_dir else 1
+        esp_e = 10 / (n_e_cols + 1)
+        pos_x_efectos = { (e['texto'] if isinstance(e, dict) else e): (i+1)*esp_e for i, e in enumerate(e_dir) }
+
+        # Niveles Y fijos
+        Y_LEVELS = {
+            "Efectos Indirectos": 8.5, "Efectos Directos": 7.0, 
+            "Problema Principal": 4.5,
+            "Causas Directas": 2.5, "Causas Indirectas": 1.0
+        }
+
+        stacks = {} # Registro para apilar hijos verticalmente
+
+        for sec, y_base in Y_LEVELS.items():
             items = datos.get(sec, [])
-            if not items: continue
-            espacio = 10 / (len(items) + 1)
-            for i, it in enumerate(items):
-                x = (i + 1) * espacio
+            for it in items:
                 txt = it["texto"] if isinstance(it, dict) else it
-                ax.add_patch(plt.Rectangle((x-1.1, y-0.35), 2.2, 0.7, facecolor=CONFIG_PROB[sec]["color"], edgecolor='#333', lw=1.2))
-                ax.text(x, y, "\n".join(textwrap.wrap(txt, width=22)), ha='center', va='center', fontsize=9, fontweight='bold')
+                
+                # Determinación de coordenada X según jerarquía
+                if sec == "Problema Principal": x = 5.0
+                elif sec == "Causas Directas": x = pos_x_causas.get(txt, 5.0)
+                elif sec == "Efectos Directos": x = pos_x_efectos.get(txt, 5.0)
+                elif sec == "Causas Indirectas":
+                    p_txt = it.get("padre") if isinstance(it, dict) else None
+                    x = pos_x_causas.get(p_txt, 5.0)
+                elif sec == "Efectos Indirectos":
+                    p_txt = it.get("padre") if isinstance(it, dict) else None
+                    x = pos_x_efectos.get(p_txt, 5.0)
+
+                # Lógica de apilamiento vertical (Stacking)
+                current_y = y_base
+                if sec in ["Causas Indirectas", "Efectos Indirectos"]:
+                    offset = stacks.get((sec, x), 0)
+                    # Causas se apilan hacia abajo, Efectos hacia arriba
+                    current_y = y_base - offset if sec == "Causas Indirectas" else y_base + offset
+                    stacks[(sec, x)] = offset + 1.2 # Espacio entre tarjetas apiladas
+
+                # Dibujo de tarjeta con estilo
+                ax.add_patch(plt.Rectangle((x-1.15, current_y-0.45), 2.3, 0.9, facecolor=CONFIG_PROB[sec]["color"], edgecolor='#333', lw=1.5))
+                txt_wrap = "\n".join(textwrap.wrap(txt, width=24))
+                ax.text(x, current_y, txt_wrap, ha='center', va='center', fontsize=9, fontweight='bold')
+        
         buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
         return buf.getvalue()
 
     st.download_button("🖼️ Descargar Árbol Podado", generar_png_problemas_final(), "arbol_problemas_final.png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO Y ALINEACIÓN (LOGICA P7) ---
+# --- FUNCIONES DE RENDERIZADO Y ALINEACIÓN (LOGICA DE PANTALLA) ---
 
 def render_poda_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
@@ -78,23 +117,18 @@ def render_poda_card(seccion, indice, item):
     with st.container():
         st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
         nuevo_texto = st.text_area(label=f"txt_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", height=90, key=f"p_edit_{seccion}_{indice}")
-        
-        # El botón de eliminar usa el índice exacto
         if st.button("🗑️ Eliminar", key=f"p_del_{seccion}_{indice}"):
             st.session_state['arbol_problemas_final'][seccion].pop(indice)
             guardar_datos_nube(); st.rerun()
-            
         if nuevo_texto != texto_actual:
             if isinstance(item, dict): st.session_state['arbol_problemas_final'][seccion][indice]["texto"] = nuevo_texto
             else: st.session_state['arbol_problemas_final'][seccion][indice] = nuevo_texto
             guardar_datos_nube()
 
 def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
-    """Alinea verticalmente las causas o efectos bajo sus padres."""
     padres = st.session_state['arbol_problemas_final'].get(padre_key, [])
     hijos = st.session_state['arbol_problemas_final'].get(hijo_key, [])
     orden = [(hijo_key, True), (padre_key, False)] if inversion else [(padre_key, False), (hijo_key, True)]
-    
     for sec, es_hijo in orden:
         c1, c2 = st.columns([1, 4])
         with c1: st.markdown(f"<div style='margin-top:25px;'>**{CONFIG_PROB[sec]['label']}**</div>", unsafe_allow_html=True)
@@ -105,20 +139,19 @@ def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
                     p_txt = p_data["texto"] if isinstance(p_data, dict) else p_data
                     with cols[i]:
                         if es_hijo:
-                            # Filtramos los hijos por su padre
                             h_rel = [(idx, h) for idx, h in enumerate(hijos) if isinstance(h, dict) and h.get("padre") == p_txt]
                             for h_orig_idx, h_data in h_rel: render_poda_card(sec, h_orig_idx, h_data)
                         else: render_poda_card(sec, i, p_data)
             else: st.caption("Sin datos.")
 
-# --- DIBUJO DE LA MESA ---
+# --- CONSTRUCCIÓN DE LA MESA ---
 arbol_p_f = st.session_state.get('arbol_problemas_final', {})
 
 if not arbol_p_f:
     st.warning("Árbol vacío. Use 'Importar desde Paso 4' en el menú lateral.")
 else:
     st.divider()
-    # Efectos (Hacia arriba: Inversión=True)
+    # Efectos (Hacia arriba)
     mostrar_rama_poda("Efectos Directos", "Efectos Indirectos", inversion=True)
     st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     
@@ -129,5 +162,5 @@ else:
         if arbol_p_f.get('Problema Principal'): render_poda_card('Problema Principal', 0, arbol_p_f['Problema Principal'][0])
     st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     
-    # Causas (Hacia abajo: Inversión=False)
+    # Causas (Hacia abajo)
     mostrar_rama_poda("Causas Directas", "Causas Indirectas", inversion=False)
