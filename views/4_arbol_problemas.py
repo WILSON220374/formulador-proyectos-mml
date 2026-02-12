@@ -35,12 +35,13 @@ if 'arbol_tarjetas' not in st.session_state:
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
+# Coordenadas Y base
 CONFIG = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 6},
+    "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 6.5},
     "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 4.5},
     "Problema Principal": {"color": "#FFB3BA", "tipo": "simple", "y": 3},
     "Causas Directas": {"color": "#FFFFBA", "tipo": "simple", "y": 1.5},
-    "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": 0}
+    "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": -0.5}
 }
 
 # --- SIDEBAR: GESTIÓN ---
@@ -65,37 +66,40 @@ with st.sidebar:
 
     st.divider()
     
-    # --- GENERACIÓN DE PNG CON AJUSTE DINÁMICO ---
+    # --- GENERACIÓN DE PNG CORREGIDA (SIN SOLAPAMIENTO) ---
     def generar_png():
-        fig, ax = plt.subplots(figsize=(20, 16)) 
-        ax.set_xlim(0, 10); ax.set_ylim(-3, 10); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(22, 16)) 
+        ax.set_xlim(0, 10); ax.set_ylim(-4, 10); ax.axis('off')
         
-        ax.text(5, 9.5, "ÁRBOL DE PROBLEMAS", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
+        ax.text(5, 9.5, "ÁRBOL DE PROBLEMAS", fontsize=30, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_tarjetas']
         
         def dibujar_caja(x, y, texto, color):
-            # Envoltura inteligente para evitar bordes laterales
-            lineas = textwrap.wrap(texto, width=18)
+            # Envoltura de texto más estrecha para dar espacio lateral
+            lineas = textwrap.wrap(texto, width=16)
             txt_ajustado = "\n".join(lineas)
             n_lineas = len(lineas)
             
-            # ALTURA DINÁMICA: La caja crece con el texto
-            rect_h = max(0.85, 0.4 + (n_lineas * 0.22))
-            rect_w = 2.2
+            # Altura dinámica según líneas
+            rect_h = max(0.8, 0.35 + (n_lineas * 0.22))
+            # Ancho reducido para evitar que se toquen horizontalmente
+            rect_w = 1.7 
             
-            # ESCALADO DE FUENTE: Si el texto es muy largo, lo achicamos un poco
             f_size = 9 if n_lineas <= 4 else 8
             
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
-                                 facecolor=color, edgecolor='#333', lw=1.2, zorder=3)
+                                 facecolor=color, edgecolor='#333', lw=1.3, zorder=3)
             ax.add_patch(rect)
             ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=f_size, 
                     fontweight='bold', zorder=4, color='#31333F')
+            return rect_h
 
+        # Problema Principal
         if datos["Problema Principal"]:
             dibujar_caja(5, CONFIG["Problema Principal"]["y"], datos["Problema Principal"][0], CONFIG["Problema Principal"]["color"])
 
+        # Dibujar Ramas con Espaciado Inteligente
         for principal in ["Efectos Directos", "Causas Directas"]:
             items = datos[principal]
             if items:
@@ -110,9 +114,11 @@ with st.sidebar:
                     
                     if hijos:
                         direccion = 1 if principal == "Efectos Directos" else -1
-                        # Aumentamos la separación vertical para evitar colisiones entre cajas altas
+                        y_actual = y_p
                         for j, h_data in enumerate(hijos):
-                            h_y = y_p + (direccion * (j + 1) * 1.2)
+                            # Calculamos la posición basándonos en la altura del hijo anterior
+                            margen = 1.1 if principal == "Efectos Directos" else -1.1
+                            h_y = y_p + (direccion * (j + 1) * 1.3) 
                             dibujar_caja(x_p, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
 
         buf = io.BytesIO()
@@ -120,7 +126,7 @@ with st.sidebar:
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas_fiel.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_fiel_limpio.png", mime="image/png", use_container_width=True)
 
 # --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
