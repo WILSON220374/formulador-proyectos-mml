@@ -48,58 +48,60 @@ with st.sidebar:
     
     st.divider()
     
-    def generar_png_problemas_final():
-        # Aumentamos el tamaño del lienzo para manejar las pilas verticales
+    def generar_png_problemas_limpio():
+        # Lienzo ampliado para evitar amontonamiento
         fig, ax = plt.subplots(figsize=(18, 16))
         ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
         datos = st.session_state.get('arbol_problemas_final', {})
+        
+        # Filtro de seguridad: Ignorar tarjetas vacías o con letras sueltas ('c', 'e', etc.)
+        def es_valido(item):
+            t = item["texto"] if isinstance(item, dict) else str(item)
+            return len(t.strip()) > 3
 
-        # 1. Mapeo de X basado en Causas Directas (Base del problema)
-        c_dir = datos.get("Causas Directas", [])
-        n_c_cols = len(c_dir) if c_dir else 1
-        esp_c = 10 / (n_c_cols + 1)
+        # 1. Mapeo de X basado en Causas Directas reales
+        c_dir = [c for c in datos.get("Causas Directas", []) if es_valido(c)]
+        esp_c = 10 / (len(c_dir) + 1) if c_dir else 5.0
         pos_x_causas = { (c['texto'] if isinstance(c, dict) else c): (i+1)*esp_c for i, c in enumerate(c_dir) }
 
-        # 2. Mapeo de X basado en Efectos Directos
-        e_dir = datos.get("Efectos Directos", [])
-        n_e_cols = len(e_dir) if e_dir else 1
-        esp_e = 10 / (n_e_cols + 1)
+        # 2. Mapeo de X basado en Efectos Directos reales
+        e_dir = [e for e in datos.get("Efectos Directos", []) if es_valido(e)]
+        esp_e = 10 / (len(e_dir) + 1) if e_dir else 5.0
         pos_x_efectos = { (e['texto'] if isinstance(e, dict) else e): (i+1)*esp_e for i, e in enumerate(e_dir) }
 
-        # Niveles Y fijos
+        # Coordenadas Y fijas por nivel
         Y_LEVELS = {
-            "Efectos Indirectos": 8.5, "Efectos Directos": 7.0, 
-            "Problema Principal": 4.5,
+            "Efectos Indirectos": 9.0, "Efectos Directos": 7.5, 
+            "Problema Principal": 5.0,
             "Causas Directas": 2.5, "Causas Indirectas": 1.0
         }
 
-        stacks = {} # Registro para apilar hijos verticalmente
+        stacks = {} # Registro para apilar verticalmente
 
         for sec, y_base in Y_LEVELS.items():
-            items = datos.get(sec, [])
+            items = [it for it in datos.get(sec, []) if es_valido(it)]
             for it in items:
                 txt = it["texto"] if isinstance(it, dict) else it
                 
-                # Determinación de coordenada X según jerarquía
+                # Determinación de coordenada X con filtro de "huérfanos"
                 if sec == "Problema Principal": x = 5.0
                 elif sec == "Causas Directas": x = pos_x_causas.get(txt, 5.0)
                 elif sec == "Efectos Directos": x = pos_x_efectos.get(txt, 5.0)
-                elif sec == "Causas Indirectas":
+                elif sec in ["Causas Indirectas", "Efectos Indirectos"]:
                     p_txt = it.get("padre") if isinstance(it, dict) else None
-                    x = pos_x_causas.get(p_txt, 5.0)
-                elif sec == "Efectos Indirectos":
-                    p_txt = it.get("padre") if isinstance(it, dict) else None
-                    x = pos_x_efectos.get(p_txt, 5.0)
+                    # FIX: Solo dibujamos si el padre existe en el mapeo actual
+                    x = pos_x_causas.get(p_txt) if sec == "Causas Indirectas" else pos_x_efectos.get(p_txt)
+                    if x is None: continue # Ignora la tarjeta si es una letra huérfana
 
-                # Lógica de apilamiento vertical (Stacking)
+                # Lógica de apilamiento vertical
                 current_y = y_base
                 if sec in ["Causas Indirectas", "Efectos Indirectos"]:
                     offset = stacks.get((sec, x), 0)
-                    # Causas se apilan hacia abajo, Efectos hacia arriba
+                    # Causas hacia abajo, Efectos hacia arriba
                     current_y = y_base - offset if sec == "Causas Indirectas" else y_base + offset
-                    stacks[(sec, x)] = offset + 1.2 # Espacio entre tarjetas apiladas
+                    stacks[(sec, x)] = offset + 1.2 
 
-                # Dibujo de tarjeta con estilo
+                # Dibujo de tarjeta
                 ax.add_patch(plt.Rectangle((x-1.15, current_y-0.45), 2.3, 0.9, facecolor=CONFIG_PROB[sec]["color"], edgecolor='#333', lw=1.5))
                 txt_wrap = "\n".join(textwrap.wrap(txt, width=24))
                 ax.text(x, current_y, txt_wrap, ha='center', va='center', fontsize=9, fontweight='bold')
@@ -107,9 +109,9 @@ with st.sidebar:
         buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol Podado", generar_png_problemas_final(), "arbol_problemas_final.png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol Final Limpio", generar_png_problemas_limpio(), "arbol_problemas_final.png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO Y ALINEACIÓN (LOGICA DE PANTALLA) ---
+# --- FUNCIONES DE RENDERIZADO Y ALINEACIÓN (IGUAL A P7) ---
 
 def render_poda_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
@@ -144,23 +146,20 @@ def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
                         else: render_poda_card(sec, i, p_data)
             else: st.caption("Sin datos.")
 
-# --- CONSTRUCCIÓN DE LA MESA ---
+# --- DIBUJO DE LA MESA ---
 arbol_p_f = st.session_state.get('arbol_problemas_final', {})
 
 if not arbol_p_f:
     st.warning("Árbol vacío. Use 'Importar desde Paso 4' en el menú lateral.")
 else:
     st.divider()
-    # Efectos (Hacia arriba)
     mostrar_rama_poda("Efectos Directos", "Efectos Indirectos", inversion=True)
     st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     
-    # Problema Central
     c1, c2 = st.columns([1, 4])
     with c1: st.markdown(f"**{CONFIG_PROB['Problema Principal']['label']}**")
     with c2: 
         if arbol_p_f.get('Problema Principal'): render_poda_card('Problema Principal', 0, arbol_p_f['Problema Principal'][0])
     st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
     
-    # Causas (Hacia abajo)
     mostrar_rama_poda("Causas Directas", "Causas Indirectas", inversion=False)
