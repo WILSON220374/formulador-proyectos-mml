@@ -2,180 +2,208 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# 1. Persistencia: Carga datos de la nube al iniciar
+import os
 from session_state import inicializar_session, guardar_datos_nube
 
+# 1. Inicialización y Estilos
 inicializar_session()
 
-# --- ESTILO: CENTRADO TOTAL Y FRANJA DELGADA (6px) ---
 st.markdown("""
     <style>
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Source Sans Pro', sans-serif;
-    }
-    
-    /* CENTRADO DEL TEXTO Y ESTILO DE TARJETA GRIS */
-    div[data-testid="stTextArea"] textarea {
-        background-color: #f0f2f6 !important;
-        border-radius: 0 0 10px 10px !important;
-        border: 1px solid #e6e9ef !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        color: #31333F !important;
+    .stTextArea textarea {
+        font-size: 14px !important;
+        border-radius: 10px !important;
         text-align: center !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding-top: 25px !important; 
     }
-    
-    div[data-testid="stTextArea"] textarea:focus { border-color: #d0d4dc !important; }
-    .stButton button[kind="primary"] p { color: white !important; font-weight: bold !important; }
+    /* Ajuste para flechas y conectores en web */
+    .flecha-bajada { font-size: 24px; text-align: center; color: #4F8BFF; margin: -10px 0; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎯 5. Árbol de Objetivos")
+# --- 2. ENCABEZADO CON LOGO (ZONA AMARILLA) ---
+# Usamos la misma estructura que en las otras hojas para consistencia.
+col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
+with col_titulo:
+    st.title("🎯 5. Árbol de Objetivos")
+with col_logo:
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
 
-# Configuración Maestra con nuevos nombres
-CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "y": 5, "label": "FIN ÚLTIMO"},
-    "Fines Indirectos": {"color": "#B3D9FF", "y": 4, "label": "FINES INDIRECTOS"},
-    "Fines Directos": {"color": "#80BFFF", "y": 3, "label": "FINES DIRECTOS"},
-    "Objetivo General": {"color": "#FFB3BA", "y": 2, "label": "OBJETIVO GENERAL"},
-    "Medios Directos": {"color": "#FFFFBA", "y": 1, "label": "OBJETIVOS ESPECÍFICOS"},
-    "Medios Indirectos": {"color": "#FFDFBA", "y": 0, "label": "ACTIVIDADES"}
-}
+# --- 3. LÓGICA DE TRANSFORMACIÓN (Problema -> Objetivo) ---
+def transformar_a_positivo(texto):
+    if not texto: return "---"
+    reemplazos = {
+        "Alta": "Baja", "Baja": "Alta", "Alto": "Bajo", "Bajo": "Alto",
+        "Deficiente": "Eficiente", "Inadecuado": "Adecuado", "Escasa": "Suficiente",
+        "Falta de": "Presencia de", "No hay": "Existe", "Pérdida": "Recuperación",
+        "Aumento": "Disminución", "Incremento": "Reducción"
+    }
+    for mal, bien in reemplazos.items():
+        # Reemplazo simple (se puede mejorar con regex si es necesario)
+        texto = texto.replace(mal, bien).replace(mal.lower(), bien.lower())
+    return texto
 
-# --- SIDEBAR: HERRAMIENTAS ---
-with st.sidebar:
-    st.header("⚙️ Herramientas")
-    
-    if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True):
-        problemas = st.session_state.get('arbol_tarjetas', {})
-        mapeo = {
-            "Efectos Indirectos": "Fines Indirectos",
-            "Efectos Directos": "Fines Directos", 
-            "Problema Principal": "Objetivo General", 
-            "Causas Directas": "Medios Directos", 
-            "Causas Indirectas": "Medios Indirectos"
-        }
-        
-        for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
-        
-        for p_sec, o_sec in mapeo.items():
-            items_raw = problemas.get(p_sec, [])
-            for item in items_raw:
-                txt = item['texto'] if isinstance(item, dict) else item
-                if isinstance(txt, str) and len(txt.strip()) > 2:
-                    if isinstance(item, dict):
-                        st.session_state['arbol_objetivos'][o_sec].append({"texto": txt.upper(), "padre": item['padre'].upper()})
-                    else:
-                        st.session_state['arbol_objetivos'][o_sec].append(txt.upper())
-        
-        if not st.session_state['arbol_objetivos']["Fin Último"]:
-            st.session_state['arbol_objetivos']["Fin Último"] = ["MEJORAR LA CALIDAD DE VIDA"]
-            
-        guardar_datos_nube()
-        st.rerun()
+# Cargar datos del árbol de problemas
+datos_prob = st.session_state.get('arbol_tarjetas', {})
 
-    st.divider()
+# Inicializar estructura de objetivos si no existe
+if 'datos_objetivos' not in st.session_state:
+    st.session_state['datos_objetivos'] = {
+        "obj_central": transformar_a_positivo(datos_prob.get("Problema Principal", [""])[0] if datos_prob.get("Problema Principal") else ""),
+        "fines_directos": [transformar_a_positivo(t) for t in datos_prob.get("Efectos Directos", [])],
+        "fines_indirectos": [transformar_a_positivo(t.get("texto")) for t in datos_prob.get("Efectos Indirectos", []) if isinstance(t, dict)],
+        "medios_directos": [transformar_a_positivo(t) for t in datos_prob.get("Causas Directas", [])],
+        "medios_indirectos": [transformar_a_positivo(t.get("texto")) for t in datos_prob.get("Causas Indirectas", []) if isinstance(t, dict)]
+    }
 
-    def generar_png_objetivos():
-        fig, ax = plt.subplots(figsize=(16, 14))
-        ax.set_xlim(0, 10); ax.set_ylim(-1, 8.5); ax.axis('off')
-        datos = st.session_state['arbol_objetivos']
-        for sec, conf in CONFIG_OBJ.items():
-            items = datos.get(sec, [])
-            if not items: continue
-            espacio = 10 / (len(items) + 1)
-            y_base = conf["y"] * 1.5 
-            for i, item in enumerate(items):
-                x = (i + 1) * espacio
-                txt = item["texto"] if isinstance(item, dict) else item
-                rect = plt.Rectangle((x-1.1, y_base-0.4), 2.2, 0.7, facecolor=conf["color"], edgecolor='#333', lw=1.2)
-                ax.add_patch(rect)
-                txt_wrap = "\n".join(textwrap.wrap(txt, width=22))
-                ax.text(x, y_base, txt_wrap, ha='center', va='center', fontsize=8, fontweight='bold')
-        buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
-        plt.close(fig)
-        return buf.getvalue()
+datos_obj = st.session_state['datos_objetivos']
 
-    st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos.png", mime="image/png", use_container_width=True)
+# --- 4. FUNCIÓN PARA ALTURA DINÁMICA EN WEB ---
+# Esta función asegura que los text_area crezcan según el contenido.
+def calcular_altura(texto, min_h=85):
+    if not texto: return min_h
+    # Cálculo aproximado de líneas basado en longitud y saltos de línea
+    lineas = str(texto).count('\n') + (len(str(texto)) // 40) 
+    return max(min_h, (lineas + 1) * 25)
 
-# --- FUNCIÓN DE RENDERIZADO CON VÍNCULOS INTELIGENTES ---
+# --- 5. RENDERIZADO EN PANTALLA (WEB ELÁSTICA) ---
 
-def render_objective_card(seccion, indice_global, item):
-    texto_actual = item["texto"] if isinstance(item, dict) else item
-    color = CONFIG_OBJ[seccion]["color"]
-    
-    st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
-    
-    nuevo_texto = st.text_area(label=f"edit_{seccion}_{indice_global}", value=texto_actual, label_visibility="collapsed", key=f"area_{seccion}_{indice_global}", height=90)
-    
-    if nuevo_texto != texto_actual:
-        # 1. Actualizamos el texto de la tarjeta actual
-        if isinstance(item, dict):
-            st.session_state['arbol_objetivos'][seccion][indice_global]["texto"] = nuevo_texto
-        else:
-            st.session_state['arbol_objetivos'][seccion][indice_global] = nuevo_texto
-        
-        # 2. CASCADA: Si editamos un PADRE, actualizamos el vínculo de sus HIJOS
-        relaciones = {"Fines Directos": "Fines Indirectos", "Medios Directos": "Medios Indirectos"}
-        if seccion in relaciones:
-            seccion_hija = relaciones[seccion]
-            for h in st.session_state['arbol_objetivos'][seccion_hija]:
-                if isinstance(h, dict) and h.get("padre") == texto_actual:
-                    h["padre"] = nuevo_texto
-        
-        guardar_datos_nube()
-        st.rerun()
+# Nivel 1: Fines Indirectos (Arriba)
+st.subheader("🌟 Fines (Impacto a Largo Plazo)")
+if datos_obj["fines_indirectos"]:
+    cols = st.columns(len(datos_obj["fines_indirectos"]))
+    for i, texto in enumerate(datos_obj["fines_indirectos"]):
+        with cols[i]:
+            datos_obj["fines_indirectos"][i] = st.text_area(
+                f"Fin Ind. {i+1}", value=texto, 
+                height=calcular_altura(texto), # <--- Altura dinámica aplicada
+                key=f"fi_{i}", label_visibility="collapsed"
+            )
+            st.markdown('<div class="flecha-bajada">⬆️</div>', unsafe_allow_html=True)
 
-# --- FUNCIONES DE ESTRUCTURA JERÁRQUICA ---
+# Nivel 2: Fines Directos
+if datos_obj["fines_directos"]:
+    cols = st.columns(len(datos_obj["fines_directos"]))
+    for i, texto in enumerate(datos_obj["fines_directos"]):
+        with cols[i]:
+            datos_obj["fines_directos"][i] = st.text_area(
+                f"Fin Dir. {i+1}", value=texto, 
+                height=calcular_altura(texto, min_h=100), # <--- Altura dinámica aplicada
+                key=f"fd_{i}", label_visibility="collapsed"
+            )
+            st.markdown('<div class="flecha-bajada">⬆️</div>', unsafe_allow_html=True)
 
-def mostrar_seccion_simple(key_interna):
-    label_visual = CONFIG_OBJ[key_interna]["label"]
-    col_l, col_c = st.columns([1, 4])
-    with col_l: st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:20px;'>{label_visual}</div>", unsafe_allow_html=True)
-    with col_c:
-        items = st.session_state['arbol_objetivos'].get(key_interna, [])
-        if items: render_objective_card(key_interna, 0, items[0])
-        else: st.caption("Sección vacía.")
+# Nivel 3: Objetivo Central (Centro)
+st.markdown("---")
+c1, c2, c3 = st.columns([1, 2, 1])
+with c2:
+    st.subheader("🎯 Objetivo Central (Propósito)")
+    datos_obj["obj_central"] = st.text_area(
+        "OBJETIVO CENTRAL", value=datos_obj["obj_central"], 
+        height=calcular_altura(datos_obj["obj_central"], min_h=120), # <--- Altura dinámica aplicada
+        key="obj_central_txt", label_visibility="collapsed"
+    )
+    st.markdown('<div class="flecha-bajada">⬆️</div>', unsafe_allow_html=True)
+st.markdown("---")
 
-def mostrar_rama_jerarquica(nombre_padre, nombre_hijo, inversion=False):
-    """Muestra padres e hijos alineados verticalmente por columnas"""
-    padres = st.session_state['arbol_objetivos'].get(nombre_padre, [])
-    hijos = st.session_state['arbol_objetivos'].get(nombre_hijo, [])
-    orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
+# Nivel 4: Medios Directos (Abajo)
+st.subheader("🛠️ Medios (Componentes)")
+if datos_obj["medios_directos"]:
+    cols = st.columns(len(datos_obj["medios_directos"]))
+    for i, texto in enumerate(datos_obj["medios_directos"]):
+        with cols[i]:
+            datos_obj["medios_directos"][i] = st.text_area(
+                f"Medio Dir. {i+1}", value=texto, 
+                height=calcular_altura(texto, min_h=100), # <--- Altura dinámica aplicada
+                key=f"md_{i}", label_visibility="collapsed"
+            )
 
-    for seccion_actual, es_hijo in orden:
-        label_visual = CONFIG_OBJ[seccion_actual]["label"]
-        col_l, col_c = st.columns([1, 4])
-        with col_l: st.markdown(f"<div style='font-weight:bold; color:#444; text-align:right; margin-top:25px;'>{label_visual}</div>", unsafe_allow_html=True)
-        with col_c:
-            if padres:
-                cols = st.columns(len(padres))
-                for i, p_data in enumerate(padres):
-                    p_txt = p_data["texto"] if isinstance(p_data, dict) else p_data
-                    with cols[i]:
-                        if es_hijo:
-                            # Filtramos los hijos que pertenecen a este padre específico
-                            h_relacionados = [(idx, h) for idx, h in enumerate(hijos) 
-                                              if isinstance(h, dict) and h.get("padre") == p_txt]
-                            for h_idx_orig, h_data in h_relacionados:
-                                render_objective_card(seccion_actual, h_idx_orig, h_data)
-                        else:
-                            render_objective_card(seccion_actual, i, p_data)
-            else: st.caption(f"Debe definir {nombre_padre} primero.")
+# Nivel 5: Medios Indirectos (Base)
+if datos_obj["medios_indirectos"]:
+    cols = st.columns(len(datos_obj["medios_indirectos"]))
+    for i, texto in enumerate(datos_obj["medios_indirectos"]):
+        with cols[i]:
+            st.markdown('<div class="flecha-bajada">⬆️</div>', unsafe_allow_html=True)
+            datos_obj["medios_indirectos"][i] = st.text_area(
+                f"Medio Ind. {i+1}", value=texto, 
+                height=calcular_altura(texto), # <--- Altura dinámica aplicada
+                key=f"mi_{i}", label_visibility="collapsed"
+            )
 
-# --- CONSTRUCCIÓN DEL ÁRBOL ---
+# Guardado automático de ediciones en pantalla
+st.session_state['datos_objetivos'] = datos_obj
+guardar_datos_nube()
+
 st.divider()
-mostrar_seccion_simple("Fin Último")
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-# Nivel Fines: Indirectos arriba, Directos abajo
-mostrar_rama_jerarquica("Fines Directos", "Fines Indirectos", inversion=True)
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-mostrar_seccion_simple("Objetivo General")
-st.markdown("<hr style='border: 1.5px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-# Nivel Medios: Objetivos Específicos arriba, Actividades abajo
-mostrar_rama_jerarquica("Medios Directos", "Medios Indirectos", inversion=False)
+
+# --- 6. MOTOR DE EXPORTACIÓN ROBUSTO (Copia del Árbol de Problemas) ---
+def generar_png_objetivos():
+    # 1. Lienzo grande para soportar 10 líneas de texto
+    fig, ax = plt.subplots(figsize=(22, 24))
+    ax.set_xlim(0, 12); ax.set_ylim(-6, 14); ax.axis('off')
+
+    # 2. Título del PNG
+    ax.text(6, 13, "ÁRBOL DE OBJETIVOS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
+
+    # 3. Configuración de la Rejilla de Seguridad (Coordenadas Y fijas)
+    CONFIG_OBJ = {
+        "Fines Indirectos": {"y": 11, "color": "#D4EDDA"},
+        "Fines Directos": {"y": 8, "color": "#C3E6CB"},
+        "Objetivo Central": {"y": 4.5, "color": "#FFF3CD"},
+        "Medios Directos": {"y": 1, "color": "#D1ECF1"},
+        "Medios Indirectos": {"y": -3, "color": "#BEE5EB"}
+    }
+
+    # 4. Función de dibujo inteligente (Contrato de 180 caracteres)
+    def dibujar_caja(x, y, texto, color):
+        # Envoltura a 18 caracteres
+        lineas = textwrap.wrap(texto, width=18) if texto else ["---"]
+        # Límite duro de 10 líneas
+        txt_ajustado = "\n".join(lineas[:10])
+        n_lineas = len(lineas[:10])
+
+        # Altura dinámica y Ancho de seguridad
+        rect_h = max(1.0, 0.5 + (n_lineas * 0.28))
+        rect_w = 2.0 # Ancho suficiente para no tocarse lateralmente
+
+        # Ajuste de fuente
+        f_size = 10 if n_lineas <= 5 else 8.5
+
+        # Dibujo del rectángulo y texto
+        rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h,
+                             facecolor=color, edgecolor='#2C5F2D', lw=2, zorder=3, alpha=0.9)
+        ax.add_patch(rect)
+        ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=f_size,
+                fontweight='bold', zorder=4, color='#155724')
+
+    # 5. Dibujado por niveles usando la data actual de la sesión
+
+    # Objetivo Central
+    dibujar_caja(6, CONFIG_OBJ["Objetivo Central"]["y"], datos_obj["obj_central"], CONFIG_OBJ["Objetivo Central"]["color"])
+
+    # Fines (Directos e Indirectos)
+    for nivel, clave_data in [("Fines Directos", "fines_directos"), ("Fines Indirectos", "fines_indirectos")]:
+        items = datos_obj[clave_data]
+        if items:
+            espacio = 12 / (len(items) + 1)
+            for i, txt in enumerate(items):
+                dibujar_caja((i + 1) * espacio, CONFIG_OBJ[nivel]["y"], txt, CONFIG_OBJ[nivel]["color"])
+
+    # Medios (Directos e Indirectos)
+    for nivel, clave_data in [("Medios Directos", "medios_directos"), ("Medios Indirectos", "medios_indirectos")]:
+        items = datos_obj[clave_data]
+        if items:
+            espacio = 12 / (len(items) + 1)
+            for i, txt in enumerate(items):
+                dibujar_caja((i + 1) * espacio, CONFIG_OBJ[nivel]["y"], txt, CONFIG_OBJ[nivel]["color"])
+    
+    # Flecha central gigante (decorativa)
+    ax.annotate("", xy=(6, 7), xytext=(6, 2), arrowprops=dict(arrowstyle="->", lw=4, color="#1E3A8A"))
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    return buf.getvalue()
+
+# Botón de descarga con el nuevo motor
+st.download_button("🖼️ Descargar Árbol de Objetivos PNG", data=generar_png_objetivos(), file_name="arbol_objetivos_final.png", mime="image/png", use_container_width=True)
