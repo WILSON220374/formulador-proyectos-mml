@@ -2,34 +2,27 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 import textwrap
-# 1. IMPORTACIÓN: Conexión con las herramientas de nube que ya arreglamos
+import os # <--- Necesario para verificar el logo
 from session_state import inicializar_session, guardar_datos_nube
 
-# 2. ARRANQUE: Esta línea es la que evita que se borre todo al cerrar el navegador
+# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO MAESTRO (REPARADO PARA ICONOS) ---
+# --- ESTILO MAESTRO ---
 st.markdown("""
     <style>
-    /* Aplicamos la fuente solo al contenedor principal para no dañar los iconos del sistema */
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Source Sans Pro', sans-serif;
         color: #31333F;
     }
-    
-    /* Botón de Guardar: Siempre visible */
     .stButton button[kind="primary"] p {
         color: white !important;
         font-weight: bold !important;
     }
-    
-    /* Papeleras en el árbol: Rojo */
     .main .stButton button:not([kind="primary"]) p {
         color: #ff4b4b !important;
         font-weight: bold;
     }
-
-    /* Botón Cerrar Sesión: Negro y fino */
     [data-testid="stSidebar"] .stButton button:not([kind="primary"]) p {
         color: black !important;
         font-weight: normal !important;
@@ -37,14 +30,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- ENCABEZADO CON LOGO (ZONA AMARILLA) ---
+col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
+
+with col_titulo:
+    st.title("🌳 4. Árbol de Problemas")
+
+with col_logo:
+    # Ubicación en la parte superior derecha sin desplazar el contenido
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
+
 # --- SINCRONIZACIÓN DE MEMORIA ---
 if 'arbol_tarjetas' not in st.session_state:
     st.session_state['arbol_tarjetas'] = {
         "Efectos Indirectos": [], "Efectos Directos": [], 
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
-
-st.title("🌳 4. Árbol de Problemas")
 
 # Configuración Maestra de Colores
 CONFIG = {
@@ -55,7 +57,7 @@ CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN ---
+# --- SIDEBAR: GESTIÓN DE FICHAS ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG.keys()))
@@ -72,8 +74,6 @@ with st.sidebar:
                 st.session_state['arbol_tarjetas'][tipo_sel].append({"texto": texto_input, "padre": padre_asociado})
             else:
                 st.session_state['arbol_tarjetas'][tipo_sel].append(texto_input)
-            
-            # GUARDADO AUTOMÁTICO
             guardar_datos_nube()
             st.rerun()
 
@@ -102,7 +102,7 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar PNG", data=generar_png(), file_name="arbol_final.png", mime="image/png", use_container_width=True)
 
-# --- RENDERIZADO ---
+# --- RENDERIZADO VISUAL ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; border-left:8px solid rgba(0,0,0,0.1); 
                color:#31333F; font-weight:500; margin-bottom:8px; min-height:75px; box-shadow: 2px 2px 5px #eee; 
@@ -147,7 +147,7 @@ def render_rama(nombre_padre, nombre_hijo, inversion=False):
                                 guardar_datos_nube(); st.rerun()
             else: st.caption("Esperando datos...")
 
-# --- DIBUJO ---
+# --- DIBUJO DEL ÁRBOL ---
 st.divider()
 render_rama("Efectos Directos", "Efectos Indirectos", inversion=True)
 st.markdown("---")
