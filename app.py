@@ -31,6 +31,20 @@ if not st.session_state['autenticado']:
 # --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
+    
+    # Mostrar nombres de pila de los integrantes
+    integrantes = st.session_state.get('integrantes', [])
+    if integrantes:
+        nombres_pila = []
+        for i in integrantes:
+            # Extraer primer nombre del campo "Nombre Completo"
+            nombre_full = i.get("Nombre Completo", "").strip()
+            if nombre_full:
+                nombres_pila.append(nombre_full.split()[0])
+        
+        if nombres_pila:
+            st.caption(f"👥 {', '.join(nombres_pila)}")
+            
     st.divider()
     
     # BOTÓN MAESTRO DE GUARDADO
@@ -48,6 +62,9 @@ with st.sidebar:
 
 # --- NAVEGACIÓN ENTRE FASES ---
 pg = st.navigation({
+    "Configuración": [
+        st.Page("views/0_equipo.py", title="Equipo", icon="👥"),
+    ],
     "Fase I: Identificación": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
@@ -58,7 +75,6 @@ pg = st.navigation({
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
         st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
-        # NUEVA PÁGINA REGISTRADA CORRECTAMENTE AQUÍ
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ]
 })
