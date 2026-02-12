@@ -3,16 +3,16 @@ import pandas as pd
 import itertools
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Carga de datos con persistencia en nube
+# 1. Carga de datos con persistencia
 inicializar_session()
 
 st.title("⚖️ 6. Análisis de Alternativas")
 
-# --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
+# --- CONTEXTO: DATOS DEL PASO 5 ---
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. SELECCIÓN: EVALUACIÓN DE RELEVANCIA Y ALCANCE ---
+# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (TARJETAS) ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
 if 'df_evaluacion_alternativas' not in st.session_state or st.session_state['df_evaluacion_alternativas'].empty:
@@ -24,7 +24,7 @@ if 'df_evaluacion_alternativas' not in st.session_state or st.session_state['df_
             datos.append({"OBJETIVO": o_txt, "ACTIVIDAD": a_txt, "ENFOQUE": "NO", "ALCANCE": "NO"})
     st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(datos)
 
-# Renderizado de tarjetas de selección
+# Renderizado de selección
 df_master = st.session_state['df_evaluacion_alternativas']
 for index, row in df_master.iterrows():
     with st.container(border=True):
@@ -47,85 +47,91 @@ for index, row in df_master.iterrows():
 
 st.divider()
 
-# --- 2. COMPARACIÓN: EVALUACIÓN DE RELACIONES TÉCNICAS ---
-st.subheader("🤝 2. Evaluación de Relaciones Técnicas")
+# --- 2. ANÁLISIS DE RELACIONES ENTRE OBJETIVOS (NUEVA TABLA) ---
+st.subheader("🔄 2. Análisis de Relaciones entre Objetivos")
 
-# Filtramos solo las combinaciones aprobadas
+# Filtramos los objetivos que tienen al menos una actividad aprobada
 aprobadas = st.session_state['df_evaluacion_alternativas'][
     (st.session_state['df_evaluacion_alternativas']["ENFOQUE"] == "SI") & 
     (st.session_state['df_evaluacion_alternativas']["ALCANCE"] == "SI")
-].reset_index(drop=True)
+]
+objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
 
-if aprobadas.empty:
+if len(objetivos_seleccionados) < 1:
     st.warning("⚠️ DEBE SELECCIONAR POR LO MENOS UNA COMBINACION DE OBJETIVO Y ACTIVIDAD RESPONDIENDO SI A AMBOS CRITERIOS")
+elif len(objetivos_seleccionados) == 1:
+    st.info("Solo hay un objetivo seleccionado. No requiere comparación de exclusividad.")
 else:
-    st.info("Compare cada combinación con las demás. Indique si son **Complementarias** (pueden ir juntas) o **Excluyentes** (son caminos diferentes).")
+    st.info("Compare los objetivos seleccionados para decidir si pueden ejecutarse juntos o si son excluyentes.")
     
-    # Generamos pares únicos para comparar
-    indices = aprobadas.index.tolist()
-    pares = list(itertools.combinations(indices, 2))
+    # Generar todos los pares de objetivos para comparar
+    pares = list(itertools.combinations(objetivos_seleccionados, 2))
     
-    if not pares:
-        st.info("Solo hay una combinación seleccionada. Es complementaria por defecto.")
-    else:
-        # Sincronización de la tabla de relaciones
-        if 'df_relaciones_tecnicas' not in st.session_state:
-            rel_iniciales = []
-            for i, j in pares:
-                txt_a = f"{aprobadas.iloc[i]['ACTIVIDAD']}"
-                txt_b = f"{aprobadas.iloc[j]['ACTIVIDAD']}"
-                rel_iniciales.append({
-                    "COMBINACIÓN A": txt_a, "COMBINACIÓN B": txt_b, "RELACIÓN": "Complementaria"
-                })
-            st.session_state['df_relaciones_tecnicas'] = pd.DataFrame(rel_iniciales)
+    # Inicializar o actualizar la tabla de relaciones en session_state
+    if 'df_relaciones_objetivos' not in st.session_state:
+        rel_datos = []
+        for obj_a, obj_b in pares:
+            rel_datos.append({"OBJETIVO A": obj_a, "OBJETIVO B": obj_b, "RELACIÓN": "Complementario"})
+        st.session_state['df_relaciones_objetivos'] = pd.DataFrame(rel_datos)
 
-        # Editor de Relaciones Cara a Cara
-        df_rel_editado = st.data_editor(
-            st.session_state['df_relaciones_tecnicas'],
-            column_config={
-                "COMBINACIÓN A": st.column_config.TextColumn("COMBINACIÓN A", disabled=True, width="large"),
-                "COMBINACIÓN B": st.column_config.TextColumn("COMBINACIÓN B", disabled=True, width="large"),
-                "RELACIÓN": st.column_config.SelectboxColumn("RELACIÓN", options=["Complementaria", "Excluyente"])
-            },
-            hide_index=True, use_container_width=True, key="evaluador_pares"
-        )
+    # Tabla para que el formulador decida
+    df_rel_editado = st.data_editor(
+        st.session_state['df_relaciones_objetivos'],
+        column_config={
+            "OBJETIVO A": st.column_config.TextColumn("OBJETIVO A", disabled=True, width="large"),
+            "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
+            "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN TÉCNICA", options=["Complementario", "Excluyente"])
+        },
+        hide_index=True, use_container_width=True, key="tabla_decisoria_objetivos"
+    )
 
-        if not df_rel_editado.equals(st.session_state['df_relaciones_tecnicas']):
-            st.session_state['df_relaciones_tecnicas'] = df_rel_editado
-            # Guardamos las exclusiones para validar paquetes
-            st.session_state['relaciones_medios'] = df_rel_editado[df_rel_editado["RELACIÓN"] == "Excluyente"].values.tolist()
-            guardar_datos_nube(); st.rerun()
+    if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
+        st.session_state['df_relaciones_objetivos'] = df_rel_editado
+        guardar_datos_nube(); st.rerun()
 
 st.divider()
 
-# --- 3. CONSOLIDACIÓN: CONFIGURACIÓN DE PAQUETES ---
+# --- 3. CONSOLIDACIÓN DE PAQUETES ---
 st.subheader("📦 3. Configuración de Paquetes (Alternativas)")
 
 if not aprobadas.empty:
     with st.container(border=True):
-        nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa A: Rehabilitación")
-        lista_opciones = aprobadas["ACTIVIDAD"].tolist()
-        seleccion_alt = st.multiselect("Seleccione componentes para este paquete:", options=lista_opciones)
+        nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa Tecnológica")
         
-        # Validación de exclusividad en tiempo real
+        # El usuario selecciona Actividades, el sistema valida la exclusividad de sus Objetivos
+        seleccion_actividades = st.multiselect(
+            "Seleccione componentes para esta alternativa:", 
+            options=aprobadas["ACTIVIDAD"].unique().tolist()
+        )
+        
+        # VALIDACIÓN DE EXCLUSIVIDAD EN TIEMPO REAL
         conflicto = False
-        if seleccion_alt and 'df_relaciones_tecnicas' in st.session_state:
-            for _, rel in st.session_state['df_relaciones_tecnicas'].iterrows():
-                if rel["RELACIÓN"] == "Excluyente" and rel["COMBINACIÓN A"] in seleccion_alt and rel["COMBINACIÓN B"] in seleccion_alt:
-                    st.error(f"❌ Conflicto: '{rel['COMBINACIÓN A']}' y '{rel['COMBINACIÓN B']}' son EXCLUYENTES.")
+        if seleccion_actividades and 'df_relaciones_objetivos' in st.session_state:
+            # Obtener los objetivos de las actividades seleccionadas
+            objs_en_pack = aprobadas[aprobadas["ACTIVIDAD"].isin(seleccion_actividades)]["OBJETIVO"].unique().tolist()
+            
+            # Revisar si algún par en el paquete fue marcado como Excluyente
+            for obj_a, obj_b in itertools.combinations(objs_en_pack, 2):
+                rel = st.session_state['df_relaciones_objetivos'][
+                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == obj_a) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == obj_b)) |
+                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == obj_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == obj_a))
+                ]
+                if not rel.empty and rel.iloc[0]["RELACIÓN"] == "Excluyente":
+                    st.error(f"❌ Conflicto: Los objetivos de estas actividades son EXCLUYENTES entre sí.")
                     conflicto = True
+                    break
         
-        justificacion = st.text_area("Justificación técnica de la alternativa:")
+        justificacion = st.text_area("Justificación técnica:")
         
         if st.button("🚀 Consolidar Alternativa", type="primary", disabled=conflicto):
-            if nombre_alt and seleccion_alt:
-                nueva = {"nombre": nombre_alt, "componentes": seleccion_alt, "justificacion": justificacion}
+            if nombre_alt and seleccion_actividades:
+                nueva = {"nombre": nombre_alt, "componentes": seleccion_actividades, "justificacion": justificacion}
                 if 'lista_alternativas' not in st.session_state or not isinstance(st.session_state['lista_alternativas'], list):
                     st.session_state['lista_alternativas'] = []
                 st.session_state['lista_alternativas'].append(nueva)
                 guardar_datos_nube(); st.rerun()
 
-# --- 4. VISUALIZACIÓN PROTEGIDA ---
+# --- 4. VISUALIZACIÓN ---
 alternativas = st.session_state.get('lista_alternativas')
 if isinstance(alternativas, list) and len(alternativas) > 0:
     st.divider()
@@ -133,7 +139,7 @@ if isinstance(alternativas, list) and len(alternativas) > 0:
     for idx, alt in enumerate(alternativas):
         if isinstance(alt, dict) and 'nombre' in alt:
             with st.expander(f"🔹 {alt['nombre']}"):
-                st.write(alt.get('justificacion', 'N/A'))
+                st.write(alt.get('justificacion', ''))
                 for comp in alt.get('componentes', []): st.markdown(f"- {comp}")
                 if st.button("🗑️ Eliminar", key=f"del_{idx}"):
                     st.session_state['lista_alternativas'].pop(idx)
