@@ -4,13 +4,13 @@ import io
 import textwrap
 import copy
 import os
-import uuid # <--- EL SISTEMA DE PASAPORTES
+import uuid # Sistema de Pasaportes Únicos
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Carga de datos persistentes
 inicializar_session()
 
-# --- ESTILO DE TARJETAS (CENTRADO Y ELÁSTICO) ---
+# --- ESTILO DE TARJETAS (CORREGIDO PARA NO AFECTAR SIDEBAR) ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
@@ -21,19 +21,22 @@ st.markdown("""
         font-weight: 500 !important;
         padding-top: 15px !important;
     }
-    .stButton button {
+    /* SOLUCIÓN: Solo los botones en el área principal (.main) serán rojos y transparentes */
+    .main .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
-        font-weight: bold !important;
+        font-size: 1.2rem !important;
+        margin-top: -15px !important;
     }
+    /* Los botones de la barra lateral conservan su estilo original por defecto */
     </style>
 """, unsafe_allow_html=True)
 
 # --- ENCABEZADO CON LOGO Y TÍTULO ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
-    st.title("🎯 7. Árbol de Objetivos Final") # Título solicitado
+    st.title("🎯 7. Árbol de Objetivos Final") # Título corregido
 with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
@@ -55,14 +58,12 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "label": "ACTIVIDADES"}
 }
 
-# --- HERRAMIENTA DE IMPORTACIÓN CON ASIGNACIÓN DE PASAPORTES (UUID) ---
+# --- HERRAMIENTA DE IMPORTACIÓN CON UUID (PASAPORTES) ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     if st.button("♻️ Importar desde Paso 5", use_container_width=True):
         datos_originales = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
         datos_con_id = {}
-        
-        # Asignamos un ID único a cada tarjeta para que el sistema no se confunda
         for seccion, lista in datos_originales.items():
             procesados = []
             for item in lista:
@@ -72,20 +73,17 @@ with st.sidebar:
                 else:
                     procesados.append({'texto': item, 'id_unico': str(uuid.uuid4())})
             datos_con_id[seccion] = procesados
-            
         st.session_state['arbol_objetivos_final'] = datos_con_id
         guardar_datos_nube(); st.rerun()
 
 # --- FUNCIÓN DE RENDERIZADO CON IDENTIDAD ÚNICA ---
 def render_poda_card(seccion, item):
-    # Usamos el ID único como clave para que Streamlit no se confunda de tarjeta
     id_id = item.get('id_unico', 'temp')
     texto_actual = item.get("texto", "")
     color = CONFIG_OBJ[seccion]["color"]
     
-    st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background-color: {color}; height: 8px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     
-    # Altura dinámica para que no se corte el texto
     nuevo_texto = st.text_area(
         label=f"p_{id_id}", 
         value=texto_actual, 
@@ -94,8 +92,8 @@ def render_poda_card(seccion, item):
         key=f"txt_{id_id}"
     )
     
-    # BORRADO POR IDENTIDAD: Ya no borramos por índice, sino buscando el ID
-    if st.button("🗑️ Eliminar", key=f"btn_{id_id}"):
+    # Borrado por Identidad (Blindaje contra doble clic)
+    if st.button("🗑️", key=f"btn_{id_id}"):
         st.session_state['arbol_objetivos_final'][seccion] = [
             x for x in st.session_state['arbol_objetivos_final'][seccion] 
             if x.get('id_unico') != id_id
@@ -106,7 +104,7 @@ def render_poda_card(seccion, item):
         item["texto"] = nuevo_texto
         guardar_datos_nube()
 
-# --- ESTRUCTURA JERÁRQUICA (CONSERVADA) ---
+# --- ESTRUCTURA JERÁRQUICA ---
 def mostrar_seccion_simple_poda(key_interna):
     label_visual = CONFIG_OBJ[key_interna]["label"]
     col_l, col_c = st.columns([1, 4])
@@ -130,7 +128,6 @@ def mostrar_rama_jerarquica_poda(nombre_padre, nombre_hijo, inversion=False):
                     p_txt = p_data.get("texto", "")
                     with cols[i]:
                         if es_hijo:
-                            # Filtramos hijos por el texto de su padre
                             h_rel = [h for h in hijos if h.get("padre") == p_txt]
                             for h_data in h_rel: render_poda_card(seccion_actual, h_data)
                         else:
