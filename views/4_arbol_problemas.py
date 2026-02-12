@@ -35,11 +35,12 @@ if 'arbol_tarjetas' not in st.session_state:
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
+# Ajuste de coordenadas Y para dar espacio al apilamiento vertical
 CONFIG = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 4},
-    "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 3},
-    "Problema Principal": {"color": "#FFB3BA", "tipo": "simple", "y": 2},
-    "Causas Directas": {"color": "#FFFFBA", "tipo": "simple", "y": 1},
+    "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 6},
+    "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 4.5},
+    "Problema Principal": {"color": "#FFB3BA", "tipo": "simple", "y": 3},
+    "Causas Directas": {"color": "#FFFFBA", "tipo": "simple", "y": 1.5},
     "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
@@ -65,62 +66,56 @@ with st.sidebar:
 
     st.divider()
     
-    # --- FUNCIÓN DE GENERACIÓN DE PNG (COPIA FIEL DE PANTALLA) ---
+    # --- FUNCIÓN DE GENERACIÓN DE PNG (APILAMIENTO VERTICAL FIEL) ---
     def generar_png():
-        fig, ax = plt.subplots(figsize=(20, 15)) # Lienzo más ancho para mayor claridad
-        ax.set_xlim(0, 12); ax.set_ylim(-1, 9); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(18, 14))
+        ax.set_xlim(0, 10); ax.set_ylim(-2, 10); ax.axis('off')
         
-        # Título centrado
-        ax.text(6, 8.5, "ÁRBOL DE PROBLEMAS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
+        # 1. Título principal
+        ax.text(5, 9.5, "ÁRBOL DE PROBLEMAS", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_tarjetas']
         
-        # 1. Función interna para dibujar cajas
         def dibujar_caja(x, y, texto, color):
             txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
-            rect_w, rect_h = 2.2, 0.8
+            rect_w, rect_h = 2.0, 0.8
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
-                                 facecolor=color, edgecolor='#333', lw=1.5, zorder=3)
+                                 facecolor=color, edgecolor='#333', lw=1.2, zorder=3)
             ax.add_patch(rect)
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=10, 
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, 
                     fontweight='bold', zorder=4, color='#31333F')
 
-        # 2. Dibujar secciones simples (Problema y Directas)
-        pos_x_directas = {} # Para alinear los hijos después
-        
-        # Problema Principal (Centro)
+        # 2. Dibujar Problema Principal
         if datos["Problema Principal"]:
-            dibujar_caja(6, CONFIG["Problema Principal"]["y"]*1.5, datos["Problema Principal"][0], CONFIG["Problema Principal"]["color"])
+            dibujar_caja(5, CONFIG["Problema Principal"]["y"], datos["Problema Principal"][0], CONFIG["Problema Principal"]["color"])
 
-        # Secciones con ramas (Directas e Indirectas)
+        # 3. Dibujar Ramas con Apilamiento Vertical (Copia Fiel de Pantalla)
         for principal in ["Efectos Directos", "Causas Directas"]:
             items = datos[principal]
             if items:
-                espacio = 12 / (len(items) + 1)
+                espacio = 10 / (len(items) + 1)
                 for i, p_txt in enumerate(items):
                     x_p = (i + 1) * espacio
-                    pos_x_directas[p_txt] = x_p
-                    dibujar_caja(x_p, CONFIG[principal]["y"]*1.5, p_txt, CONFIG[principal]["color"])
+                    y_p = CONFIG[principal]["y"]
+                    dibujar_caja(x_p, y_p, p_txt, CONFIG[principal]["color"])
                     
-                    # Buscar hijos para este padre específico
+                    # Identificar sección hija y apilar verticalmente
                     sec_hija = "Efectos Indirectos" if principal == "Efectos Directos" else "Causas Indirectas"
                     hijos = [h for h in datos[sec_hija] if isinstance(h, dict) and h.get("padre") == p_txt]
                     
                     if hijos:
-                        # Dibujar hijos agrupados bajo su padre
-                        h_y = CONFIG[sec_hija]["y"]*1.5
-                        # Pequeño desplazamiento si hay varios hijos
-                        h_espacio = 1.8 / (len(hijos) + 1) if len(hijos) > 1 else 0
+                        # Los hijos se apilan hacia arriba (efectos) o hacia abajo (causas)
+                        direccion = 1 if principal == "Efectos Directos" else -1
                         for j, h_data in enumerate(hijos):
-                            h_x = x_p + (j - (len(hijos)-1)/2) * 0.8
-                            dibujar_caja(h_x, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
+                            h_y = y_p + (direccion * (j + 1) * 0.9)
+                            dibujar_caja(x_p, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
 
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', transparent=False, facecolor='white')
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white')
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas_JCFLOW.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas_fiel.png", mime="image/png", use_container_width=True)
 
 # --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
