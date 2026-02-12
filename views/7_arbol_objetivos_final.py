@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import io
 import textwrap
 import copy
-import os # <--- Necesario para el logo
+import os # <--- Necesario para cargar el logo
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Carga de datos persistentes
 inicializar_session()
 
-# --- ESTILO DE TARJETAS ---
+# --- ESTILO DE TARJETAS (CENTRADO Y PAPELERA LIMPIA) ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
@@ -20,12 +20,13 @@ st.markdown("""
         font-weight: 500 !important;
         padding-top: 10px !important;
     }
-    /* Estilo para que la papelera se vea limpia */
+    /* Estilo para que la papelera se vea roja y centrada */
     .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
-        font-weight: bold !important;
+        font-size: 1.2rem !important;
+        margin-top: -10px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -34,10 +35,10 @@ st.markdown("""
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 
 with col_titulo:
-    st.title("🎯 7. Árbol de Objetivos Final") # Título corregido
+    st.title("🎯 7. Árbol de Objetivos Final") # Título actualizado
 
 with col_logo:
-    # Traemos la imagen 'unnamed-1.jpg' igual que en la Hoja 1 y 4
+    # Traemos la imagen 'unnamed-1.jpg' igual que en la Hoja 1
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
@@ -52,59 +53,16 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "label": "ACTIVIDADES"}
 }
 
-# --- BARRA LATERAL: HERRAMIENTAS ---
-with st.sidebar:
-    st.header("⚙️ Herramientas")
-    if st.button("♻️ Importar desde Paso 5", use_container_width=True):
-        st.session_state['arbol_objetivos_final'] = copy.deepcopy(st.session_state['arbol_objetivos'])
-        guardar_datos_nube(); st.rerun()
-    
-    st.divider()
-    
-    def generar_png_final():
-        fig, ax = plt.subplots(figsize=(18, 16))
-        ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
-        datos = st.session_state.get('arbol_objetivos_final', {})
-        
-        m_dir = datos.get("Medios Directos", [])
-        n_cols = len(m_dir) if m_dir else 1
-        esp_x = 10 / (n_cols + 1)
-        pos_x_medios = { (m['texto'] if isinstance(m, dict) else m): (i+1)*esp_x for i, m in enumerate(m_dir) }
-        
-        f_dir = datos.get("Fines Directos", [])
-        n_f_cols = len(f_dir) if f_dir else 1
-        esp_f = 10 / (n_f_cols + 1)
-        pos_x_fines = { (f['texto'] if isinstance(f, dict) else f): (i+1)*esp_f for i, f in enumerate(f_dir) }
+# --- 3. FUNCIÓN DE ELIMINACIÓN (CALLBACK DE SEGURIDAD) ---
+def eliminar_tarjeta_final(seccion, indice):
+    """
+    Borra el elemento exacto usando su posición en la lista original.
+    Se ejecuta antes de renderizar la página para evitar errores de índice.
+    """
+    st.session_state['arbol_objetivos_final'][seccion].pop(indice)
+    guardar_datos_nube()
 
-        Y_LEVELS = {"Fin Último": 10.0, "Fines Indirectos": 8.5, "Fines Directos": 7.0, "Objetivo General": 5.0, "Medios Directos": 3.0, "Medios Indirectos": 1.5}
-        stacks = {}
-
-        for sec, y_base in Y_LEVELS.items():
-            items = datos.get(sec, [])
-            for it in items:
-                txt = it["texto"] if isinstance(it, dict) else it
-                if sec in ["Fin Último", "Objetivo General"]: x = 5.0
-                elif sec == "Medios Directos": x = pos_x_medios.get(txt, 5.0)
-                elif sec == "Fines Directos": x = pos_x_fines.get(txt, 5.0)
-                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre") if isinstance(it, dict) else None, 5.0)
-                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre") if isinstance(it, dict) else None, 5.0)
-                
-                current_y = y_base
-                if sec in ["Medios Indirectos", "Fines Indirectos"]:
-                    offset = stacks.get((sec, x), 0)
-                    current_y = y_base - offset if sec == "Medios Indirectos" else y_base + offset
-                    stacks[(sec, x)] = offset + 1.2
-
-                ax.add_patch(plt.Rectangle((x-1.15, current_y-0.45), 2.3, 0.9, facecolor=CONFIG_OBJ[sec]["color"], edgecolor='#333', lw=1.5))
-                txt_wrap = "\n".join(textwrap.wrap(txt, width=24))
-                ax.text(x, current_y, txt_wrap, ha='center', va='center', fontsize=8, fontweight='bold')
-        
-        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
-        return buf.getvalue()
-
-    st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", use_container_width=True)
-
-# --- 3. FUNCIÓN DE RENDERIZADO CON BORRADO CORREGIDO ---
+# --- FUNCIÓN DE RENDERIZADO DE TARJETAS ---
 def render_poda_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
@@ -112,18 +70,23 @@ def render_poda_card(seccion, indice, item):
     with st.container():
         st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
         
-        # Área de edición de texto
-        nuevo_texto = st.text_area(label=f"p_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", height=100, key=f"txt_{seccion}_{indice}")
+        # Área de edición
+        nuevo_texto = st.text_area(
+            label=f"p_{seccion}_{indice}", 
+            value=texto_actual, 
+            label_visibility="collapsed", 
+            height=90, 
+            key=f"txt_{seccion}_{indice}"
+        )
         
-        # AJUSTE DE BORRADO: Usamos pop(indice) con un rerun inmediato para asegurar que el cambio se refleje
-        if st.button("🗑️", key=f"btn_del_{seccion}_{indice}"):
-            st.session_state['arbol_objetivos_final'][seccion].pop(indice)
-            guardar_datos_nube()
-            st.rerun() # <--- Crucial para que no borre el de la derecha
+        # BOTÓN DE BORRADO CON CALLBACK: Garantiza borrar la tarjeta correcta
+        st.button("🗑️", key=f"btn_del_{seccion}_{indice}", on_click=eliminar_tarjeta_final, args=(seccion, indice))
             
         if nuevo_texto != texto_actual:
-            if isinstance(item, dict): st.session_state['arbol_objetivos_final'][seccion][indice]["texto"] = nuevo_texto
-            else: st.session_state['arbol_objetivos_final'][seccion][indice] = nuevo_texto
+            if isinstance(item, dict): 
+                st.session_state['arbol_objetivos_final'][seccion][indice]["texto"] = nuevo_texto
+            else: 
+                st.session_state['arbol_objetivos_final'][seccion][indice] = nuevo_texto
             guardar_datos_nube()
 
 # --- FUNCIONES DE ESTRUCTURA ---
@@ -156,6 +119,13 @@ def mostrar_rama_jerarquica_poda(nombre_padre, nombre_hijo, inversion=False):
                             for h_idx_orig, h_data in h_rel: render_poda_card(seccion_actual, h_idx_orig, h_data)
                         else: render_poda_card(seccion_actual, i, p_data)
             else: st.caption(f"Defina {nombre_padre} primero.")
+
+# --- BARRA LATERAL ---
+with st.sidebar:
+    st.header("⚙️ Herramientas")
+    if st.button("♻️ Importar desde Paso 5", use_container_width=True):
+        st.session_state['arbol_objetivos_final'] = copy.deepcopy(st.session_state['arbol_objetivos'])
+        guardar_datos_nube(); st.rerun()
 
 # --- DIBUJO DEL ÁRBOL ---
 arbol_f = st.session_state.get('arbol_objetivos_final', {})
