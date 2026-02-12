@@ -43,7 +43,7 @@ CONFIG = {
     "Causas Indirectas": {"color": "#FFDFBA", "tipo": "hijo", "padre": "Causas Directas", "y": 0}
 }
 
-# --- SIDEBAR: GESTIÓN Y EXPORTACIÓN ---
+# --- SIDEBAR: GESTIÓN ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG.keys()))
@@ -65,48 +65,64 @@ with st.sidebar:
 
     st.divider()
     
-    # --- FUNCIÓN DE GENERACIÓN DE PNG MEJORADA ---
+    # --- FUNCIÓN DE GENERACIÓN DE PNG (COPIA FIEL DE PANTALLA) ---
     def generar_png():
-        fig, ax = plt.subplots(figsize=(18, 14)) # Lienzo más grande
-        ax.set_xlim(0, 10); ax.set_ylim(-1, 8.5); ax.axis('off')
+        fig, ax = plt.subplots(figsize=(20, 15)) # Lienzo más ancho para mayor claridad
+        ax.set_xlim(0, 12); ax.set_ylim(-1, 9); ax.axis('off')
         
-        # 1. Título del Árbol en el PNG
-        ax.text(5, 8, "ÁRBOL DE PROBLEMAS", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
+        # Título centrado
+        ax.text(6, 8.5, "ÁRBOL DE PROBLEMAS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_tarjetas']
-        for sec, conf in CONFIG.items():
-            items_raw = datos.get(sec, [])
-            items = [h for h in items_raw if isinstance(h, dict) and h.get("padre") in datos.get(conf["padre"], [])] if conf["tipo"] == "hijo" else items_raw
-            if not items: continue
-            
-            espacio = 10 / (len(items) + 1)
-            for i, item in enumerate(items):
-                x = (i + 1) * espacio
-                txt = item["texto"] if isinstance(item, dict) else item
-                
-                # Ajuste de texto centrado y proporcional
-                txt_ajustado = "\n".join(textwrap.wrap(txt, width=20))
-                
-                # Rectángulo más robusto para evitar desbordes
-                rect_w, rect_h = 2.4, 0.9
-                rect = plt.Rectangle((x - (rect_w/2), (conf["y"]*1.5) - (rect_h/2)), 
-                                     rect_w, rect_h, facecolor=conf["color"], 
-                                     edgecolor='#333', lw=1.5, zorder=2)
-                ax.add_patch(rect)
-                
-                # Texto centrado vertical y horizontalmente
-                ax.text(x, conf["y"]*1.5, txt_ajustado, ha='center', va='center', 
-                        fontsize=10, fontweight='bold', zorder=3, color='#31333F')
         
+        # 1. Función interna para dibujar cajas
+        def dibujar_caja(x, y, texto, color):
+            txt_ajustado = "\n".join(textwrap.wrap(texto, width=22))
+            rect_w, rect_h = 2.2, 0.8
+            rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
+                                 facecolor=color, edgecolor='#333', lw=1.5, zorder=3)
+            ax.add_patch(rect)
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=10, 
+                    fontweight='bold', zorder=4, color='#31333F')
+
+        # 2. Dibujar secciones simples (Problema y Directas)
+        pos_x_directas = {} # Para alinear los hijos después
+        
+        # Problema Principal (Centro)
+        if datos["Problema Principal"]:
+            dibujar_caja(6, CONFIG["Problema Principal"]["y"]*1.5, datos["Problema Principal"][0], CONFIG["Problema Principal"]["color"])
+
+        # Secciones con ramas (Directas e Indirectas)
+        for principal in ["Efectos Directos", "Causas Directas"]:
+            items = datos[principal]
+            if items:
+                espacio = 12 / (len(items) + 1)
+                for i, p_txt in enumerate(items):
+                    x_p = (i + 1) * espacio
+                    pos_x_directas[p_txt] = x_p
+                    dibujar_caja(x_p, CONFIG[principal]["y"]*1.5, p_txt, CONFIG[principal]["color"])
+                    
+                    # Buscar hijos para este padre específico
+                    sec_hija = "Efectos Indirectos" if principal == "Efectos Directos" else "Causas Indirectas"
+                    hijos = [h for h in datos[sec_hija] if isinstance(h, dict) and h.get("padre") == p_txt]
+                    
+                    if hijos:
+                        # Dibujar hijos agrupados bajo su padre
+                        h_y = CONFIG[sec_hija]["y"]*1.5
+                        # Pequeño desplazamiento si hay varios hijos
+                        h_espacio = 1.8 / (len(hijos) + 1) if len(hijos) > 1 else 0
+                        for j, h_data in enumerate(hijos):
+                            h_x = x_p + (j - (len(hijos)-1)/2) * 0.8
+                            dibujar_caja(h_x, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
+
         buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight')
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', transparent=False, facecolor='white')
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas.png", mime="image/png", use_container_width=True)
+    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_problemas_JCFLOW.png", mime="image/png", use_container_width=True)
 
-# --- DIBUJO DEL ÁRBOL EN PANTALLA ---
-# (Se mantiene tu lógica de renderizado por columnas que ya funciona bien)
+# --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; border-left:8px solid rgba(0,0,0,0.1); 
                color:#31333F; font-weight:500; margin-bottom:8px; min-height:85px; box-shadow: 2px 2px 5px #eee; 
