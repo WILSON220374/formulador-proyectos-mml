@@ -8,6 +8,13 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Carga de persistencia
 inicializar_session()
 
+# --- SANEAMIENTO AUTOMÁTICO SILENCIOSO ---
+def es_valido(item):
+    if not item: return False
+    txt = item["texto"] if isinstance(item, dict) else str(item)
+    # Filtro estricto: Menos de 4 letras se considera basura o error de edición
+    return len(txt.strip()) > 3 
+
 # --- ESTILO DE TARJETAS ---
 st.markdown("""
     <style>
@@ -29,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🌳 8. Árbol de Problemas Final")
-st.info("Poda Manual: Los cambios aquí son definitivos para su Matriz de Marco Lógico.")
+st.info("Este árbol refleja el diagnóstico definitivo que se resolverá en la Matriz de Marco Lógico.")
 
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS INDIRECTOS"},
@@ -39,36 +46,22 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- FUNCIÓN DE VALIDACIÓN ESTRICTA (PARA EVITAR LETRAS SUELTAS) ---
-def es_valido(item):
-    if not item: return False
-    txt = item["texto"] if isinstance(item, dict) else str(item)
-    return len(txt.strip()) > 3 # Solo acepta textos con más de 3 letras
-
 # --- BARRA LATERAL: HERRAMIENTAS ---
 with st.sidebar:
-    st.header("⚙️ Herramientas de Limpieza")
+    st.header("⚙️ Herramientas")
     
     if st.button("♻️ Importar desde Paso 4", use_container_width=True):
         st.session_state['arbol_problemas_final'] = copy.deepcopy(st.session_state['arbol_tarjetas'])
         guardar_datos_nube(); st.rerun()
-
-    # NUEVO: Botón para purgar letras intrusas de la base de datos
-    if st.button("🧹 Limpiar Memoria (Borrar Letras)", use_container_width=True, type="primary"):
-        for sec in st.session_state['arbol_problemas_final']:
-            st.session_state['arbol_problemas_final'][sec] = [
-                it for it in st.session_state['arbol_problemas_final'][sec] if es_valido(it)
-            ]
-        guardar_datos_nube(); st.toast("¡Memoria purgada de letras intrusas!"); st.rerun()
     
     st.divider()
     
-    def generar_png_problemas_limpio():
+    def generar_png_final_limpio():
         fig, ax = plt.subplots(figsize=(18, 16))
         ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
         datos = st.session_state.get('arbol_problemas_final', {})
         
-        # 1. Mapeo de X solo con elementos válidos
+        # Mapeo X basado solo en elementos válidos
         c_dir = [c for c in datos.get("Causas Directas", []) if es_valido(c)]
         esp_c = 10 / (len(c_dir) + 1) if c_dir else 5.0
         pos_x_causas = { (c['texto'] if isinstance(c, dict) else c): (i+1)*esp_c for i, c in enumerate(c_dir) }
@@ -89,9 +82,8 @@ with st.sidebar:
                 elif sec == "Efectos Directos": x = pos_x_efectos.get(txt, 5.0)
                 elif sec in ["Causas Indirectas", "Efectos Indirectos"]:
                     p_txt = it.get("padre") if isinstance(it, dict) else None
-                    # Sincronización estricta con el padre
                     x = pos_x_causas.get(p_txt) if sec == "Causas Indirectas" else pos_x_efectos.get(p_txt)
-                    if x is None: continue # Esto elimina las letras huérfanas en el PNG
+                    if x is None: continue 
 
                 current_y = y_base
                 if sec in ["Causas Indirectas", "Efectos Indirectos"]:
@@ -105,9 +97,10 @@ with st.sidebar:
         buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol Final Limpio", generar_png_problemas_limpio(), "arbol_problemas_final.png", use_container_width=True)
+    # Nombre de botón unificado con Step 7
+    st.download_button("🖼️ Descargar Árbol Final", generar_png_final_limpio(), "arbol_problemas_final.png", use_container_width=True)
 
-# --- FUNCIONES DE RENDERIZADO (LOGICA DE PANTALLA) ---
+# --- FUNCIONES DE RENDERIZADO ---
 
 def render_poda_card(seccion, indice, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
@@ -126,7 +119,7 @@ def render_poda_card(seccion, indice, item):
             guardar_datos_nube()
 
 def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
-    # Solo mostramos lo que es válido en pantalla
+    # Aplicamos el filtro es_valido también en la visualización de pantalla
     padres = [p for p in st.session_state['arbol_problemas_final'].get(padre_key, []) if es_valido(p)]
     hijos = [h for h in st.session_state['arbol_problemas_final'].get(hijo_key, []) if es_valido(h)]
     orden = [(hijo_key, True), (padre_key, False)] if inversion else [(padre_key, False), (hijo_key, True)]
@@ -143,7 +136,6 @@ def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
                         if es_hijo:
                             h_rel = [(idx, h) for idx, h in enumerate(hijos) if isinstance(h, dict) and h.get("padre") == p_txt]
                             for _, h_data in h_rel:
-                                # Buscamos el índice original para el render
                                 idx_orig = next(i for i, x in enumerate(st.session_state['arbol_problemas_final'][sec]) if x == h_data)
                                 render_poda_card(sec, idx_orig, h_data)
                         else:
