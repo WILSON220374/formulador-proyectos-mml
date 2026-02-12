@@ -12,7 +12,7 @@ st.title("⚖️ 6. Análisis de Alternativas")
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE ---
+# --- 1. SELECCIÓN DE ACTIVIDADES A ATENDER ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
 if st.session_state['df_evaluacion_alternativas'].empty:
@@ -82,7 +82,7 @@ if len(objetivos_seleccionados) >= 2:
             "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
             "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN", options=["Por definir", "Complementario", "Excluyente"])
         },
-        hide_index=True, use_container_width=True, key="tabla_rel_v8"
+        hide_index=True, use_container_width=True, key="tabla_rel_final_v9"
     )
 
     if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
@@ -91,7 +91,7 @@ if len(objetivos_seleccionados) >= 2:
 
 st.divider()
 
-# --- 3. CONSTRUCTOR DE PAQUETES ---
+# --- 3. CONSTRUCTOR DE ALTERNATIVAS ---
 st.subheader("📦 3. Constructor de Alternativas")
 
 if objetivos_seleccionados:
@@ -101,7 +101,7 @@ if objetivos_seleccionados:
         st.info("1. Seleccione los Objetivos:")
         objs_en_paquete = []
         for obj_opcion in objetivos_seleccionados:
-            if st.checkbox(obj_opcion, key=f"paq_obj_{obj_opcion}"):
+            if st.checkbox(obj_opcion, key=f"chk_obj_{obj_opcion}"):
                 objs_en_paquete.append(obj_opcion)
 
         conflicto = False
@@ -124,7 +124,7 @@ if objetivos_seleccionados:
                     acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
                     sel_del_obj = []
                     for act in acts_aprob:
-                        if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
+                        if st.checkbox(act, value=True, key=f"chk_act_{obj_p}_{act}"):
                             sel_del_obj.append(act)
                     if sel_del_obj:
                         config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
@@ -134,20 +134,30 @@ if objetivos_seleccionados:
                 st.session_state['lista_alternativas'].append({"nombre": nombre_alt, "configuracion": config_final})
                 guardar_datos_nube(); st.rerun()
 
-# --- 4. VISUALIZACIÓN DE RESULTADOS (FIX FORMATO) ---
+# --- 4. VISUALIZACIÓN FINAL (NUMERACIÓN Y COLORES) ---
 if st.session_state.get('lista_alternativas'):
     st.divider()
     st.subheader("📋 Alternativas Consolidadas")
+    
+    # Definimos una paleta de colores para las alternativas
+    colores_disponibles = [":blue", ":green", ":orange", ":red", ":violet", ":rainbow"]
+    
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        with st.expander(f"🔹 {alt.get('nombre', 'Sin nombre')}", expanded=True):
+        # Seleccionamos color según el orden de la alternativa
+        color_tema = colores_disponibles[idx % len(colores_disponibles)]
+        
+        # Título numerado y con color dinámico
+        with st.expander(f"{color_tema}[**{idx + 1}. {alt.get('nombre', 'Sin nombre').upper()}**]", expanded=True):
+            
             for item in alt.get('configuracion', []):
-                # SOLUCIÓN: Usamos .strip() para limpiar espacios y asegurar la negrilla
-                objetivo_texto = str(item['objetivo']).strip()
-                st.markdown(f"**🎯 {objetivo_texto}**")
+                # Limpiamos espacios para asegurar la negrilla
+                texto_obj = str(item['objetivo']).strip()
+                st.markdown(f"**🎯 {texto_obj}**")
                 
                 for a in item.get('actividades', []):
-                    actividad_texto = str(a).strip()
-                    st.markdown(f"   - {actividad_texto}")
+                    texto_act = str(a).strip()
+                    st.markdown(f"   - {texto_act}")
             
-            if st.button("🗑️ Eliminar Alternativa", key=f"del_final_{idx}"):
+            st.write("")
+            if st.button(f"🗑️ Eliminar Alternativa {idx + 1}", key=f"del_alt_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx); guardar_datos_nube(); st.rerun()
