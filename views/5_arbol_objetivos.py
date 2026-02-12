@@ -8,7 +8,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Persistencia y Memoria
 inicializar_session()
 
-# --- ESTILO: CENTRADO Y AJUSTE VISUAL ---
+# --- ESTILO: CENTRADO Y TARJETAS ELÁSTICAS ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { font-family: 'Source Sans Pro', sans-serif; }
@@ -26,7 +26,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ENCABEZADO CON LOGO ---
+# --- 2. ENCABEZADO CON LOGO (ZONA AMARILLA) ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
     st.title("🎯 5. Árbol de Objetivos")
@@ -34,24 +34,23 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- 3. FUNCIÓN DE AUTO-AJUSTE DE ALTURA PARA WEB (CORREGIDA) ---
+# --- FUNCIÓN DE ALTURA DINÁMICA PARA WEB ---
 def calcular_altura_web(texto, min_h=100):
     if not texto: return min_h
-    # Divisor reducido a 20 para forzar mayor crecimiento vertical
-    lineas = str(texto).count('\n') + (len(str(texto)) // 20)
+    lineas = str(texto).count('\n') + (len(str(texto)) // 30)
     return max(min_h, (lineas + 2) * 22)
 
-# Configuración Maestra con espaciado vertical ampliado
+# Configuración Maestra con coordenadas optimizadas para apilamiento
 CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "y": 10.5, "label": "FIN ÚLTIMO"},
-    "Fines Indirectos": {"color": "#B3D9FF", "y": 7.5, "label": "FINES INDIRECTOS"},
-    "Fines Directos": {"color": "#80BFFF", "y": 4.5, "label": "FINES DIRECTOS"},
-    "Objetivo General": {"color": "#FFB3BA", "y": 1.5, "label": "OBJETIVO GENERAL"},
-    "Medios Directos": {"color": "#FFFFBA", "y": -1.5, "label": "OBJETIVOS ESPECÍFICOS"},
-    "Medios Indirectos": {"color": "#FFDFBA", "y": -5.5, "label": "ACTIVIDADES"}
+    "Fin Último": {"color": "#C1E1C1", "y": 12.0, "label": "FIN ÚLTIMO"},
+    "Fines Indirectos": {"color": "#B3D9FF", "y": 9.5, "label": "FINES INDIRECTOS"},
+    "Fines Directos": {"color": "#80BFFF", "y": 7.0, "label": "FINES DIRECTOS"},
+    "Objetivo General": {"color": "#FFB3BA", "y": 4.0, "label": "OBJETIVO GENERAL"},
+    "Medios Directos": {"color": "#FFFFBA", "y": 1.0, "label": "OBJETIVOS ESPECÍFICOS"},
+    "Medios Indirectos": {"color": "#FFDFBA", "y": -2.0, "label": "ACTIVIDADES"}
 }
 
-# --- 4. SIDEBAR: HERRAMIENTAS Y EXPORTACIÓN ---
+# --- 3. SIDEBAR: HERRAMIENTAS Y EXPORTACIÓN MEJORADA ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
@@ -76,42 +75,46 @@ with st.sidebar:
 
     st.divider()
 
-    # --- MOTOR DE EXPORTACIÓN CON ANCHO DINÁMICO PARA EVITAR SUPERPOSICIÓN ---
+    # --- MOTOR DE EXPORTACIÓN (APILAMIENTO VERTICAL FIEL) ---
     def generar_png_objetivos():
-        fig, ax = plt.subplots(figsize=(24, 22))
-        ax.set_xlim(0, 10); ax.set_ylim(-9, 13); ax.axis('off')
-        ax.text(5, 12, "ÁRBOL DE OBJETIVOS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
+        fig, ax = plt.subplots(figsize=(24, 24))
+        ax.set_xlim(0, 10); ax.set_ylim(-6, 14); ax.axis('off')
+        ax.text(5, 13.2, "ÁRBOL DE OBJETIVOS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_objetivos']
         
-        def dibujar_caja(x, y, texto, color, max_w):
-            # Envoltura ajustada al ancho disponible
-            w_chars = 18 if max_w >= 1.7 else 14
-            lineas = textwrap.wrap(texto, width=w_chars)
+        def dibujar_caja(x, y, texto, color, rect_w=1.8):
+            lineas = textwrap.wrap(texto, width=18)
             txt_ajustado = "\n".join(lineas[:10])
             n_lineas = len(lineas[:10])
-            
-            rect_h = max(1.1, 0.4 + (n_lineas * 0.28))
-            rect_w = max_w 
-            
+            rect_h = max(1.0, 0.4 + (n_lineas * 0.28))
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
                                  facecolor=color, edgecolor='#333', lw=1.5, zorder=3)
             ax.add_patch(rect)
-            f_size = 8.5 if max_w >= 1.5 else 7.0
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=f_size, 
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=8.5, 
                     fontweight='bold', zorder=4, color='#31333F')
 
-        for sec, conf in CONFIG_OBJ.items():
-            items = datos.get(sec, [])
-            if not items: continue
-            espacio = 10 / (len(items) + 1)
-            # ANCHO DINÁMICO: Calcula el ancho máximo para que no se toquen
-            max_w_nivel = min(1.8, espacio * 0.88)
-            
-            for i, item in enumerate(items):
-                x_pos = (i + 1) * espacio
-                txt = item["texto"] if isinstance(item, dict) else item
-                dibujar_caja(x_pos, conf["y"], txt, conf["color"], max_w_nivel)
+        # 1. Fin Último y Objetivo General (Simples)
+        for sec in ["Fin Último", "Objetivo General"]:
+            if datos.get(sec):
+                dibujar_caja(5, CONFIG_OBJ[sec]["y"], datos[sec][0], CONFIG_OBJ[sec]["color"])
+
+        # 2. Ramas Jerárquicas (Fines y Medios)
+        for principal, sec_hija in [("Fines Directos", "Fines Indirectos"), ("Medios Directos", "Medios Indirectos")]:
+            padres = datos.get(principal, [])
+            if padres:
+                espacio = 10 / (len(padres) + 1)
+                for i, p_data in enumerate(padres):
+                    x_p = (i + 1) * espacio
+                    p_txt = p_data["texto"] if isinstance(p_data, dict) else p_data
+                    dibujar_caja(x_p, CONFIG_OBJ[principal]["y"], p_txt, CONFIG_OBJ[principal]["color"])
+                    
+                    # Dibujar hijos agrupados verticalmente bajo/sobre el padre
+                    hijos = [h for h in datos.get(sec_hija, []) if isinstance(h, dict) and h.get("padre") == p_txt]
+                    direccion = 1 if "Fines" in principal else -1
+                    for j, h_data in enumerate(hijos):
+                        h_y = CONFIG_OBJ[principal]["y"] + (direccion * (j + 1) * 1.3)
+                        dibujar_caja(x_p, h_y, h_data["texto"], CONFIG_OBJ[sec_hija]["color"])
 
         buf = io.BytesIO()
         plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white')
@@ -120,21 +123,19 @@ with st.sidebar:
 
     st.download_button("🖼️ Descargar Árbol (PNG)", data=generar_png_objetivos(), file_name="arbol_objetivos_fiel.png", mime="image/png", use_container_width=True)
 
-# --- 5. RENDERIZADO WEB CON ALTURA DINÁMICA ---
+# --- 4. RENDERIZADO WEB (VÍNCULOS Y ALTURA DINÁMICA) ---
 def render_objective_card(seccion, indice_global, item):
     texto_actual = item["texto"] if isinstance(item, dict) else item
     color = CONFIG_OBJ[seccion]["color"]
-    st.markdown(f'<div style="background-color: {color}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     
-    # Altura dinámica ajustada para la pantalla
-    h_dinamica = calcular_altura_web(texto_actual)
-    
+    # Altura dinámica aplicada para que no se corte el texto
     nuevo_texto = st.text_area(
         label=f"edit_{seccion}_{indice_global}", 
         value=texto_actual, 
         label_visibility="collapsed", 
         key=f"area_{seccion}_{indice_global}", 
-        height=h_dinamica
+        height=calcular_altura_web(texto_actual)
     )
     
     if nuevo_texto != texto_actual:
