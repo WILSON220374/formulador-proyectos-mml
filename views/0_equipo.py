@@ -6,63 +6,52 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS CSS REFORZADOS PARA EL INTERIOR DE LA TABLA ---
+# --- ESTILOS PARA LAS FICHAS GIGANTES ---
 st.markdown("""
     <style>
-    /* 1. Aumenta la fuente de las celdas y el texto base del editor */
-    div[data-testid="stDataEditor"] {
-        font-size: 30px !important; /* Ajusta este valor según prefieras */
+    .ficha-equipo {
+        background-color: #f0f5ff;
+        border-left: 10px solid #4F8BFF;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
     }
-
-    /* 2. Aumenta la fuente específicamente en las filas de datos */
-    div[data-testid="stDataEditor"] div[role="gridcell"] {
-        font-size: 30px !important;
+    .nombre-gigante {
+        font-size: 40px !important;
+        color: #1E3A8A;
+        font-weight: bold;
+        margin-bottom: 5px;
     }
-
-    /* 3. Aumenta la fuente del campo de texto cuando estás escribiendo */
-    div[data-testid="stDataEditor"] input {
-        font-size: 30px !important;
-        font-weight: bold !important;
+    .detalle-gigante {
+        font-size: 22px !important;
+        color: #555;
     }
-
-    /* 4. Estilos de títulos y logo JC Flow (Manteniendo proporciones) */
     h2 { font-size: 42px !important; font-weight: 700 !important; }
-    .stInfo { font-size: 24px !important; }
-    
-    /* 5. Estilo del botón de guardado */
-    .stButton button {
-        font-size: 26px !important;
-        height: 3em !important;
-        border-radius: 15px !important;
-        background-color: #4F8BFF !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- DISTRIBUCIÓN VISUAL JC FLOW ---
+# --- LOGO Y TÍTULO JC FLOW ---
 col1, col2, col3 = st.columns([1, 2, 1])
-
 with col2:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
         st.title("🏗️ JC Flow")
-    
-    st.markdown("<h2 style='text-align: center; color: #4F8BFF;'>Registro de Equipo</h2>", unsafe_allow_html=True)
-    st.info("Diligencie aquí los datos de su grupo de trabajo:")
+    st.markdown("<h2 style='text-align: center; color: #4F8BFF;'>Gestión de Equipo</h2>", unsafe_allow_html=True)
 
 st.divider()
 
-# --- SECCIÓN DE TABLA DE DATOS ---
+# --- BLOQUE 1: EDITOR (LA TABLA TÉCNICA) ---
+st.subheader("📝 Editor de Datos (Uso Técnico)")
 integrantes_actuales = st.session_state.get('integrantes', [])
 df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
 
-# Editor de datos con configuración de columnas
 edited_df = st.data_editor(
     df_equipo,
     num_rows="dynamic",
     use_container_width=True,
-    key="editor_equipo_vFinal",
+    key="editor_visual_final",
     column_config={
         "Nombre Completo": st.column_config.TextColumn(width="large"),
         "Teléfono": st.column_config.TextColumn(width="medium"),
@@ -70,11 +59,32 @@ edited_df = st.data_editor(
     }
 )
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Sincronización con la nube
-if st.button("💾 GUARDAR INFORMACIÓN DEL EQUIPO", type="primary", use_container_width=True):
+if st.button("💾 GUARDAR Y ACTUALIZAR FICHAS", type="primary", use_container_width=True):
     st.session_state['integrantes'] = edited_df.to_dict('records')
     guardar_datos_nube()
-    st.toast("✅ ¡Información sincronizada!", icon="👥")
     st.rerun()
+
+st.divider()
+
+# --- BLOQUE 2: FICHAS VISUALES (LO QUE SE VE GRANDE) ---
+if st.session_state['integrantes']:
+    st.subheader("👥 Integrantes Registrados")
+    
+    # Creamos columnas para que las fichas no ocupen todo el largo si son muchos
+    cols = st.columns(2) 
+    for idx, persona in enumerate(st.session_state['integrantes']):
+        with cols[idx % 2]: # Distribuye entre columna izquierda y derecha
+            nombre = persona.get("Nombre Completo", "Sin Nombre").upper()
+            tel = persona.get("Teléfono", "N/A")
+            email = persona.get("Correo Electrónico", "N/A")
+            
+            if len(nombre) > 2: # Solo muestra si hay datos reales
+                st.markdown(f"""
+                    <div class="ficha-equipo">
+                        <div class="nombre-gigante">👤 {nombre}</div>
+                        <div class="detalle-gigante">📞 {tel}</div>
+                        <div class="detalle-gigante">✉️ {email}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+else:
+    st.info("Aún no hay integrantes registrados. Use la tabla de arriba para empezar.")
