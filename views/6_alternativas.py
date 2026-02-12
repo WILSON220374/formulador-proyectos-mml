@@ -12,7 +12,7 @@ st.title("⚖️ 6. Análisis de Alternativas")
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# --- 1. SELECCIÓN DE ACTIVIDADES A ATENDER ---
+# --- 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE ---
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
 if st.session_state['df_evaluacion_alternativas'].empty:
@@ -82,7 +82,7 @@ if len(objetivos_seleccionados) >= 2:
             "OBJETIVO B": st.column_config.TextColumn("OBJETIVO B", disabled=True, width="large"),
             "RELACIÓN": st.column_config.SelectboxColumn("DECISIÓN", options=["Por definir", "Complementario", "Excluyente"])
         },
-        hide_index=True, use_container_width=True, key="tabla_rel_final_v7"
+        hide_index=True, use_container_width=True, key="tabla_rel_v8"
     )
 
     if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
@@ -91,17 +91,17 @@ if len(objetivos_seleccionados) >= 2:
 
 st.divider()
 
-# --- 3. CONSTRUCTOR DE ALTERNATIVAS (SELECCIÓN POR CLIC) ---
+# --- 3. CONSTRUCTOR DE PAQUETES ---
 st.subheader("📦 3. Constructor de Alternativas")
 
 if objetivos_seleccionados:
     with st.container(border=True):
         nombre_alt = st.text_input("🚀 Nombre de la Alternativa:")
         
-        st.info("1. Seleccione los Objetivos (Haga clic para incluir):")
+        st.info("1. Seleccione los Objetivos:")
         objs_en_paquete = []
         for obj_opcion in objetivos_seleccionados:
-            if st.checkbox(obj_opcion, key=f"obj_paq_{obj_opcion}"):
+            if st.checkbox(obj_opcion, key=f"paq_obj_{obj_opcion}"):
                 objs_en_paquete.append(obj_opcion)
 
         conflicto = False
@@ -114,20 +114,17 @@ if objetivos_seleccionados:
                 if not rel.empty:
                     if rel.iloc[0]["RELACIÓN"] == "Excluyente":
                         st.error(f"❌ Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."); conflicto = True
-                    elif rel.iloc[0]["RELACIÓN"] == "Por definir":
-                        st.warning(f"⚠️ Defina la relación entre '{o_a}' y '{o_b}' arriba."); conflicto = True
 
         config_final = []
         if objs_en_paquete and not conflicto:
             st.write("---")
-            st.info("2. Marque las actividades específicas para este paquete:")
             for obj_p in objs_en_paquete:
-                with st.expander(f"📌 Configurar actividades para: {obj_p[:60]}...", expanded=True):
+                with st.expander(f"📌 Configurar: {obj_p[:50]}...", expanded=True):
                     st.markdown(f"**Objetivo:** {obj_p}")
                     acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
                     sel_del_obj = []
                     for act in acts_aprob:
-                        if st.checkbox(act, value=True, key=f"act_paq_{obj_p}_{act}"):
+                        if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
                             sel_del_obj.append(act)
                     if sel_del_obj:
                         config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
@@ -137,17 +134,20 @@ if objetivos_seleccionados:
                 st.session_state['lista_alternativas'].append({"nombre": nombre_alt, "configuracion": config_final})
                 guardar_datos_nube(); st.rerun()
 
-# --- 4. VISUALIZACIÓN DE RESULTADOS (FORMATO AJUSTADO) ---
+# --- 4. VISUALIZACIÓN DE RESULTADOS (FIX FORMATO) ---
 if st.session_state.get('lista_alternativas'):
     st.divider()
     st.subheader("📋 Alternativas Consolidadas")
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
         with st.expander(f"🔹 {alt.get('nombre', 'Sin nombre')}", expanded=True):
             for item in alt.get('configuracion', []):
-                # Aplicamos negrilla consistente a todos los objetivos
-                st.markdown(f"**🎯 {item['objetivo']}**")
+                # SOLUCIÓN: Usamos .strip() para limpiar espacios y asegurar la negrilla
+                objetivo_texto = str(item['objetivo']).strip()
+                st.markdown(f"**🎯 {objetivo_texto}**")
+                
                 for a in item.get('actividades', []):
-                    st.markdown(f"   - {a}")
+                    actividad_texto = str(a).strip()
+                    st.markdown(f"   - {actividad_texto}")
             
-            if st.button("🗑️ Eliminar Alternativa", key=f"del_paq_{idx}"):
+            if st.button("🗑️ Eliminar Alternativa", key=f"del_final_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx); guardar_datos_nube(); st.rerun()
