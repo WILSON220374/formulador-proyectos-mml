@@ -11,7 +11,7 @@ st.markdown("""
     <style>
     /* 1. Aumenta la fuente de TODO el contenido dentro del editor de datos */
     [data-testid="stDataEditor"] div {
-        font-size: 24px !important;
+        font-size: 48px !important;
     }
 
     /* 2. Aumenta la fuente específicamente cuando se está escribiendo en la celda */
