@@ -9,33 +9,39 @@ def inicializar_session():
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     
-    # --- FASES ANTERIORES (IDENTIFICACIÓN, PARTICIPANTES, ANÁLISIS) ---
+    # --- FASE I: IDENTIFICACIÓN (Páginas 1 y 2) ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     if 'datos_zona' not in st.session_state:
         st.session_state['datos_zona'] = {}
+        
+    # --- FASE II: PARTICIPANTES (Página 3) ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame()
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
+
+    # --- FASE III: ANÁLISIS (Páginas 4 y 5) ---
     if 'arbol_tarjetas' not in st.session_state:
         st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
     if 'arbol_objetivos' not in st.session_state:
         st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
 
-    # --- FASE IV: PLANIFICACIÓN Y EVALUACIÓN (Sincronización Total) ---
+    # --- FASE IV: PLANIFICACIÓN Y EVALUACIÓN (Página 6) ---
     if 'df_evaluacion_alternativas' not in st.session_state:
         st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
     if 'df_relaciones_objetivos' not in st.session_state:
         st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
     if 'lista_alternativas' not in st.session_state:
         st.session_state['lista_alternativas'] = []
-    
-    # NUEVOS CAMPOS PARA EVALUACIÓN
     if 'ponderacion_criterios' not in st.session_state:
         st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
     if 'df_calificaciones' not in st.session_state:
         st.session_state['df_calificaciones'] = pd.DataFrame()
+
+    # --- FASE V: ÁRBOL FINAL PODADO (Página 7 - Nuevo) ---
+    if 'arbol_objetivos_final' not in st.session_state:
+        st.session_state['arbol_objetivos_final'] = {}
 
 def cargar_datos_nube(user_id):
     try:
@@ -49,9 +55,10 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            
-            # Carga de Evaluación
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
+            
+            # Carga de la versión podada del árbol
+            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
@@ -73,9 +80,10 @@ def guardar_datos_nube():
             "alternativas": st.session_state['lista_alternativas'],
             "eval_alt": st.session_state['df_evaluacion_alternativas'].to_dict(),
             "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
-            # Empaque de Evaluación para la nube
             "pesos_eval": st.session_state['ponderacion_criterios'],
-            "calificaciones": st.session_state['df_calificaciones'].to_dict()
+            "calificaciones": st.session_state['df_calificaciones'].to_dict(),
+            # Guardamos la versión podada manualmente
+            "arbol_f": st.session_state['arbol_objetivos_final']
         }
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
     except Exception as e:
