@@ -15,12 +15,11 @@ if not st.session_state['autenticado']:
         if st.button("Ingresar", use_container_width=True, type="primary"):
             try:
                 db = conectar_db()
-                # Verificar credenciales en Supabase
                 res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
                 if res.data:
                     st.session_state['autenticado'] = True
                     st.session_state['usuario_id'] = u
-                    cargar_datos_nube(u) # Recuperar avance previo
+                    cargar_datos_nube(u)
                     st.rerun()
                 else:
                     st.error("Usuario o contraseña incorrectos.")
@@ -32,19 +31,17 @@ if not st.session_state['autenticado']:
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
-    # Mostrar nombres de pila de los integrantes
+    # Visualización en forma de lista de los nombres de pila
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
-        nombres_pila = []
         for i in integrantes:
-            # Extraer primer nombre del campo "Nombre Completo"
             nombre_full = i.get("Nombre Completo", "").strip()
             if nombre_full:
-                nombres_pila.append(nombre_full.split()[0])
-        
-        if nombres_pila:
-            st.caption(f"👥 {', '.join(nombres_pila)}")
-            
+                # Extraer solo el primer nombre
+                nombre_pila = nombre_full.split()[0]
+                # Mostrar en formato de lista con un pequeño margen
+                st.markdown(f"&nbsp;&nbsp;&nbsp;👤 {nombre_pila}")
+    
     st.divider()
     
     # BOTÓN MAESTRO DE GUARDADO
