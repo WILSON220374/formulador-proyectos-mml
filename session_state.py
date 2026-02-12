@@ -39,9 +39,11 @@ def inicializar_session():
     if 'df_calificaciones' not in st.session_state:
         st.session_state['df_calificaciones'] = pd.DataFrame()
 
-    # --- FASE V: ÁRBOL FINAL PODADO (Página 7 - Nuevo) ---
+    # --- FASE V: ÁRBOLES FINALES PODADOS (Páginas 7 y 8) ---
     if 'arbol_objetivos_final' not in st.session_state:
         st.session_state['arbol_objetivos_final'] = {}
+    if 'arbol_problemas_final' not in st.session_state:
+        st.session_state['arbol_problemas_final'] = {}
 
 def cargar_datos_nube(user_id):
     try:
@@ -57,8 +59,9 @@ def cargar_datos_nube(user_id):
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             
-            # Carga de la versión podada del árbol
+            # Carga de versiones finales podadas
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
+            st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
@@ -82,8 +85,9 @@ def guardar_datos_nube():
             "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
             "pesos_eval": st.session_state['ponderacion_criterios'],
             "calificaciones": st.session_state['df_calificaciones'].to_dict(),
-            # Guardamos la versión podada manualmente
-            "arbol_f": st.session_state['arbol_objetivos_final']
+            # Empaque de árboles podados para la nube
+            "arbol_f": st.session_state['arbol_objetivos_final'],
+            "arbol_p_f": st.session_state['arbol_problemas_final']
         }
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
     except Exception as e:
