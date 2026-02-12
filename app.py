@@ -31,16 +31,16 @@ if not st.session_state['autenticado']:
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
-    # Visualización en forma de lista de los nombres de pila
+    # NUEVA LÓGICA: Lista vertical de integrantes
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
-        for i in integrantes:
-            nombre_full = i.get("Nombre Completo", "").strip()
-            if nombre_full:
-                # Extraer solo el primer nombre
-                nombre_pila = nombre_full.split()[0]
-                # Mostrar en formato de lista con un pequeño margen
-                st.markdown(f"&nbsp;&nbsp;&nbsp;👤 {nombre_pila}")
+        for persona in integrantes:
+            nombre_completo = persona.get("Nombre Completo", "").strip()
+            if nombre_completo:
+                # Extraemos solo el primer nombre
+                pila = nombre_completo.split()[0].upper()
+                # Mostramos cada nombre en una línea nueva con ícono
+                st.markdown(f"**👤 {pila}**")
     
     st.divider()
     
@@ -52,12 +52,11 @@ with st.sidebar:
     
     st.divider()
     
-    # BOTÓN DE SALIDA
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
         st.rerun()
 
-# --- NAVEGACIÓN ENTRE FASES ---
+# --- NAVEGACIÓN ---
 pg = st.navigation({
     "Configuración": [
         st.Page("views/0_equipo.py", title="Equipo", icon="👥"),
