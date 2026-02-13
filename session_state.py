@@ -19,9 +19,6 @@ def inicializar_firebase():
 inicializar_firebase()
 db = firestore.client()
 
-def conectar_db():
-    return db
-
 def inicializar_session():
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
@@ -36,14 +33,22 @@ def inicializar_session():
     ]
     for v in vars_to_init:
         if v not in st.session_state:
-            if v == 'datos_problema':
+            # AJUSTE: Estructura de diccionario para los árboles
+            if v in ['arbol_tarjetas', 'arbol_objetivos']:
+                st.session_state[v] = {
+                    "Efectos Indirectos": [], "Efectos Directos": [], 
+                    "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
+                }
+            elif v == 'datos_problema':
                 st.session_state[v] = {'problema_central': "", 'sintomas': "", 'causas_inmediatas': "", 'factores_agravantes': ""}
-            # AJUSTE: Inicializamos como texto vacío
             elif v == 'analisis_participantes':
                 st.session_state[v] = ""
-            elif 'df_' in v: st.session_state[v] = pd.DataFrame()
-            elif 'datos_' in v or 'ponderacion' in v: st.session_state[v] = {}
-            else: st.session_state[v] = []
+            elif 'df_' in v: 
+                st.session_state[v] = pd.DataFrame()
+            elif 'datos_' in v or 'ponderacion' in v: 
+                st.session_state[v] = {}
+            else: 
+                st.session_state[v] = []
 
 def login(usuario, clave):
     try:
@@ -68,9 +73,15 @@ def cargar_datos_nube(user_id):
             if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
             if 'zona' in d: st.session_state['datos_zona'] = d['zona']
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
-            if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
-            # AJUSTE: Carga del análisis
+            # AJUSTE: Asegurar que si en la nube es null, se cree el diccionario
+            st.session_state['arbol_tarjetas'] = d.get('arbol_p', {
+                "Efectos Indirectos": [], "Efectos Directos": [], 
+                "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
+            })
+            st.session_state['arbol_objetivos'] = d.get('arbol_o', {
+                "Fines Indirectos": [], "Fines Directos": [], 
+                "Objetivo Central": [], "Medios Directos": [], "Medios Indirectos": []
+            })
             if 'analisis' in d: st.session_state['analisis_participantes'] = d['analisis']
     except Exception as e:
         st.error(f"Error cargando: {e}")
@@ -83,9 +94,8 @@ def guardar_datos_nube():
                 "diagnostico": st.session_state.get('datos_problema', {}),
                 "zona": st.session_state.get('datos_zona', {}),
                 "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(),
-                "arbol_p": st.session_state.get('arbol_tarjetas', []),
-                "arbol_o": st.session_state.get('arbol_objetivos', []),
-                # AJUSTE: Guardado del análisis
+                "arbol_p": st.session_state.get('arbol_tarjetas', {}),
+                "arbol_o": st.session_state.get('arbol_objetivos', {}),
                 "analisis": st.session_state.get('analisis_participantes', "")
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
