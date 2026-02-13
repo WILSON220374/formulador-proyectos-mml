@@ -1,109 +1,98 @@
 import streamlit as st
+import pandas as pd
 import os
-from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube, login
+from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Configuración de la página
-st.set_page_config(page_title="JC Flow - Formulador MML", layout="wide")
+# 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- LÓGICA DE ACCESO (LOGIN) ---
-if not st.session_state.get('autenticado', False):
-    
-    # Mantenemos tu CSS original para el diseño del login
-    st.markdown("""
-        <style>
-        .titulo-acceso {
-            font-size: 38px !important;
-            font-weight: 800 !important;
-            color: #4F8BFF;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .label-mediana {
-            font-size: 22px !important;
-            font-weight: bold;
-            color: #1E3A8A;
-            margin-bottom: 8px !important;
-            margin-top: 15px !important;
-            margin-left: 5px;
-            display: block;
-        }
-        input {
-            font-size: 22px !important;
-            height: 60px !important;
-            text-align: center !important;
-            border-radius: 12px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+# --- ESTILOS PARA FICHAS PEQUEÑAS Y HOMOGÉNEAS ---
+st.markdown("""
+    <style>
+    .ficha-equipo {
+        background-color: #f0f5ff;
+        border-left: 8px solid #4F8BFF;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+        height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .nombre-mediano {
+        font-size: 26px !important;
+        color: #1E3A8A;
+        font-weight: bold;
+        line-height: 1.1;
+        margin-bottom: 8px;
+    }
+    .detalle-pequeno {
+        font-size: 16px !important;
+        color: #555;
+        margin-bottom: 2px;
+    }
+    h2 { font-size: 38px !important; font-weight: 700 !important; }
+    </style>
+""", unsafe_allow_html=True)
 
-    st.markdown('<p class="titulo-acceso">🚀 ACCESO AL FORMULADOR</p>', unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<label class="label-mediana">👤 Nombre del Grupo</label>', unsafe_allow_html=True)
-        usuario = st.text_input("usuario", label_visibility="collapsed", placeholder="Ej: grupo1")
-        
-        st.markdown('<label class="label-mediana">🔑 Contraseña</label>', unsafe_allow_html=True)
-        clave = st.text_input("clave", type="password", label_visibility="collapsed", placeholder="••••••••")
-        
-        st.write("")
-        if st.button("INGRESAR AL PROYECTO", use_container_width=True, type="primary"):
-            if login(usuario, clave):
-                st.success("¡Acceso correcto!")
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas. Verifica el nombre del grupo y la clave.")
-    st.stop()
+# --- LOGO Y TÍTULO ---
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+    else:
+        st.title("🏗️ JC Flow")
+    st.markdown("<h2 style='text-align: center; color: #4F8BFF;'>Gestión de Equipo</h2>", unsafe_allow_html=True)
 
-# --- BARRA LATERAL (Sidebar) ---
-with st.sidebar:
-    st.title("🛠️ PANEL DE CONTROL")
-    st.info(f"**Grupo:** {st.session_state.get('usuario_id', 'Invitado')}")
-    
-    # --- CORRECCIÓN CRÍTICA AQUÍ ---
-    # Mostramos integrantes del equipo con protección contra valores nulos
-    integrantes = st.session_state.get('integrantes', [])
-    if integrantes:
-        for persona in integrantes:
-            if persona and isinstance(persona, dict):
-                # Usamos .get() y verificamos que no sea None antes de usar .strip()
-                nombre_raw = persona.get("Nombre Completo")
-                nombre_full = nombre_raw.strip() if nombre_raw else ""
-                
-                if nombre_full:
-                    # Extraemos solo el primer nombre en mayúsculas
-                    nombre_pila = nombre_full.split()[0].upper()
-                    st.markdown(f"**👤 {nombre_pila}**")
-                else:
-                    st.write("👤 *Integrante sin nombre*")
-    
-    st.divider()
-    
-    # Botón de guardado para Firebase
-    if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
+st.divider()
+
+# --- BLOQUE 1: FICHAS VISUALES CON PROTECCIÓN CONTRA NULL ---
+if st.session_state.get('integrantes'):
+    cols = st.columns(3) 
+    for idx, persona in enumerate(st.session_state['integrantes']):
+        with cols[idx % 3]: 
+            # --- CORRECCIÓN CRÍTICA (Línea 57 corregida) ---
+            # Obtenemos el valor y verificamos que no sea None antes de usar .upper()
+            nombre_raw = persona.get("Nombre Completo")
+            nombre = str(nombre_raw).upper() if nombre_raw else "INTEGRANTE SIN NOMBRE"
+            
+            # Protegemos también Teléfono y Email
+            tel_raw = persona.get("Teléfono")
+            tel = str(tel_raw) if tel_raw else "N/A"
+            
+            email_raw = persona.get("Correo Electrónico")
+            email = str(email_raw) if email_raw else "N/A"
+            
+            # Solo mostramos la ficha si hay al menos un nombre o se ha iniciado el registro
+            st.markdown(f"""
+                <div class="ficha-equipo">
+                    <div class="nombre-mediano">👤 {nombre}</div>
+                    <div class="detalle-pequeno">📞 {tel}</div>
+                    <div class="detalle-pequeno">✉️ {email}</div>
+                </div>
+            """, unsafe_allow_html=True)
+else:
+    st.info("No hay integrantes registrados.")
+
+st.divider()
+
+# --- BLOQUE 2: EDITOR ---
+with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
+    integrantes_actuales = st.session_state.get('integrantes', [])
+    # Aseguramos que el DataFrame se cree correctamente incluso con datos nulos
+    df_equipo = pd.DataFrame(integrantes_actuales) if integrantes_actuales else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
+
+    edited_df = st.data_editor(
+        df_equipo,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="editor_compacto",
+    )
+
+    if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
+        # Convertimos de nuevo a lista de diccionarios y guardamos
+        st.session_state['integrantes'] = edited_df.to_dict('records')
         guardar_datos_nube()
-        st.toast("✅ Avance guardado en Firebase", icon="🚀")
-    
-    st.divider()
-    
-    if st.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state['autenticado'] = False
-        st.session_state['usuario_id'] = None
         st.rerun()
-
-# --- NAVEGACIÓN ---
-pg = st.navigation({
-    "Configuración": [st.Page("views/0_equipo.py", title="Equipo", icon="👥")],
-    "Fase I: Identificación": [
-        st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
-        st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
-        st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
-    ],
-    "Fase II: Análisis": [
-        st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
-        st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
-    ]
-})
-
-pg.run()
