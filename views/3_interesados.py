@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
-import os # <--- Necesario para verificar el logo
+import os
 from session_state import inicializar_session, guardar_datos_nube
 
 # Inicialización de seguridad
 inicializar_session()
 
-# --- ENCABEZADO CON LOGO (AJUSTE SEGÚN IMAGEN) ---
+# --- ENCABEZADO CON LOGO ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 
 with col_titulo:
     st.title("👥 3. Análisis de Interesados")
 
 with col_logo:
-    # Ubicación en la parte superior derecha (Zona Amarilla)
+    # Ajuste de parámetro para evitar advertencias en logs
     if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+        st.image("unnamed-1.jpg", width="stretch")
 
 # --- CONTEXTO ---
 problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
@@ -63,7 +63,7 @@ df_editado = st.data_editor(
         "INTERÉS": st.column_config.SelectboxColumn("INTERÉS", options=opciones_nivel),
         "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA", disabled=True),
     },
-    num_rows="dynamic", use_container_width=True, hide_index=False,
+    num_rows="dynamic", width="stretch", hide_index=False,
     height=calcular_altura_tabla(df_actual),
     key="editor_interesados_V_LEGENDA"
 )
@@ -109,5 +109,28 @@ else:
 # --- SEGUNDO DIVISOR GRUESO ---
 st.markdown(LINEA_GRUESA, unsafe_allow_html=True)
 
-# --- 3. ANÁLISIS FINAL ---
+# --- 3. ANÁLISIS FINAL (NUEVA SECCIÓN) ---
 st.subheader("📝 Análisis de Participantes")
+
+# Recuperar o inicializar el dato en el session_state
+if 'analisis_participantes' not in st.session_state:
+    st.session_state['analisis_participantes'] = ""
+
+analisis_previo = st.session_state['analisis_participantes']
+h_analisis = calcular_altura_texto(analisis_previo, min_h=200)
+
+with st.container(border=True):
+    st.markdown("Escriba a continuación el análisis cualitativo de la situación de los actores:")
+    analisis_actual = st.text_area(
+        "Texto de análisis", 
+        value=analisis_previo, 
+        height=h_analisis, 
+        key="txt_analisis_participantes", 
+        label_visibility="collapsed"
+    )
+
+# Lógica de guardado si hay cambios
+if analisis_actual != analisis_previo:
+    st.session_state['analisis_participantes'] = analisis_actual
+    guardar_datos_nube()
+    st.rerun()
