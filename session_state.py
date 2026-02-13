@@ -7,13 +7,10 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Convertir AttrDict a dict estándar (Punto 3 de tu texto)
-            # Esto evita errores de compatibilidad con la librería de Firebase
+            # 1. Convertir AttrDict a dict estándar
             cred_info = dict(st.secrets["firebase_credentials"])
             
-            # 2. Manejo de Saltos de Línea (Punto 1 de tu texto)
-            # Aunque TOML debería interpretarlo, aseguramos que los "\n" literales
-            # se conviertan en saltos reales si Python los leyó como texto escapado.
+            # 2. Manejo de Saltos de Línea
             if "private_key" in cred_info:
                 cred_info["private_key"] = cred_info["private_key"].replace("\\n", "\n")
 
@@ -29,7 +26,6 @@ def inicializar_firebase():
 inicializar_firebase()
 db = firestore.client()
 
-# --- RESTO DE TU CÓDIGO (Sin cambios en lógica) ---
 def conectar_db():
     return db
 
@@ -48,13 +44,23 @@ def inicializar_session():
     ]
     for v in vars_to_init:
         if v not in st.session_state:
-            if 'df_' in v: st.session_state[v] = pd.DataFrame()
-            elif 'datos_' in v or 'ponderacion' in v: st.session_state[v] = {}
-            else: st.session_state[v] = []
+            # --- AJUSTE PARA EVITAR KEYERROR EN DIAGNÓSTICO ---
+            if v == 'datos_problema':
+                st.session_state[v] = {
+                    'problema_central': "",
+                    'sintomas': "",
+                    'causas_inmediatas': "",
+                    'factores_agravantes': ""
+                }
+            elif 'df_' in v: 
+                st.session_state[v] = pd.DataFrame()
+            elif 'datos_' in v or 'ponderacion' in v: 
+                st.session_state[v] = {}
+            else: 
+                st.session_state[v] = []
 
 def login(usuario, clave):
     try:
-        # Usamos .get() directamente
         doc = db.collection("usuarios").document(usuario).get()
         if doc.exists:
             d = doc.to_dict()
