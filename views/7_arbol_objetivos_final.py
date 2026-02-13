@@ -58,7 +58,6 @@ CONFIG_OBJ = {
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
-    
     if st.button("♻️ Importar desde Paso 5", use_container_width=True):
         datos_original = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
         datos_con_id = {}
@@ -77,66 +76,85 @@ with st.sidebar:
     st.divider()
 
     def generar_png_final():
-        # Lienzo mucho más amplio (28x32)
-        fig, ax = plt.subplots(figsize=(28, 32))
-        # Escala X de 0 a 20 para evitar choques horizontales
-        ax.set_xlim(0, 20); ax.set_ylim(-25, 45); ax.axis('off')
-        
-        # Título en el nuevo centro (X=10) y bien arriba (Y=42)
-        ax.text(10, 42, "ÁRBOL DE OBJETIVOS FINAL", fontsize=36, fontweight='bold', ha='center', color='#1E3A8A')
-        
         datos = st.session_state.get('arbol_objetivos_final', {})
+        if not datos: return None
+
+        # --- CÁLCULO DINÁMICO DE DIMENSIONES ---
+        max_fines_dir = max(1, len(datos.get("Fines Directos", [])))
+        max_medios_dir = max(1, len(datos.get("Medios Directos", [])))
+        ancho_necesario = max(max_fines_dir, max_medios_dir)
         
-        # GAPS DE 10 UNIDADES: Espacio masivo para 10 líneas de texto
+        # Ajustar lienzo según volumen de datos
+        f_width = max(20, ancho_necesario * 4)
+        f_height = 35 # Base de altura
+        
+        fig, ax = plt.subplots(figsize=(f_width, f_height))
+        x_lim_max = ancho_necesario * 5
+        ax.set_xlim(0, x_lim_max)
+        ax.axis('off')
+        
+        # El título siempre en el centro dinámico
+        ax.text(x_lim_max/2, 45, "ÁRBOL DE OBJETIVOS FINAL", fontsize=38, fontweight='bold', ha='center', color='#1E3A8A')
+        
+        # --- LÓGICA DE DIBUJO ---
         Y_LEVELS = {
-            "Fin Último": 32.0, 
-            "Fines Indirectos": 22.0, 
-            "Fines Directos": 12.0, 
-            "Objetivo General": 2.0, 
-            "Medios Directos": -8.0, 
-            "Medios Indirectos": -18.0
+            "Fin Último": 35.0, "Fines Indirectos": 25.0, "Fines Directos": 15.0, 
+            "Objetivo General": 2.0, "Medios Directos": -10.0, "Medios Indirectos": -22.0
         }
         stacks = {}
+        min_y_found, max_y_found = 0, 0
 
         def dibujar_caja(x, y, texto, color):
-            lineas = textwrap.wrap(texto, width=18)
+            nonlocal min_y_found, max_y_found
+            lineas = textwrap.wrap(texto, width=20)
             txt_ajustado = "\n".join(lineas[:10])
-            n_lineas = len(lineas[:10])
-            # Altura generosa para el texto
-            rect_h = max(1.5, 0.4 + (n_lineas * 0.35))
-            rect_w = 3.0 # Cajas más anchas acorde al lienzo de 20
-            ax.add_patch(plt.Rectangle((x-rect_w/2, y-rect_h/2), rect_w, rect_h, facecolor=color, edgecolor='#333', lw=1.5, zorder=3))
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', zorder=4, color='#31333F')
+            n_l = len(lineas[:10])
+            rect_h = max(1.5, 0.4 + (n_l * 0.4))
+            rect_w = 3.2
+            
+            y_final = y - rect_h/2
+            ax.add_patch(plt.Rectangle((x-rect_w/2, y_final), rect_w, rect_h, facecolor=color, edgecolor='#333', lw=1.5, zorder=3))
+            ax.text(x, y_final + rect_h/2, txt_ajustado, ha='center', va='center', fontsize=9.5, fontweight='bold', zorder=4)
+            
+            # Actualizar límites reales encontrados
+            min_y_found = min(min_y_found, y_final - 2)
+            max_y_found = max(max_y_found, y_final + rect_h + 2)
             return rect_h
 
-        # Lógica de X basada en el ancho de 20
+        # Posicionamiento horizontal dinámico
         m_dir = datos.get("Medios Directos", [])
-        pos_x_medios = {(m.get('texto') if isinstance(m, dict) else m): (i+1)*(20/(len(m_dir)+1)) for i, m in enumerate(m_dir)}
+        pos_x_medios = {(m.get('texto') if isinstance(m, dict) else m): (i+1)*(x_lim_max/(len(m_dir)+1)) for i, m in enumerate(m_dir)}
         f_dir = datos.get("Fines Directos", [])
-        pos_x_fines = {(f.get('texto') if isinstance(f, dict) else f): (i+1)*(20/(len(f_dir)+1)) for i, f in enumerate(f_dir)}
+        pos_x_fines = {(f.get('texto') if isinstance(f, dict) else f): (i+1)*(x_lim_max/(len(f_dir)+1)) for i, f in enumerate(f_dir)}
 
         for sec, y_base in Y_LEVELS.items():
-            items = datos.get(sec, [])
-            for it in items:
+            for it in datos.get(sec, []):
                 txt = it.get("texto", "") if isinstance(it, dict) else it
-                if sec in ["Fin Último", "Objetivo General"]: x = 10.0
-                elif sec == "Medios Directos": x = pos_x_medios.get(txt, 10.0)
-                elif sec == "Fines Directos": x = pos_x_fines.get(txt, 10.0)
-                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre"), 10.0)
-                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), 10.0)
+                if sec in ["Fin Último", "Objetivo General"]: x = x_lim_max/2
+                elif sec == "Medios Directos": x = pos_x_medios.get(txt, x_lim_max/2)
+                elif sec == "Fines Directos": x = pos_x_fines.get(txt, x_lim_max/2)
+                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre"), x_lim_max/2)
+                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), x_lim_max/2)
                 
                 offset = stacks.get((sec, x), 0)
-                # CRECIMIENTO DIVERGENTE: Fines arriba, Medios abajo
+                # Divergencia: Fines crecen hacia arriba, Medios hacia abajo
                 current_y = y_base + offset if "Fin" in sec else y_base - offset
                 h_caja = dibujar_caja(x, current_y, txt, CONFIG_OBJ[sec]["color"])
-                stacks[(sec, x)] = offset + h_caja + 1.5 # Más aire entre cajas del mismo stack
+                stacks[(sec, x)] = offset + h_caja + 2.0
 
-        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white'); plt.close(fig)
+        # AJUSTE AUTOMÁTICO DE LÍMITES FINAL
+        ax.set_ylim(min_y_found - 5, max_y_found + 10)
+        
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", width="stretch")
+    png_data = generar_png_final()
+    if png_data:
+        st.download_button("🖼️ Descargar Árbol Final", data=png_data, file_name="arbol_objetivos_dinamico.png", width="stretch")
 
-# --- RENDERIZADO WEB ---
+# --- RENDERIZADO WEB (CON PASAPORTES) ---
 def render_poda_card(seccion, item):
     id_id = item.get('id_unico', 'temp')
     texto_actual = item.get("texto", "")
