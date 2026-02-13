@@ -13,8 +13,9 @@ col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
     st.title("🌳 4. Árbol de Problemas")
 with col_logo:
+    # Se actualizó use_container_width por width="stretch" para evitar avisos
     if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+        st.image("unnamed-1.jpg", width="stretch")
 
 # --- MEMORIA Y CONFIGURACIÓN ---
 if 'arbol_tarjetas' not in st.session_state:
@@ -23,7 +24,7 @@ if 'arbol_tarjetas' not in st.session_state:
         "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
     }
 
-# ESPACIADO AMPLIADO: Se aumentó la distancia 'y' para acomodar tarjetas de 10 líneas
+# ESPACIADO: Se mantiene la configuración para 10 líneas
 CONFIG = {
     "Efectos Indirectos": {"color": "#B3D9FF", "tipo": "hijo", "padre": "Efectos Directos", "y": 9.5},
     "Efectos Directos": {"color": "#80BFFF", "tipo": "simple", "y": 6.0},
@@ -38,7 +39,6 @@ with st.sidebar:
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG.keys()))
     
     with st.form("crear_ficha_nube", clear_on_submit=True):
-        # NUEVO LÍMITE: 180 caracteres (10 líneas x 18 caracteres)
         texto_input = st.text_area("Descripción (Máx 180 caracteres):", max_chars=180)
         padre_asociado = None
         if CONFIG[tipo_sel]["tipo"] == "hijo":
@@ -55,28 +55,27 @@ with st.sidebar:
 
     st.divider()
     
-    # --- GENERACIÓN DE PNG CON CAPACIDAD DE 10 LÍNEAS ---
+    # --- GENERACIÓN DE PNG CORREGIDA ---
     def generar_png():
-        # Lienzo más alto para soportar el crecimiento vertical
-        fig, ax = plt.subplots(figsize=(22, 22)) 
-        ax.set_xlim(0, 10); ax.set_ylim(-8, 12); ax.axis('off')
+        # Aumentamos el tamaño del lienzo y los límites para evitar colisiones
+        fig, ax = plt.subplots(figsize=(24, 26)) 
+        # Expandimos ylim de -8/12 a -12/20 para dar espacio al título y raíces
+        ax.set_xlim(0, 10); ax.set_ylim(-12, 20); ax.axis('off')
         
-        ax.text(5, 11, "ÁRBOL DE PROBLEMAS", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
+        # Movemos el título a y=18 (antes estaba en 11, chocando con los efectos)
+        ax.text(5, 18, "ÁRBOL DE PROBLEMAS", fontsize=36, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state['arbol_tarjetas']
         
         def dibujar_caja(x, y, texto, color):
-            # Mantenemos 18 caracteres de ancho
             lineas = textwrap.wrap(texto, width=18)
-            # AHORA PERMITIMOS HASTA 10 LÍNEAS
             txt_ajustado = "\n".join(lineas[:10]) 
             n_lineas = len(lineas[:10])
             
-            # Altura dinámica: crece proporcionalmente a las 10 líneas
-            rect_h = max(1.0, 0.4 + (n_lineas * 0.25))
-            rect_w = 1.8 
+            # Altura dinámica para soportar las 10 líneas
+            rect_h = max(1.2, 0.4 + (n_lineas * 0.3))
+            rect_w = 2.0 
             
-            # Ajuste de fuente para legibilidad en 10 líneas
             f_size = 9 if n_lineas <= 5 else 7.5
             
             rect = plt.Rectangle((x - rect_w/2, y - rect_h/2), rect_w, rect_h, 
@@ -102,9 +101,9 @@ with st.sidebar:
                     
                     if hijos:
                         direccion = 1 if principal == "Efectos Directos" else -1
-                        # SALTO VERTICAL AMPLIADO: 2.8 unidades para evitar colisiones entre tarjetas de 10 líneas
                         for j, h_data in enumerate(hijos):
-                            h_y = y_p + (direccion * (j + 1) * 2.8) 
+                            # Mantenemos el salto de 2.8 pero ahora hay espacio arriba
+                            h_y = y_p + (direccion * (j + 1) * 3.2) 
                             dibujar_caja(x_p, h_y, h_data["texto"], CONFIG[sec_hija]["color"])
 
         buf = io.BytesIO()
@@ -112,13 +111,13 @@ with st.sidebar:
         plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_10lineas_180caract.png", mime="image/png", use_container_width=True)
+    # Se actualizó use_container_width por width="stretch"
+    st.download_button("🖼️ Descargar Árbol PNG", data=generar_png(), file_name="arbol_proyectos.png", mime="image/png", width="stretch")
 
 # --- RENDERIZADO EN PANTALLA ---
 def card_html(texto, color):
-    # Min-height aumentado para visualización de 10 líneas
     return f"""<div style="background-color:{color}; padding:15px; border-radius:10px; border-left:8px solid rgba(0,0,0,0.1); 
-               color:#31333F; font-weight:500; margin-bottom:8px; min-height:150px; box-shadow: 2px 2px 5px #eee; 
+               color:#31333F; font-weight:500; margin-bottom:8px; min-height:160px; box-shadow: 2px 2px 5px #eee; 
                display: flex; align-items: center; justify-content: center; text-align: center; font-size:14px;">{texto}</div>"""
 
 def render_simple(nombre):
