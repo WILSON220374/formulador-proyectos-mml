@@ -7,17 +7,20 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Obtener datos de los Secrets
+            # 1. Extraemos los datos de Secrets
             secrets = st.secrets["firebase_credentials"]
             
-            # 2. Reconstruir la llave privada de forma manual y segura
-            # Esto elimina cualquier "extra data" o error de formato
+            # 2. LIMPIEZA PROFUNDA DE LA LLAVE (Para evitar ASN.1 parsing error)
             raw_key = secrets["private_key"]
             
-            # Limpieza: quitamos comillas accidentales y normalizamos saltos de línea
+            # Eliminamos posibles comillas accidentales y normalizamos saltos de línea
             clean_key = raw_key.replace("\\n", "\n").strip()
             
-            # 3. Crear el diccionario de credenciales con el formato exacto
+            # Si la llave se pegó como una sola línea, aseguramos los encabezados correctos
+            if "-----BEGIN PRIVATE KEY-----" not in clean_key:
+                clean_key = "-----BEGIN PRIVATE KEY-----\n" + clean_key + "\n-----END PRIVATE KEY-----"
+
+            # 3. Reconstrucción del diccionario de credenciales
             cred_info = {
                 "type": secrets["type"],
                 "project_id": secrets["project_id"],
@@ -37,7 +40,7 @@ def inicializar_firebase():
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Inicialización al importar
+# Inicialización automática
 inicializar_firebase()
 db = firestore.client()
 
@@ -50,7 +53,7 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # --- VARIABLES ORIGINALES DEL PROYECTO ---
+    # --- VARIABLES ORIGINALES ---
     if 'integrantes' not in st.session_state:
         st.session_state['integrantes'] = []
     if 'datos_problema' not in st.session_state:
@@ -98,6 +101,7 @@ def cargar_datos_nube(user_id):
         doc = doc_ref.get()
         if doc.exists:
             d = doc.to_dict()
+            # Restauramos cada variable al session_state
             if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
             if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
             if 'zona' in d: st.session_state['datos_zona'] = d['zona']
@@ -105,7 +109,7 @@ def cargar_datos_nube(user_id):
             if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
             if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
     except Exception as e:
-        st.error(f"Error al cargar datos de Firebase: {e}")
+        st.error(f"Error al cargar datos: {e}")
 
 def guardar_datos_nube():
     if st.session_state.usuario_id:
@@ -119,6 +123,6 @@ def guardar_datos_nube():
                 "arbol_o": st.session_state['arbol_objetivos']
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
-            st.success("Progreso guardado en Firebase")
+            st.success("Progreso guardado en la nube")
         except Exception as e:
-            st.error(f"Error al guardar en Firebase: {e}")
+            st.error(f"Error al guardar: {e}")
