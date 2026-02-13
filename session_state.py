@@ -10,7 +10,7 @@ def inicializar_firebase():
             # Trae las credenciales desde los Secrets de Streamlit
             cred_info = dict(st.secrets["firebase_credentials"])
             
-            # Limpieza de la llave privada para evitar errores de formato
+            # LIMPIEZA DEFINITIVA: Solo dos barras para el reemplazo
             if "private_key" in cred_info:
                 p_key = cred_info["private_key"].strip().replace("\\n", "\n")
                 cred_info["private_key"] = p_key
@@ -21,7 +21,7 @@ def inicializar_firebase():
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Inicialización automática al importar el módulo
+# Inicialización automática
 inicializar_firebase()
 db = firestore.client()
 
@@ -34,7 +34,7 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # --- MANTENEMOS TUS VARIABLES ORIGINALES ---
+    # --- TUS VARIABLES ORIGINALES ---
     if 'integrantes' not in st.session_state:
         st.session_state['integrantes'] = []
     if 'datos_problema' not in st.session_state:
@@ -76,21 +76,18 @@ def login(usuario_ingresado, clave_ingresada):
         st.error(f"Error al validar usuario: {e}")
     return False
 
-# --- CARGAR Y GUARDAR (ADAPTADO A FIREBASE) ---
 def cargar_datos_nube(user_id):
     try:
         doc_ref = db.collection("proyectos").document(user_id)
         doc = doc_ref.get()
         if doc.exists:
             d = doc.to_dict()
-            # Restauramos cada variable al session_state
             if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
             if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
             if 'zona' in d: st.session_state['datos_zona'] = d['zona']
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
             if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
-            # ... puedes seguir agregando el resto de variables aquí ...
     except Exception as e:
         st.error(f"Error al cargar datos: {e}")
 
@@ -106,6 +103,6 @@ def guardar_datos_nube():
                 "arbol_o": st.session_state['arbol_objetivos']
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
-            st.success("Progreso guardado en la nube")
+            st.success("Progreso guardado en Firebase")
         except Exception as e:
             st.error(f"Error al guardar: {e}")
