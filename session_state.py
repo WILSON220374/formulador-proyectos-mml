@@ -7,31 +7,32 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Extraemos los datos de Secrets
-            secrets = st.secrets["firebase_credentials"]
+            # 1. Extraer los datos de Secrets
+            s = st.secrets["firebase_credentials"]
             
-            # 2. LIMPIEZA PROFUNDA DE LA LLAVE (Para evitar ASN.1 parsing error)
-            raw_key = secrets["private_key"]
+            # 2. EL ASESINO DE "EXTRA DATA": 
+            # Limpiamos la llave y forzamos a que termine EXACTAMENTE en los guiones
+            raw_key = s["private_key"].replace("\\n", "\n").strip()
             
-            # Eliminamos posibles comillas accidentales y normalizamos saltos de línea
-            clean_key = raw_key.replace("\\n", "\n").strip()
-            
-            # Si la llave se pegó como una sola línea, aseguramos los encabezados correctos
-            if "-----BEGIN PRIVATE KEY-----" not in clean_key:
-                clean_key = "-----BEGIN PRIVATE KEY-----\n" + clean_key + "\n-----END PRIVATE KEY-----"
+            footer = "-----END PRIVATE KEY-----"
+            if footer in raw_key:
+                # Esto corta cualquier espacio o salto de línea que haya después del footer
+                clean_key = raw_key.split(footer)[0] + footer
+            else:
+                clean_key = raw_key
 
-            # 3. Reconstrucción del diccionario de credenciales
+            # 3. Reconstrucción manual del objeto para evitar metadatos de Streamlit
             cred_info = {
-                "type": secrets["type"],
-                "project_id": secrets["project_id"],
-                "private_key_id": secrets["private_key_id"],
+                "type": s["type"],
+                "project_id": s["project_id"],
+                "private_key_id": s["private_key_id"],
                 "private_key": clean_key,
-                "client_email": secrets["client_email"],
-                "client_id": secrets["client_id"],
-                "auth_uri": secrets["auth_uri"],
-                "token_uri": secrets["token_uri"],
-                "auth_provider_x509_cert_url": secrets["auth_provider_x509_cert_url"],
-                "client_x509_cert_url": secrets["client_x509_cert_url"]
+                "client_email": s["client_email"],
+                "client_id": s["client_id"],
+                "auth_uri": s["auth_uri"],
+                "token_uri": s["token_uri"],
+                "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
+                "client_x509_cert_url": s["client_x509_cert_url"]
             }
             
             cred = credentials.Certificate(cred_info)
@@ -40,7 +41,7 @@ def inicializar_firebase():
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Inicialización automática
+# Ejecución de seguridad
 inicializar_firebase()
 db = firestore.client()
 
@@ -53,31 +54,19 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # --- VARIABLES ORIGINALES ---
-    if 'integrantes' not in st.session_state:
-        st.session_state['integrantes'] = []
-    if 'datos_problema' not in st.session_state:
-        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
-    if 'datos_zona' not in st.session_state:
-        st.session_state['datos_zona'] = {}
-    if 'df_interesados' not in st.session_state:
-        st.session_state['df_interesados'] = pd.DataFrame()
-    if 'analisis_participantes' not in st.session_state:
-        st.session_state['analisis_participantes'] = ""
-    if 'arbol_tarjetas' not in st.session_state:
-        st.session_state['arbol_tarjetas'] = []
-    if 'arbol_objetivos' not in st.session_state:
-        st.session_state['arbol_objetivos'] = []
-    if 'lista_alternativas' not in st.session_state:
-        st.session_state['lista_alternativas'] = []
-    if 'df_evaluacion_alternativas' not in st.session_state:
-        st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
-    if 'df_relaciones_objetivos' not in st.session_state:
-        st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
-    if 'ponderacion_criterios' not in st.session_state:
-        st.session_state['ponderacion_criterios'] = {}
-    if 'df_calificaciones' not in st.session_state:
-        st.session_state['df_calificaciones'] = pd.DataFrame()
+    # --- VARIABLES DE TU PROYECTO ---
+    vars_proyecto = [
+        'integrantes', 'datos_problema', 'datos_zona', 'df_interesados',
+        'analisis_participantes', 'arbol_tarjetas', 'arbol_objetivos',
+        'lista_alternativas', 'df_evaluacion_alternativas', 
+        'df_relaciones_objetivos', 'ponderacion_criterios', 'df_calificaciones'
+    ]
+    for v in vars_proyecto:
+        if v not in st.session_state:
+            if 'df_' in v: st.session_state[v] = pd.DataFrame()
+            elif 'datos_' in v: st.session_state[v] = {}
+            elif 'lista_' in v or 'arbol_' in v: st.session_state[v] = []
+            else: st.session_state[v] = ""
 
 # --- LÓGICA DE LOGIN ---
 def login(usuario_ingresado, clave_ingresada):
@@ -101,13 +90,12 @@ def cargar_datos_nube(user_id):
         doc = doc_ref.get()
         if doc.exists:
             d = doc.to_dict()
-            # Restauramos cada variable al session_state
-            if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
-            if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
-            if 'zona' in d: st.session_state['datos_zona'] = d['zona']
-            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
-            if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
+            for key, value in d.items():
+                if key in st.session_state:
+                    if isinstance(value, dict) and 'columns' in value: # Es un DataFrame
+                        st.session_state[key] = pd.DataFrame(value)
+                    else:
+                        st.session_state[key] = value
     except Exception as e:
         st.error(f"Error al cargar datos: {e}")
 
@@ -115,14 +103,14 @@ def guardar_datos_nube():
     if st.session_state.usuario_id:
         try:
             paquete = {
-                "integrantes": st.session_state['integrantes'],
-                "diagnostico": st.session_state['datos_problema'],
-                "zona": st.session_state['datos_zona'],
-                "interesados": st.session_state['df_interesados'].to_dict(),
-                "arbol_p": st.session_state['arbol_tarjetas'],
-                "arbol_o": st.session_state['arbol_objetivos']
+                "integrantes": st.session_state.get('integrantes', []),
+                "diagnostico": st.session_state.get('datos_problema', {}),
+                "zona": st.session_state.get('datos_zona', {}),
+                "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(),
+                "arbol_p": st.session_state.get('arbol_tarjetas', []),
+                "arbol_o": st.session_state.get('arbol_objetivos', [])
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
-            st.success("Progreso guardado en la nube")
+            st.success("Progreso guardado en Firebase")
         except Exception as e:
             st.error(f"Error al guardar: {e}")
