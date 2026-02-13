@@ -4,13 +4,13 @@ import io
 import textwrap
 import copy
 import os
-import uuid # Sistema de Pasaportes Únicos
+import uuid 
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Carga de datos persistentes
 inicializar_session()
 
-# --- ESTILO: PAPELERAS ROJAS VS BOTONES NORMALES ---
+# --- ESTILO ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
@@ -21,7 +21,6 @@ st.markdown("""
         font-weight: 500 !important;
         padding-top: 15px !important;
     }
-    /* Solo las papeleras del área principal son rojas y transparentes */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
@@ -32,18 +31,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON LOGO Y TÍTULO ---
+# --- ENCABEZADO ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
     st.title("🎯 7. Árbol de Objetivos Final")
 with col_logo:
-    # Ajuste para evitar avisos: width="stretch"
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", width="stretch")
 
 st.info("Podado Manual: Los cambios aquí no afectan al Árbol original de la Fase 5.")
 
-# --- FUNCIÓN DE ALTURA DINÁMICA ---
 def calcular_altura_web(texto, min_h=100):
     if not texto: return min_h
     lineas = str(texto).count('\n') + (len(str(texto)) // 30)
@@ -58,11 +55,10 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#FFDFBA", "label": "ACTIVIDADES"}
 }
 
-# --- SIDEBAR: HERRAMIENTAS Y EXPORTACIÓN PNG ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
-    # 1. Importación con IDs Únicos
     if st.button("♻️ Importar desde Paso 5", use_container_width=True):
         datos_original = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
         datos_con_id = {}
@@ -80,27 +76,35 @@ with st.sidebar:
 
     st.divider()
 
-    # 2. Función de Generación de PNG con ajuste de altura
     def generar_png_final():
-        fig, ax = plt.subplots(figsize=(22, 26)) # Lienzo más alto
-        # Ampliamos el techo del gráfico (ylim de 14 a 22)
-        ax.set_xlim(0, 10); ax.set_ylim(-12, 22); ax.axis('off')
+        # Aumentamos significativamente el tamaño del lienzo
+        fig, ax = plt.subplots(figsize=(24, 30))
+        # Ajustamos límites: el techo ahora es 35
+        ax.set_xlim(0, 10); ax.set_ylim(-15, 35); ax.axis('off')
         
-        # Subimos el título a y=20 para que no lo toquen los Fines
-        ax.text(5, 20, "ÁRBOL DE OBJETIVOS FINAL", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
+        # Título bien arriba para que nada lo toque
+        ax.text(5, 32, "ÁRBOL DE OBJETIVOS FINAL", fontsize=34, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state.get('arbol_objetivos_final', {})
-        # Re-ajuste de niveles base para dar más aire
-        Y_LEVELS = {"Fin Último": 14.0, "Fines Indirectos": 11.5, "Fines Directos": 8.0, 
-                    "Objetivo General": 4.0, "Medios Directos": 0.5, "Medios Indirectos": -4.0}
+        
+        # GAPS AMPLIADOS: Ahora hay 6 unidades de espacio entre niveles
+        Y_LEVELS = {
+            "Fin Último": 26.0, 
+            "Fines Indirectos": 20.0, 
+            "Fines Directos": 14.0, 
+            "Objetivo General": 6.0, 
+            "Medios Directos": -2.0, 
+            "Medios Indirectos": -10.0
+        }
         stacks = {}
 
         def dibujar_caja(x, y, texto, color):
             lineas = textwrap.wrap(texto, width=18)
             txt_ajustado = "\n".join(lineas[:10])
             n_lineas = len(lineas[:10])
-            rect_h = max(1.2, 0.4 + (n_lineas * 0.3)) # Altura para 10 líneas
+            rect_h = max(1.3, 0.4 + (n_lineas * 0.32))
             rect_w = 2.0
+            # Dibujamos la caja centrada en Y
             ax.add_patch(plt.Rectangle((x-rect_w/2, y-rect_h/2), rect_w, rect_h, facecolor=color, edgecolor='#333', lw=1.5, zorder=3))
             ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=8.5, fontweight='bold', zorder=4, color='#31333F')
             return rect_h
@@ -121,41 +125,30 @@ with st.sidebar:
                 elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), 5.0)
                 
                 offset = stacks.get((sec, x), 0)
-                # Para Fines crecemos hacia arriba, para Medios hacia abajo
-                current_y = y_base + offset if "Fin" in sec else y_base - offset
+                # IMPORTANTE: Ahora TODOS crecen hacia ABAJO para evitar choques con el nivel superior
+                current_y = y_base - offset
                 h_caja = dibujar_caja(x, current_y, txt, CONFIG_OBJ[sec]["color"])
-                stacks[(sec, x)] = offset + h_caja + 0.8 # Espaciado entre cajas hermanas
+                stacks[(sec, x)] = offset + h_caja + 1.0 # Espacio entre cajas del mismo nivel
 
         buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white'); plt.close(fig)
         return buf.getvalue()
 
-    # Limpieza de avisos: width="stretch"
     st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", width="stretch")
 
-# --- RENDERIZADO WEB (CON PASAPORTES) ---
+# --- RENDERIZADO WEB ---
 def render_poda_card(seccion, item):
     id_id = item.get('id_unico', 'temp')
     texto_actual = item.get("texto", "")
     color = CONFIG_OBJ[seccion]["color"]
-    
     st.markdown(f'<div style="background-color: {color}; height: 8px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
-    
-    nuevo_texto = st.text_area(
-        label=f"p_{id_id}", value=texto_actual, label_visibility="collapsed", 
-        height=calcular_altura_web(texto_actual), key=f"txt_{id_id}"
-    )
-    
+    nuevo_texto = st.text_area(label=f"p_{id_id}", value=texto_actual, label_visibility="collapsed", height=calcular_altura_web(texto_actual), key=f"txt_{id_id}")
     if st.button("🗑️", key=f"btn_{id_id}"):
-        st.session_state['arbol_objetivos_final'][seccion] = [
-            x for x in st.session_state['arbol_objetivos_final'][seccion] if x.get('id_unico') != id_id
-        ]
+        st.session_state['arbol_objetivos_final'][seccion] = [x for x in st.session_state['arbol_objetivos_final'][seccion] if x.get('id_unico') != id_id]
         guardar_datos_nube(); st.rerun()
-    
     if nuevo_texto != texto_actual:
         item["texto"] = nuevo_texto
         guardar_datos_nube()
 
-# --- FUNCIONES DE ESTRUCTURA ---
 def mostrar_seccion_simple_poda(key_interna):
     label_visual = CONFIG_OBJ[key_interna]["label"]
     col_l, col_c = st.columns([1, 4])
@@ -168,7 +161,6 @@ def mostrar_rama_jerarquica_poda(nombre_padre, nombre_hijo, inversion=False):
     padres = st.session_state['arbol_objetivos_final'].get(nombre_padre, [])
     hijos = st.session_state['arbol_objetivos_final'].get(nombre_hijo, [])
     orden = [(nombre_hijo, True), (nombre_padre, False)] if inversion else [(nombre_padre, False), (nombre_hijo, True)]
-    
     for seccion_actual, es_hijo in orden:
         col_l, col_c = st.columns([1, 4])
         with col_l: st.markdown(f"<div style='margin-top:25px;'>**{CONFIG_OBJ[seccion_actual]['label']}**</div>", unsafe_allow_html=True)
