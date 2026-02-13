@@ -77,24 +77,24 @@ with st.sidebar:
     st.divider()
 
     def generar_png_final():
-        # Aumentamos significativamente el tamaño del lienzo
-        fig, ax = plt.subplots(figsize=(24, 30))
-        # Ajustamos límites: el techo ahora es 35
-        ax.set_xlim(0, 10); ax.set_ylim(-15, 35); ax.axis('off')
+        # Lienzo mucho más amplio (28x32)
+        fig, ax = plt.subplots(figsize=(28, 32))
+        # Escala X de 0 a 20 para evitar choques horizontales
+        ax.set_xlim(0, 20); ax.set_ylim(-25, 45); ax.axis('off')
         
-        # Título bien arriba para que nada lo toque
-        ax.text(5, 32, "ÁRBOL DE OBJETIVOS FINAL", fontsize=34, fontweight='bold', ha='center', color='#1E3A8A')
+        # Título en el nuevo centro (X=10) y bien arriba (Y=42)
+        ax.text(10, 42, "ÁRBOL DE OBJETIVOS FINAL", fontsize=36, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state.get('arbol_objetivos_final', {})
         
-        # GAPS AMPLIADOS: Ahora hay 6 unidades de espacio entre niveles
+        # GAPS DE 10 UNIDADES: Espacio masivo para 10 líneas de texto
         Y_LEVELS = {
-            "Fin Último": 26.0, 
-            "Fines Indirectos": 20.0, 
-            "Fines Directos": 14.0, 
-            "Objetivo General": 6.0, 
-            "Medios Directos": -2.0, 
-            "Medios Indirectos": -10.0
+            "Fin Último": 32.0, 
+            "Fines Indirectos": 22.0, 
+            "Fines Directos": 12.0, 
+            "Objetivo General": 2.0, 
+            "Medios Directos": -8.0, 
+            "Medios Indirectos": -18.0
         }
         stacks = {}
 
@@ -102,33 +102,34 @@ with st.sidebar:
             lineas = textwrap.wrap(texto, width=18)
             txt_ajustado = "\n".join(lineas[:10])
             n_lineas = len(lineas[:10])
-            rect_h = max(1.3, 0.4 + (n_lineas * 0.32))
-            rect_w = 2.0
-            # Dibujamos la caja centrada en Y
+            # Altura generosa para el texto
+            rect_h = max(1.5, 0.4 + (n_lineas * 0.35))
+            rect_w = 3.0 # Cajas más anchas acorde al lienzo de 20
             ax.add_patch(plt.Rectangle((x-rect_w/2, y-rect_h/2), rect_w, rect_h, facecolor=color, edgecolor='#333', lw=1.5, zorder=3))
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=8.5, fontweight='bold', zorder=4, color='#31333F')
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', zorder=4, color='#31333F')
             return rect_h
 
+        # Lógica de X basada en el ancho de 20
         m_dir = datos.get("Medios Directos", [])
-        pos_x_medios = {(m.get('texto') if isinstance(m, dict) else m): (i+1)*(10/(len(m_dir)+1)) for i, m in enumerate(m_dir)}
+        pos_x_medios = {(m.get('texto') if isinstance(m, dict) else m): (i+1)*(20/(len(m_dir)+1)) for i, m in enumerate(m_dir)}
         f_dir = datos.get("Fines Directos", [])
-        pos_x_fines = {(f.get('texto') if isinstance(f, dict) else f): (i+1)*(10/(len(f_dir)+1)) for i, f in enumerate(f_dir)}
+        pos_x_fines = {(f.get('texto') if isinstance(f, dict) else f): (i+1)*(20/(len(f_dir)+1)) for i, f in enumerate(f_dir)}
 
         for sec, y_base in Y_LEVELS.items():
             items = datos.get(sec, [])
             for it in items:
                 txt = it.get("texto", "") if isinstance(it, dict) else it
-                if sec in ["Fin Último", "Objetivo General"]: x = 5.0
-                elif sec == "Medios Directos": x = pos_x_medios.get(txt, 5.0)
-                elif sec == "Fines Directos": x = pos_x_fines.get(txt, 5.0)
-                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre"), 5.0)
-                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), 5.0)
+                if sec in ["Fin Último", "Objetivo General"]: x = 10.0
+                elif sec == "Medios Directos": x = pos_x_medios.get(txt, 10.0)
+                elif sec == "Fines Directos": x = pos_x_fines.get(txt, 10.0)
+                elif sec == "Medios Indirectos": x = pos_x_medios.get(it.get("padre"), 10.0)
+                elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), 10.0)
                 
                 offset = stacks.get((sec, x), 0)
-                # IMPORTANTE: Ahora TODOS crecen hacia ABAJO para evitar choques con el nivel superior
-                current_y = y_base - offset
+                # CRECIMIENTO DIVERGENTE: Fines arriba, Medios abajo
+                current_y = y_base + offset if "Fin" in sec else y_base - offset
                 h_caja = dibujar_caja(x, current_y, txt, CONFIG_OBJ[sec]["color"])
-                stacks[(sec, x)] = offset + h_caja + 1.0 # Espacio entre cajas del mismo nivel
+                stacks[(sec, x)] = offset + h_caja + 1.5 # Más aire entre cajas del mismo stack
 
         buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white'); plt.close(fig)
         return buf.getvalue()
