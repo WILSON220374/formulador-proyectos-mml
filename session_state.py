@@ -7,22 +7,15 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Convertir AttrDict a dict estándar
             cred_info = dict(st.secrets["firebase_credentials"])
-            
-            # 2. Manejo de Saltos de Línea
             if "private_key" in cred_info:
                 cred_info["private_key"] = cred_info["private_key"].replace("\\n", "\n")
-
-            # 3. Inicialización
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
-            
         except Exception as e:
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Ejecución inmediata
 inicializar_firebase()
 db = firestore.client()
 
@@ -35,7 +28,6 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # Inicialización de variables de sesión
     vars_to_init = [
         'integrantes', 'datos_problema', 'datos_zona', 'df_interesados',
         'arbol_tarjetas', 'arbol_objetivos', 'lista_alternativas', 
@@ -44,14 +36,14 @@ def inicializar_session():
     ]
     for v in vars_to_init:
         if v not in st.session_state:
-            # --- AJUSTE PARA EVITAR KEYERROR EN DIAGNÓSTICO ---
             if v == 'datos_problema':
                 st.session_state[v] = {
-                    'problema_central': "",
-                    'sintomas': "",
-                    'causas_inmediatas': "",
-                    'factores_agravantes': ""
+                    'problema_central': "", 'sintomas': "",
+                    'causas_inmediatas': "", 'factores_agravantes': ""
                 }
+            # AJUSTE: Inicializamos el análisis como texto vacío
+            elif v == 'analisis_participantes':
+                st.session_state[v] = ""
             elif 'df_' in v: 
                 st.session_state[v] = pd.DataFrame()
             elif 'datos_' in v or 'ponderacion' in v: 
@@ -84,11 +76,13 @@ def cargar_datos_nube(user_id):
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
             if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
+            # AJUSTE: Cargamos el análisis desde la nube
+            if 'analisis' in d: st.session_state['analisis_participantes'] = d['analisis']
     except Exception as e:
         st.error(f"Error cargando: {e}")
 
 def guardar_datos_nube():
-    if st.session_state.usuario_id:
+    if st.session_state.get('usuario_id'):
         try:
             paquete = {
                 "integrantes": st.session_state.get('integrantes', []),
@@ -96,7 +90,9 @@ def guardar_datos_nube():
                 "zona": st.session_state.get('datos_zona', {}),
                 "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(),
                 "arbol_p": st.session_state.get('arbol_tarjetas', []),
-                "arbol_o": st.session_state.get('arbol_objetivos', [])
+                "arbol_o": st.session_state.get('arbol_objetivos', []),
+                # AJUSTE: Guardamos el análisis en la nube
+                "analisis": st.session_state.get('analisis_participantes', "")
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
             st.success("Guardado exitoso")
