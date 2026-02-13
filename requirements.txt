@@ -5,5 +5,4 @@ plotly
 graphviz
 openpyxl
 matplotlib
-supabase
 firebase-admin
