@@ -7,13 +7,16 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # Trae las credenciales desde los Secrets de Streamlit
+            # Convertimos st.secrets a un diccionario real de Python
             cred_info = dict(st.secrets["firebase_credentials"])
             
-            # LIMPIEZA DEFINITIVA: Solo dos barras para el reemplazo
+            # CORRECCIÓN CLAVE: 
+            # Si la llave privada se pegó como texto, los saltos de línea \n 
+            # a veces llegan como texto literal. Esto los convierte en saltos reales.
             if "private_key" in cred_info:
-                p_key = cred_info["private_key"].strip().replace("\\n", "\n")
-                cred_info["private_key"] = p_key
+                # Usamos .replace("\\n", "\n") con DOS barras únicamente.
+                # Esto es lo que resuelve el error de "ASN.1 parsing error: extra data"
+                cred_info["private_key"] = cred_info["private_key"].replace("\\n", "\n")
                 
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
@@ -34,7 +37,7 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # --- TUS VARIABLES ORIGINALES ---
+    # --- VARIABLES DE TU PROYECTO ---
     if 'integrantes' not in st.session_state:
         st.session_state['integrantes'] = []
     if 'datos_problema' not in st.session_state:
@@ -89,7 +92,7 @@ def cargar_datos_nube(user_id):
             if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
             if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
     except Exception as e:
-        st.error(f"Error al cargar datos: {e}")
+        st.error(f"Error al cargar datos de Firebase: {e}")
 
 def guardar_datos_nube():
     if st.session_state.usuario_id:
@@ -105,4 +108,4 @@ def guardar_datos_nube():
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
             st.success("Progreso guardado en Firebase")
         except Exception as e:
-            st.error(f"Error al guardar: {e}")
+            st.error(f"Error al guardar en Firebase: {e}")
