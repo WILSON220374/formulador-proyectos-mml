@@ -37,19 +37,13 @@ def inicializar_session():
     for v in vars_to_init:
         if v not in st.session_state:
             if v == 'datos_problema':
-                st.session_state[v] = {
-                    'problema_central': "", 'sintomas': "",
-                    'causas_inmediatas': "", 'factores_agravantes': ""
-                }
-            # AJUSTE: Inicializamos el análisis como texto vacío
+                st.session_state[v] = {'problema_central': "", 'sintomas': "", 'causas_inmediatas': "", 'factores_agravantes': ""}
+            # AJUSTE: Inicializamos como texto vacío
             elif v == 'analisis_participantes':
                 st.session_state[v] = ""
-            elif 'df_' in v: 
-                st.session_state[v] = pd.DataFrame()
-            elif 'datos_' in v or 'ponderacion' in v: 
-                st.session_state[v] = {}
-            else: 
-                st.session_state[v] = []
+            elif 'df_' in v: st.session_state[v] = pd.DataFrame()
+            elif 'datos_' in v or 'ponderacion' in v: st.session_state[v] = {}
+            else: st.session_state[v] = []
 
 def login(usuario, clave):
     try:
@@ -76,7 +70,7 @@ def cargar_datos_nube(user_id):
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
             if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
-            # AJUSTE: Cargamos el análisis desde la nube
+            # AJUSTE: Carga del análisis
             if 'analisis' in d: st.session_state['analisis_participantes'] = d['analisis']
     except Exception as e:
         st.error(f"Error cargando: {e}")
@@ -91,7 +85,7 @@ def guardar_datos_nube():
                 "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(),
                 "arbol_p": st.session_state.get('arbol_tarjetas', []),
                 "arbol_o": st.session_state.get('arbol_objetivos', []),
-                # AJUSTE: Guardamos el análisis en la nube
+                # AJUSTE: Guardado del análisis
                 "analisis": st.session_state.get('analisis_participantes', "")
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
