@@ -7,17 +7,26 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
+            if "firebase_credentials" not in st.secrets:
+                st.error("No se encontraron las credenciales de Firebase en los Secrets.")
+                st.stop()
+                
             cred_info = dict(st.secrets["firebase_credentials"])
             if "private_key" in cred_info:
                 cred_info["private_key"] = cred_info["private_key"].replace("\\n", "\n")
+                
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
+# Inicialización al importar
 inicializar_firebase()
 db = firestore.client()
+
+def conectar_db():
+    return db
 
 def inicializar_session():
     if 'autenticado' not in st.session_state:
@@ -25,19 +34,26 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
+    # Variables a inicializar
     vars_to_init = [
         'integrantes', 'datos_problema', 'datos_zona', 'df_interesados',
         'arbol_tarjetas', 'arbol_objetivos', 'lista_alternativas', 
         'df_evaluacion_alternativas', 'df_relaciones_objetivos', 
         'ponderacion_criterios', 'df_calificaciones', 'analisis_participantes'
     ]
+    
     for v in vars_to_init:
         if v not in st.session_state:
-            # AJUSTE: Estructura de diccionario para los árboles
-            if v in ['arbol_tarjetas', 'arbol_objetivos']:
+            # AJUSTE: Inicializar árboles como diccionarios, no como listas
+            if v == 'arbol_tarjetas':
                 st.session_state[v] = {
                     "Efectos Indirectos": [], "Efectos Directos": [], 
                     "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
+                }
+            elif v == 'arbol_objetivos':
+                st.session_state[v] = {
+                    "Fines Indirectos": [], "Fines Directos": [], 
+                    "Objetivo Central": [], "Medios Directos": [], "Medios Indirectos": []
                 }
             elif v == 'datos_problema':
                 st.session_state[v] = {'problema_central': "", 'sintomas': "", 'causas_inmediatas': "", 'factores_agravantes': ""}
@@ -56,8 +72,8 @@ def login(usuario, clave):
         if doc.exists:
             d = doc.to_dict()
             if str(d.get("password")) == str(clave):
-                st.session_state.autenticado = True
-                st.session_state.usuario_id = usuario
+                st.session_state['autenticado'] = True
+                st.session_state['usuario_id'] = usuario
                 cargar_datos_nube(usuario)
                 return True
     except Exception as e:
@@ -73,7 +89,9 @@ def cargar_datos_nube(user_id):
             if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
             if 'zona' in d: st.session_state['datos_zona'] = d['zona']
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            # AJUSTE: Asegurar que si en la nube es null, se cree el diccionario
+            if 'analisis' in d: st.session_state['analisis_participantes'] = d['analisis']
+            
+            # Carga segura de árboles
             st.session_state['arbol_tarjetas'] = d.get('arbol_p', {
                 "Efectos Indirectos": [], "Efectos Directos": [], 
                 "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []
@@ -82,13 +100,13 @@ def cargar_datos_nube(user_id):
                 "Fines Indirectos": [], "Fines Directos": [], 
                 "Objetivo Central": [], "Medios Directos": [], "Medios Indirectos": []
             })
-            if 'analisis' in d: st.session_state['analisis_participantes'] = d['analisis']
     except Exception as e:
-        st.error(f"Error cargando: {e}")
+        st.error(f"Error cargando datos: {e}")
 
 def guardar_datos_nube():
     if st.session_state.get('usuario_id'):
         try:
+            # Preparar datos para Firebase
             paquete = {
                 "integrantes": st.session_state.get('integrantes', []),
                 "diagnostico": st.session_state.get('datos_problema', {}),
@@ -98,7 +116,7 @@ def guardar_datos_nube():
                 "arbol_o": st.session_state.get('arbol_objetivos', {}),
                 "analisis": st.session_state.get('analisis_participantes', "")
             }
-            db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
-            st.success("Guardado exitoso")
+            db.collection("proyectos").document(st.session_state['usuario_id']).set(paquete)
+            st.success("Avance guardado en la nube")
         except Exception as e:
-            st.error(f"Error guardando: {e}")
+            st.error(f"Error al guardar en la nube: {e}")
