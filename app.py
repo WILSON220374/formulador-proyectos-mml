@@ -49,7 +49,6 @@ if not st.session_state.get('autenticado', False):
         
         st.write("")
         if st.button("INGRESAR AL PROYECTO", use_container_width=True, type="primary"):
-            # Usamos la nueva función login de Firebase definida en session_state
             if login(usuario, clave):
                 st.success("¡Acceso correcto!")
                 st.rerun()
@@ -62,18 +61,26 @@ with st.sidebar:
     st.title("🛠️ PANEL DE CONTROL")
     st.info(f"**Grupo:** {st.session_state.get('usuario_id', 'Invitado')}")
     
-    # Mostrar integrantes del equipo (Tu lógica original)
+    # --- CORRECCIÓN CRÍTICA AQUÍ ---
+    # Mostramos integrantes del equipo con protección contra valores nulos
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
         for persona in integrantes:
-            nombre_full = persona.get("Nombre Completo", "").strip()
-            if nombre_full:
-                nombre_pila = nombre_full.split()[0].upper()
-                st.markdown(f"**👤 {nombre_pila}**")
+            if persona and isinstance(persona, dict):
+                # Usamos .get() y verificamos que no sea None antes de usar .strip()
+                nombre_raw = persona.get("Nombre Completo")
+                nombre_full = nombre_raw.strip() if nombre_raw else ""
+                
+                if nombre_full:
+                    # Extraemos solo el primer nombre en mayúsculas
+                    nombre_pila = nombre_full.split()[0].upper()
+                    st.markdown(f"**👤 {nombre_pila}**")
+                else:
+                    st.write("👤 *Integrante sin nombre*")
     
     st.divider()
     
-    # Botón de guardado corregido para Firebase
+    # Botón de guardado para Firebase
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
         guardar_datos_nube()
         st.toast("✅ Avance guardado en Firebase", icon="🚀")
