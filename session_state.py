@@ -7,24 +7,37 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # Convertimos st.secrets a un diccionario real de Python
-            cred_info = dict(st.secrets["firebase_credentials"])
+            # 1. Obtener datos de los Secrets
+            secrets = st.secrets["firebase_credentials"]
             
-            # CORRECCIÓN CLAVE: 
-            # Si la llave privada se pegó como texto, los saltos de línea \n 
-            # a veces llegan como texto literal. Esto los convierte en saltos reales.
-            if "private_key" in cred_info:
-                # Usamos .replace("\\n", "\n") con DOS barras únicamente.
-                # Esto es lo que resuelve el error de "ASN.1 parsing error: extra data"
-                cred_info["private_key"] = cred_info["private_key"].replace("\\n", "\n")
-                
+            # 2. Reconstruir la llave privada de forma manual y segura
+            # Esto elimina cualquier "extra data" o error de formato
+            raw_key = secrets["private_key"]
+            
+            # Limpieza: quitamos comillas accidentales y normalizamos saltos de línea
+            clean_key = raw_key.replace("\\n", "\n").strip()
+            
+            # 3. Crear el diccionario de credenciales con el formato exacto
+            cred_info = {
+                "type": secrets["type"],
+                "project_id": secrets["project_id"],
+                "private_key_id": secrets["private_key_id"],
+                "private_key": clean_key,
+                "client_email": secrets["client_email"],
+                "client_id": secrets["client_id"],
+                "auth_uri": secrets["auth_uri"],
+                "token_uri": secrets["token_uri"],
+                "auth_provider_x509_cert_url": secrets["auth_provider_x509_cert_url"],
+                "client_x509_cert_url": secrets["client_x509_cert_url"]
+            }
+            
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Inicialización automática
+# Inicialización al importar
 inicializar_firebase()
 db = firestore.client()
 
@@ -37,7 +50,7 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # --- VARIABLES DE TU PROYECTO ---
+    # --- VARIABLES ORIGINALES DEL PROYECTO ---
     if 'integrantes' not in st.session_state:
         st.session_state['integrantes'] = []
     if 'datos_problema' not in st.session_state:
