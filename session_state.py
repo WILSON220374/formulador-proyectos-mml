@@ -7,27 +7,35 @@ from firebase_admin import credentials, firestore
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Obtener el diccionario de Secrets
-            # Usamos .to_dict() para asegurarnos de tener un objeto limpio
-            cred_info = st.secrets["firebase_credentials"].to_dict()
+            # Obtener los secretos
+            secrets = st.secrets["firebase_credentials"]
             
-            # 2. PROCESAMIENTO DE LA LLAVE
-            # El error InvalidPadding ocurre si la llave no tiene los saltos de línea 
-            # correctos o si le faltan los "=" al final.
-            if "private_key" in cred_info:
-                # Primero: Convertimos los \n de texto en saltos de línea reales
-                p_key = cred_info["private_key"].replace("\\n", "\n")
-                # Segundo: Quitamos espacios accidentales al inicio y al final
-                cred_info["private_key"] = p_key.strip()
-                
-            # 3. Inicialización
-            cred = credentials.Certificate(cred_info)
+            # Reconstruir el diccionario para asegurar que sea un objeto limpio
+            cred_dict = {
+                "type": secrets["type"],
+                "project_id": secrets["project_id"],
+                "private_key_id": secrets["private_key_id"],
+                "private_key": secrets["private_key"].replace("\\n", "\n").strip(),
+                "client_email": secrets["client_email"],
+                "client_id": secrets["client_id"],
+                "auth_uri": secrets["auth_uri"],
+                "token_uri": secrets["token_uri"],
+                "auth_provider_x509_cert_url": secrets["auth_provider_x509_cert_url"],
+                "client_x509_cert_url": secrets["client_x509_cert_url"]
+            }
+            
+            # Asegurar que la llave termine exactamente en los guiones finales
+            footer = "-----END PRIVATE KEY-----"
+            if footer in cred_dict["private_key"]:
+                cred_dict["private_key"] = cred_dict["private_key"].split(footer)[0] + footer
+            
+            cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            st.error(f"Error de Certificado (Padding): {e}")
+            st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Ejecución inmediata
+# Inicialización al importar el archivo
 inicializar_firebase()
 db = firestore.client()
 
@@ -40,34 +48,63 @@ def inicializar_session():
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # Asegurar todas tus variables de proyecto
-    claves = ['integrantes', 'datos_problema', 'datos_zona', 'df_interesados', 'arbol_tarjetas', 'arbol_objetivos']
-    for c in claves:
-        if c not in st.session_state:
-            if 'df_' in c: st.session_state[c] = pd.DataFrame()
-            elif 'arbol' in c or 'integrantes' in c: st.session_state[c] = []
-            else: st.session_state[c] = {}
+    # --- VARIABLES ORIGINALES DEL PROYECTO ---
+    if 'integrantes' not in st.session_state:
+        st.session_state['integrantes'] = []
+    if 'datos_problema' not in st.session_state:
+        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
+    if 'datos_zona' not in st.session_state:
+        st.session_state['datos_zona'] = {}
+    if 'df_interesados' not in st.session_state:
+        st.session_state['df_interesados'] = pd.DataFrame()
+    if 'arbol_tarjetas' not in st.session_state:
+        st.session_state['arbol_tarjetas'] = []
+    if 'arbol_objetivos' not in st.session_state:
+        st.session_state['arbol_objetivos'] = []
 
-def login(u, p):
+# --- LÓGICA DE LOGIN Y DATOS ---
+def login(usuario, clave):
     try:
-        doc = db.collection("usuarios").document(u).get()
-        if doc.exists and str(doc.to_dict().get("password")) == str(p):
-            st.session_state.autenticado = True
-            st.session_state.usuario_id = u
-            return True
-    except: pass
+        user_ref = db.collection("usuarios").document(usuario)
+        doc = user_ref.get()
+        if doc.exists:
+            datos = doc.to_dict()
+            if str(datos.get("password")) == str(clave):
+                st.session_state.autenticado = True
+                st.session_state.usuario_id = usuario
+                cargar_datos_nube(usuario)
+                return True
+    except Exception as e:
+        st.error(f"Error al validar usuario: {e}")
     return False
+
+def cargar_datos_nube(user_id):
+    try:
+        doc_ref = db.collection("proyectos").document(user_id)
+        doc = doc_ref.get()
+        if doc.exists:
+            d = doc.to_dict()
+            if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
+            if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
+            if 'zona' in d: st.session_state['datos_zona'] = d['zona']
+            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
+            if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
+            if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
+    except Exception as e:
+        st.error(f"Error al cargar datos: {e}")
 
 def guardar_datos_nube():
     if st.session_state.usuario_id:
         try:
-            datos = {
-                "integrantes": st.session_state.get('integrantes', []),
-                "diagnostico": st.session_state.get('datos_problema', {}),
-                "arbol_p": st.session_state.get('arbol_tarjetas', []),
-                "arbol_o": st.session_state.get('arbol_objetivos', [])
+            paquete = {
+                "integrantes": st.session_state['integrantes'],
+                "diagnostico": st.session_state['datos_problema'],
+                "zona": st.session_state['datos_zona'],
+                "interesados": st.session_state['df_interesados'].to_dict(),
+                "arbol_p": st.session_state['arbol_tarjetas'],
+                "arbol_o": st.session_state['arbol_objetivos']
             }
-            db.collection("proyectos").document(st.session_state.usuario_id).set(datos)
-            st.success("Guardado en Firebase")
+            db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
+            st.success("Guardado en Firebase correctamente")
         except Exception as e:
             st.error(f"Error al guardar: {e}")
