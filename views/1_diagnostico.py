@@ -13,8 +13,9 @@ with col_titulo:
 
 with col_logo:
     # Ubicación en la parte superior derecha con alta resolución
+    # Se actualiza use_container_width por width="stretch" para evitar avisos en logs
     if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+        st.image("unnamed-1.jpg", width="stretch")
 
 # --- CÁLCULO DE PROGRESO ---
 datos = st.session_state['datos_problema']
@@ -66,7 +67,8 @@ with st.container(border=True):
     agravantes = st.text_area("A", value=datos['factores_agravantes'], height=h_a, key="txt_agravantes", label_visibility="collapsed")
 
 # --- LÓGICA DE GUARDADO AUTOMÁTICO ---
-if (p_central != datos['problema_central'] or síntomas != datos['sintomas'] or 
+# Se corrigió 'síntomas' por 'sintomas' para evitar el NameError
+if (p_central != datos['problema_central'] or sintomas != datos['sintomas'] or 
     causas != datos['causas_inmediatas'] or agravantes != datos['factores_agravantes']):
     st.session_state['datos_problema'] = {
         "problema_central": p_central, "sintomas": sintomas,
