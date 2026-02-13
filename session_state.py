@@ -4,36 +4,44 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import re
 
+# --- CONFIGURACIÓN DE FIREBASE ---
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Obtener los secretos
+            # 1. Extraer los datos de Secrets
             s = st.secrets["firebase_credentials"]
-            
-            # 2. LIMPIEZA QUIRÚRGICA DE LA LLAVE
             raw_key = s["private_key"]
-            
-            # Eliminamos cualquier carácter que no deba estar en una llave PEM 
-            # (dejamos solo letras, números, +, /, =, -, y saltos de línea)
-            # Esto elimina el guion bajo (_) que está causando el error 95
-            clean_key = raw_key.replace("\\n", "\n")
-            
-            # Extraemos solo el bloque base64 entre los encabezados si existen
-            # o limpiamos los guiones bajos del bloque central
-            if "-----BEGIN PRIVATE KEY-----" in clean_key:
-                parts = clean_key.split("-----")
-                # La parte [2] es el contenido Base64
-                header = "-----BEGIN PRIVATE KEY-----"
-                footer = "-----END PRIVATE KEY-----"
-                content = parts[2].strip().replace("_", "/").replace("-", "+")
-                # Reconstruimos el PEM perfecto
-                final_key = f"{header}\n{content}\n{footer}"
-            else:
-                # Si no tiene encabezados, los ponemos y limpiamos el cuerpo
-                content = clean_key.strip().replace("_", "/").replace("-", "+")
-                final_key = f"-----BEGIN PRIVATE KEY-----\n{content}\n-----END PRIVATE KEY-----"
 
-            # 3. Creación del diccionario para Firebase
+            # 2. FILTRO ANTI-CORRUPCIÓN (ASCII ONLY)
+            # Esto elimina el byte 195 (Ã) y cualquier otro símbolo invisible
+            # Solo deja caracteres básicos de teclado
+            clean_text = "".join(c for c in raw_key if ord(c) < 128)
+            
+            # Normalizamos saltos de línea que vienen como texto
+            clean_text = clean_text.replace("\\n", "\n")
+
+            # 3. EXTRACCIÓN QUIRÚRGICA DEL CUERPO DE LA LLAVE
+            # Buscamos solo lo que está entre los guiones para limpiar el medio
+            if "BEGIN PRIVATE KEY" in clean_text:
+                # Extraemos el bloque central (Base64)
+                # Eliminamos cualquier guion bajo (_) o espacios que se colaron
+                pattern = r"-----BEGIN PRIVATE KEY-----(.*)-----END PRIVATE KEY-----"
+                match = re.search(pattern, clean_text, re.DOTALL)
+                
+                if match:
+                    cuerpo_base64 = match.group(1).strip()
+                    # Limpiamos el cuerpo de caracteres ilegales (como guiones bajos o espacios)
+                    cuerpo_base64 = cuerpo_base64.replace("_", "/").replace(" ", "").replace("\r", "")
+                    
+                    # RECONSTRUCCIÓN MANUAL PURA
+                    # Esto garantiza que la cabecera sea EXACTAMENTE la que Firebase quiere
+                    final_key = f"-----BEGIN PRIVATE KEY-----\n{cuerpo_base64}\n-----END PRIVATE KEY-----"
+                else:
+                    final_key = clean_text
+            else:
+                final_key = clean_text
+
+            # 4. Creación del diccionario limpio
             cred_info = {
                 "type": s["type"],
                 "project_id": s["project_id"],
@@ -50,10 +58,11 @@ def inicializar_firebase():
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            st.error(f"Error crítico de certificado (Byte 95): {e}")
+            # Si falla, mostramos exactamente qué está recibiendo el sistema para depurar
+            st.error(f"Error de Certificado: {e}")
             st.stop()
 
-# Inicializar Base de Datos
+# Inicialización
 inicializar_firebase()
 db = firestore.client()
 
@@ -61,16 +70,15 @@ def conectar_db():
     return db
 
 def inicializar_session():
-    # Inicialización de variables de sesión (árbol, diagnóstico, etc.)
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # Aseguramos que existan todas tus variables de proyecto
-    for key in ['integrantes', 'datos_problema', 'datos_zona', 'arbol_tarjetas', 'arbol_objetivos']:
-        if key not in st.session_state:
-            st.session_state[key] = [] if 'arbol' in key or 'integrantes' in key else {}
+    # Lista de variables a asegurar
+    for v in ['integrantes', 'datos_problema', 'datos_zona', 'arbol_tarjetas', 'arbol_objetivos']:
+        if v not in st.session_state:
+            st.session_state[v] = [] if 'arbol' in v or 'integrantes' in v else {}
 
 def login(usuario, clave):
     try:
@@ -87,12 +95,14 @@ def login(usuario, clave):
 def guardar_datos_nube():
     if st.session_state.usuario_id:
         try:
+            # Aquí agregas todas tus variables de sesión para guardar
             datos = {
-                "diagnostico": st.session_state['datos_problema'],
-                "arbol_p": st.session_state['arbol_tarjetas'],
-                "arbol_o": st.session_state['arbol_objetivos']
+                "integrantes": st.session_state.get('integrantes', []),
+                "diagnostico": st.session_state.get('datos_problema', {}),
+                "arbol_p": st.session_state.get('arbol_tarjetas', []),
+                "arbol_o": st.session_state.get('arbol_objetivos', [])
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(datos)
-            st.success("Sincronizado con Firebase")
+            st.success("Guardado exitoso en Firebase")
         except Exception as e:
             st.error(f"Error al guardar: {e}")
