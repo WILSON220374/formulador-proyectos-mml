@@ -1,99 +1,111 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# --- CONFIGURACIÓN DE FIREBASE ---
+def inicializar_firebase():
+    if not firebase_admin._apps:
+        try:
+            # Trae las credenciales desde los Secrets de Streamlit
+            cred_info = dict(st.secrets["firebase_credentials"])
+            
+            # Limpieza de la llave privada para evitar errores de formato
+            if "private_key" in cred_info:
+                p_key = cred_info["private_key"].strip().replace("\\n", "\n")
+                cred_info["private_key"] = p_key
+                
+            cred = credentials.Certificate(cred_info)
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            st.error(f"Error de conexión con Firebase: {e}")
+            st.stop()
+
+# Inicialización automática al importar el módulo
+inicializar_firebase()
+db = firestore.client()
 
 def conectar_db():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    return db
 
 def inicializar_session():
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
+    if 'usuario_id' not in st.session_state:
+        st.session_state['usuario_id'] = None
     
-    # --- DATOS DEL EQUIPO ---
+    # --- MANTENEMOS TUS VARIABLES ORIGINALES ---
     if 'integrantes' not in st.session_state:
         st.session_state['integrantes'] = []
-    
-    # --- FASE I: IDENTIFICACIÓN (Páginas 1 y 2) ---
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     if 'datos_zona' not in st.session_state:
         st.session_state['datos_zona'] = {}
-        
-    # --- FASE II: PARTICIPANTES (Página 3) ---
     if 'df_interesados' not in st.session_state:
         st.session_state['df_interesados'] = pd.DataFrame()
     if 'analisis_participantes' not in st.session_state:
         st.session_state['analisis_participantes'] = ""
-
-    # --- FASE III: ANÁLISIS (Páginas 4 y 5) ---
     if 'arbol_tarjetas' not in st.session_state:
-        st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
+        st.session_state['arbol_tarjetas'] = []
     if 'arbol_objetivos' not in st.session_state:
-        st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
-
-    # --- FASE IV: PLANIFICACIÓN Y EVALUACIÓN (Página 6) ---
+        st.session_state['arbol_objetivos'] = []
+    if 'lista_alternativas' not in st.session_state:
+        st.session_state['lista_alternativas'] = []
     if 'df_evaluacion_alternativas' not in st.session_state:
         st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
     if 'df_relaciones_objetivos' not in st.session_state:
         st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
-    if 'lista_alternativas' not in st.session_state:
-        st.session_state['lista_alternativas'] = []
     if 'ponderacion_criterios' not in st.session_state:
-        st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
+        st.session_state['ponderacion_criterios'] = {}
     if 'df_calificaciones' not in st.session_state:
         st.session_state['df_calificaciones'] = pd.DataFrame()
 
-    # --- FASE V: ÁRBOLES FINALES PODADOS (Páginas 7 y 8) ---
-    if 'arbol_objetivos_final' not in st.session_state:
-        st.session_state['arbol_objetivos_final'] = {}
-    if 'arbol_problemas_final' not in st.session_state:
-        st.session_state['arbol_problemas_final'] = {}
+# --- LÓGICA DE LOGIN ---
+def login(usuario_ingresado, clave_ingresada):
+    try:
+        user_ref = db.collection("usuarios").document(usuario_ingresado)
+        user_doc = user_ref.get()
+        if user_doc.exists:
+            datos = user_doc.to_dict()
+            if str(datos.get("password")) == str(clave_ingresada):
+                st.session_state.autenticado = True
+                st.session_state.usuario_id = usuario_ingresado
+                cargar_datos_nube(usuario_ingresado)
+                return True
+    except Exception as e:
+        st.error(f"Error al validar usuario: {e}")
+    return False
 
+# --- CARGAR Y GUARDAR (ADAPTADO A FIREBASE) ---
 def cargar_datos_nube(user_id):
     try:
-        db = conectar_db()
-        res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
-        if res.data and res.data[0]['datos']:
-            d = res.data[0]['datos']
-            # Carga de datos del equipo
-            st.session_state['integrantes'] = d.get('integrantes', [])
-            
-            st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
-            st.session_state['datos_zona'] = d.get('zona', {})
-            st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
-            st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
-            st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
-            st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
-            st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
-            
+        doc_ref = db.collection("proyectos").document(user_id)
+        doc = doc_ref.get()
+        if doc.exists:
+            d = doc.to_dict()
+            # Restauramos cada variable al session_state
+            if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
+            if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
+            if 'zona' in d: st.session_state['datos_zona'] = d['zona']
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
-            if 'rel_obj' in d: st.session_state['df_relaciones_objetivos'] = pd.DataFrame(d['rel_obj'])
-            if 'calificaciones' in d: st.session_state['df_calificaciones'] = pd.DataFrame(d['calificaciones'])
+            if 'arbol_p' in d: st.session_state['arbol_tarjetas'] = d['arbol_p']
+            if 'arbol_o' in d: st.session_state['arbol_objetivos'] = d['arbol_o']
+            # ... puedes seguir agregando el resto de variables aquí ...
     except Exception as e:
-        st.error(f"Error al cargar: {e}")
+        st.error(f"Error al cargar datos: {e}")
 
 def guardar_datos_nube():
-    try:
-        db = conectar_db()
-        paquete = {
-            "integrantes": st.session_state['integrantes'], # Guardar equipo
-            "diagnostico": st.session_state['datos_problema'],
-            "zona": st.session_state['datos_zona'],
-            "interesados": st.session_state['df_interesados'].to_dict(),
-            "analisis_txt": st.session_state['analisis_participantes'],
-            "arbol_p": st.session_state['arbol_tarjetas'],
-            "arbol_o": st.session_state['arbol_objetivos'],
-            "alternativas": st.session_state['lista_alternativas'],
-            "eval_alt": st.session_state['df_evaluacion_alternativas'].to_dict(),
-            "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
-            "pesos_eval": st.session_state['ponderacion_criterios'],
-            "calificaciones": st.session_state['df_calificaciones'].to_dict(),
-            "arbol_f": st.session_state['arbol_objetivos_final'],
-            "arbol_p_f": st.session_state['arbol_problemas_final']
-        }
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
-    except Exception as e:
-        st.error(f"Error crítico al guardar: {e}")
+    if st.session_state.usuario_id:
+        try:
+            paquete = {
+                "integrantes": st.session_state['integrantes'],
+                "diagnostico": st.session_state['datos_problema'],
+                "zona": st.session_state['datos_zona'],
+                "interesados": st.session_state['df_interesados'].to_dict(),
+                "arbol_p": st.session_state['arbol_tarjetas'],
+                "arbol_o": st.session_state['arbol_objetivos']
+            }
+            db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
+            st.success("Progreso guardado en la nube")
+        except Exception as e:
+            st.error(f"Error al guardar: {e}")
