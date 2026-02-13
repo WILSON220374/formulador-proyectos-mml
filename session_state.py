@@ -3,32 +3,41 @@ import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# --- CONFIGURACIÓN DE FIREBASE ---
 def inicializar_firebase():
     if not firebase_admin._apps:
         try:
-            # 1. Convertir Secrets a diccionario limpio
-            secrets = st.secrets["firebase_credentials"]
-            cred_info = {k: v for k, v in secrets.items()}
+            # 1. Extraer los secretos y convertirlos a un diccionario limpio
+            # Usamos .to_dict() para evitar proxies de Streamlit
+            cred_info = st.secrets["firebase_credentials"].to_dict()
             
-            # 2. LIMPIEZA TOTAL DE LLAVE
-            # Convertimos los \n de texto en saltos de línea reales
-            raw_key = cred_info["private_key"].replace("\\n", "\n").strip()
+            # 2. LIMPIEZA QUIRÚRGICA DE LA LLAVE (SOLUCIÓN AL EXTRA DATA)
+            p_key = cred_info["private_key"]
             
-            # Buscamos el final oficial y cortamos CUALQUIER cosa que venga después
-            footer = "-----END PRIVATE KEY-----"
-            if footer in raw_key:
-                raw_key = raw_key.split(footer)[0] + footer
+            # Paso A: Convertir \n de texto a saltos de línea reales
+            p_key = p_key.replace("\\n", "\n")
             
-            cred_info["private_key"] = raw_key
+            # Paso B: Encontrar el inicio y fin exacto (Ignora basura antes o después)
+            inicio = "-----BEGIN PRIVATE KEY-----"
+            fin = "-----END PRIVATE KEY-----"
             
-            # 3. Inicializar
+            if inicio in p_key and fin in p_key:
+                # Cortamos la cadena para que empiece en BEGIN y termine justo en el último guion de END
+                p_key = p_key[p_key.find(inicio) : p_key.find(fin) + len(fin)]
+                cred_info["private_key"] = p_key
+            else:
+                st.error("La llave privada no tiene el formato PEM correcto (BEGIN/END).")
+                st.stop()
+
+            # 3. Inicialización oficial
             cred = credentials.Certificate(cred_info)
             firebase_admin.initialize_app(cred)
+            
         except Exception as e:
             st.error(f"Error de conexión con Firebase: {e}")
             st.stop()
 
-# Inicialización automática
+# Ejecutar inmediatamente al importar
 inicializar_firebase()
 db = firestore.client()
 
@@ -36,17 +45,16 @@ def conectar_db():
     return db
 
 def inicializar_session():
+    # Mantenemos todas tus variables originales
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     if 'usuario_id' not in st.session_state:
         st.session_state['usuario_id'] = None
     
-    # Inicialización de tus variables de proyecto
-    if 'integrantes' not in st.session_state:
-        st.session_state['integrantes'] = []
-    if 'datos_problema' not in st.session_state:
-        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
-    # ... inicializa el resto de tus variables (zona, interesados, etc.) aquí ...
+    # Inicialización de listas y diccionarios del proyecto
+    for key in ['integrantes', 'datos_problema', 'datos_zona', 'arbol_tarjetas', 'arbol_objetivos']:
+        if key not in st.session_state:
+            st.session_state[key] = [] if 'arbol' in key or 'integrantes' in key else {}
 
 def login(usuario, clave):
     try:
@@ -54,35 +62,26 @@ def login(usuario, clave):
         doc = user_ref.get()
         if doc.exists:
             datos = doc.to_dict()
+            # Comparación de seguridad
             if str(datos.get("password")) == str(clave):
                 st.session_state.autenticado = True
                 st.session_state.usuario_id = usuario
-                cargar_datos_nube(usuario)
                 return True
-    except Exception as e:
-        st.error(f"Error al validar usuario: {e}")
+    except:
+        pass
     return False
-
-def cargar_datos_nube(user_id):
-    try:
-        doc_ref = db.collection("proyectos").document(user_id)
-        doc = doc_ref.get()
-        if doc.exists:
-            d = doc.to_dict()
-            # Actualiza tus variables de sesión con los datos de Firebase
-            if 'integrantes' in d: st.session_state['integrantes'] = d['integrantes']
-            if 'diagnostico' in d: st.session_state['datos_problema'] = d['diagnostico']
-    except Exception as e:
-        st.error(f"Error al cargar datos: {e}")
 
 def guardar_datos_nube():
     if st.session_state.usuario_id:
         try:
+            # Aquí van todas las variables que quieres persistir
             paquete = {
-                "integrantes": st.session_state['integrantes'],
-                "diagnostico": st.session_state['datos_problema']
+                "integrantes": st.session_state.get('integrantes', []),
+                "diagnostico": st.session_state.get('datos_problema', {}),
+                "arbol_p": st.session_state.get('arbol_tarjetas', []),
+                "arbol_o": st.session_state.get('arbol_objetivos', [])
             }
             db.collection("proyectos").document(st.session_state.usuario_id).set(paquete)
-            st.success("Sincronizado con Firebase")
+            st.success("✅ Sincronizado con Firebase")
         except Exception as e:
             st.error(f"Error al guardar: {e}")
