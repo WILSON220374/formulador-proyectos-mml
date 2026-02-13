@@ -37,8 +37,9 @@ col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
     st.title("🎯 7. Árbol de Objetivos Final")
 with col_logo:
+    # Ajuste para evitar avisos: width="stretch"
     if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+        st.image("unnamed-1.jpg", width="stretch")
 
 st.info("Podado Manual: Los cambios aquí no afectan al Árbol original de la Fase 5.")
 
@@ -79,25 +80,29 @@ with st.sidebar:
 
     st.divider()
 
-    # 2. Función de Generación de PNG
+    # 2. Función de Generación de PNG con ajuste de altura
     def generar_png_final():
-        fig, ax = plt.subplots(figsize=(22, 24))
-        ax.set_xlim(0, 10); ax.set_ylim(-8, 14); ax.axis('off')
-        ax.text(5, 13, "ÁRBOL DE OBJETIVOS FINAL", fontsize=28, fontweight='bold', ha='center', color='#1E3A8A')
+        fig, ax = plt.subplots(figsize=(22, 26)) # Lienzo más alto
+        # Ampliamos el techo del gráfico (ylim de 14 a 22)
+        ax.set_xlim(0, 10); ax.set_ylim(-12, 22); ax.axis('off')
+        
+        # Subimos el título a y=20 para que no lo toquen los Fines
+        ax.text(5, 20, "ÁRBOL DE OBJETIVOS FINAL", fontsize=32, fontweight='bold', ha='center', color='#1E3A8A')
         
         datos = st.session_state.get('arbol_objetivos_final', {})
-        Y_LEVELS = {"Fin Último": 11.0, "Fines Indirectos": 9.0, "Fines Directos": 6.5, 
-                    "Objetivo General": 4.0, "Medios Directos": 1.5, "Medios Indirectos": -2.0}
+        # Re-ajuste de niveles base para dar más aire
+        Y_LEVELS = {"Fin Último": 14.0, "Fines Indirectos": 11.5, "Fines Directos": 8.0, 
+                    "Objetivo General": 4.0, "Medios Directos": 0.5, "Medios Indirectos": -4.0}
         stacks = {}
 
         def dibujar_caja(x, y, texto, color):
             lineas = textwrap.wrap(texto, width=18)
             txt_ajustado = "\n".join(lineas[:10])
             n_lineas = len(lineas[:10])
-            rect_h = max(1.0, 0.4 + (n_lineas * 0.28))
-            rect_w = 1.8
+            rect_h = max(1.2, 0.4 + (n_lineas * 0.3)) # Altura para 10 líneas
+            rect_w = 2.0
             ax.add_patch(plt.Rectangle((x-rect_w/2, y-rect_h/2), rect_w, rect_h, facecolor=color, edgecolor='#333', lw=1.5, zorder=3))
-            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=9, fontweight='bold', zorder=4)
+            ax.text(x, y, txt_ajustado, ha='center', va='center', fontsize=8.5, fontweight='bold', zorder=4, color='#31333F')
             return rect_h
 
         m_dir = datos.get("Medios Directos", [])
@@ -116,14 +121,16 @@ with st.sidebar:
                 elif sec == "Fines Indirectos": x = pos_x_fines.get(it.get("padre"), 5.0)
                 
                 offset = stacks.get((sec, x), 0)
-                current_y = y_base - offset if "Medios" in sec else y_base + offset
+                # Para Fines crecemos hacia arriba, para Medios hacia abajo
+                current_y = y_base + offset if "Fin" in sec else y_base - offset
                 h_caja = dibujar_caja(x, current_y, txt, CONFIG_OBJ[sec]["color"])
-                stacks[(sec, x)] = offset + h_caja + 0.5
+                stacks[(sec, x)] = offset + h_caja + 0.8 # Espaciado entre cajas hermanas
 
-        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
+        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight', facecolor='white'); plt.close(fig)
         return buf.getvalue()
 
-    st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", use_container_width=True)
+    # Limpieza de avisos: width="stretch"
+    st.download_button("🖼️ Descargar Árbol Final", data=generar_png_final(), file_name="arbol_objetivos_final.png", width="stretch")
 
 # --- RENDERIZADO WEB (CON PASAPORTES) ---
 def render_poda_card(seccion, item):
