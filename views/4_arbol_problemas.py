@@ -8,11 +8,11 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO DE LA INTERFAZ (Tarjetas y Botones) ---
+# --- ESTILO DE LA INTERFAZ ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
-        background-color: #fcf8f8 !important; /* Tono cálido para problemas */
+        background-color: #fcf8f8 !important;
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 13px !important;
@@ -50,11 +50,9 @@ def generar_grafo_problemas():
     if not datos: return None
 
     dot = graphviz.Digraph(format='png')
-    # Título integrado en la imagen
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
              fontsize='22', fontname='Arial Bold', fontcolor='#1E3A8A')
     
-    # Configuración de espaciado dinámico
     dot.attr(rankdir='TB', nodesep='0.5', ranksep='0.8', splines='ortho')
 
     def wrap_txt(t):
@@ -62,15 +60,16 @@ def generar_grafo_problemas():
         t = str(t).replace('"', "'")
         return "\n".join(textwrap.wrap(t, width=25))
 
-    # 1. Problema Principal (El centro)
+    # 1. Problema Principal
     p_principal = datos.get("Problema Principal", [])
     if p_principal:
-        txt_pc = p_principal[0].get('texto', p_principal[0]) if isinstance(p_principal[0], dict) else p_principal[0]
+        # Manejo de datos viejos (strings) o nuevos (dicts)
+        item_pc = p_principal[0]
+        txt_pc = item_pc.get('texto', item_pc) if isinstance(item_pc, dict) else item_pc
         dot.node('PC', wrap_txt(txt_pc), shape='box', style='filled', 
                  fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontname='Arial Bold')
 
-    # 2. EFECTOS (Hacia arriba en el diagrama)
-    # En Graphviz TB, para que algo esté "arriba", se define primero
+    # 2. EFECTOS (Hacia arriba)
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
 
@@ -78,18 +77,17 @@ def generar_grafo_problemas():
         txt_ed = ed.get('texto', ed) if isinstance(ed, dict) else ed
         id_ed = f"ED{i}"
         dot.node(id_ed, wrap_txt(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
-        # La flecha va del problema hacia el efecto
         dot.edge('PC', id_ed)
 
         for j, ei in enumerate(ef_ind):
-            txt_ei = ei.get('texto', '') if isinstance(ei, dict) else ''
+            txt_ei = ei.get('texto', ei) if isinstance(ei, dict) else ei
             padre_ei = ei.get('padre', '') if isinstance(ei, dict) else ''
             if padre_ei == txt_ed:
                 id_ei = f"EI{i}{j}"
                 dot.node(id_ei, wrap_txt(txt_ei), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(id_ed, id_ei)
 
-    # 3. CAUSAS (Hacia abajo en el diagrama)
+    # 3. CAUSAS (Hacia abajo)
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
 
@@ -97,11 +95,10 @@ def generar_grafo_problemas():
         txt_cd = cd.get('texto', cd) if isinstance(cd, dict) else cd
         id_cd = f"CD{i}"
         dot.node(id_cd, wrap_txt(txt_cd), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Directas"]["color"])
-        # La flecha va de la causa hacia el problema
         dot.edge(id_cd, 'PC', dir='forward')
 
         for j, ci in enumerate(ca_ind):
-            txt_ci = ci.get('texto', '') if isinstance(ci, dict) else ''
+            txt_ci = ci.get('texto', ci) if isinstance(ci, dict) else ci
             padre_ci = ci.get('padre', '') if isinstance(ci, dict) else ''
             if padre_ci == txt_cd:
                 id_ci = f"CI{i}{j}"
@@ -119,10 +116,10 @@ with st.sidebar:
         texto_input = st.text_area("Descripción (Máx 180 caracteres):", max_chars=180)
         padre_asociado = None
         
-        # Lógica para vincular hijos a padres
         if "Indirectas" in tipo_sel or "Indirectos" in tipo_sel:
             padre_key = "Efectos Directos" if "Efectos" in tipo_sel else "Causas Directas"
-            opciones_p = [it.get('texto', it) if isinstance(it, dict) else it for it in st.session_state['arbol_tarjetas'].get(padre_key, [])]
+            items_p = st.session_state['arbol_tarjetas'].get(padre_key, [])
+            opciones_p = [it.get('texto', it) if isinstance(it, dict) else it for it in items_p]
             if opciones_p:
                 padre_asociado = st.selectbox(f"Vincular a {CONFIG_PROB[padre_key]['label']}:", opciones_p)
         
@@ -131,7 +128,6 @@ with st.sidebar:
             if padre_asociado:
                 nueva_ficha["padre"] = padre_asociado
             
-            # Si es Problema Principal, reemplazamos el anterior
             if tipo_sel == "Problema Principal":
                 st.session_state['arbol_tarjetas'][tipo_sel] = [nueva_ficha]
             else:
@@ -142,7 +138,6 @@ with st.sidebar:
 
     st.divider()
     
-    # Descarga del PNG profesional
     grafo = generar_grafo_problemas()
     if grafo:
         st.download_button("🖼️ Descargar Árbol PNG", data=grafo.pipe(format='png'), 
@@ -152,7 +147,6 @@ with st.sidebar:
 if not st.session_state['arbol_tarjetas'].get("Problema Principal") and not any(st.session_state['arbol_tarjetas'].values()):
     st.warning("Comience agregando el Problema Principal en el panel lateral.")
 else:
-    # A. VISTA PREVIA DINÁMICA
     st.subheader("📊 Visualización Estructural")
     with st.container(border=True):
         st.graphviz_chart(generar_grafo_problemas())
@@ -161,9 +155,13 @@ else:
 
     # B. GESTIÓN DE TARJETAS (Poda y Edición)
     def render_card(seccion, item, idx):
-        # Asegurar que el ítem sea un diccionario con ID
-        if not isinstance(item, dict):
-            item = {"texto": item, "id_unico": str(uuid.uuid4())}
+        # --- CORRECCIÓN CLAVE PARA KEYERROR ---
+        # Si no es un diccionario o no tiene 'id_unico', lo re-estructuramos
+        if not isinstance(item, dict) or 'id_unico' not in item:
+            texto = item.get('texto', item) if isinstance(item, dict) else item
+            padre = item.get('padre') if isinstance(item, dict) else None
+            item = {"texto": texto, "id_unico": str(uuid.uuid4())}
+            if padre: item["padre"] = padre
             st.session_state['arbol_tarjetas'][seccion][idx] = item
 
         id_u = item['id_unico']
@@ -180,40 +178,18 @@ else:
             item['texto'] = nuevo_txt
             guardar_datos_nube()
 
-    # Renderizado por niveles
     st.subheader("📋 Panel de Edición")
     
-    # 1. Efectos
-    for sec in ["Efectos Indirectos", "Efectos Directos"]:
-        col_l, col_c = st.columns([1, 4])
-        col_l.markdown(f"**{CONFIG_PROB[sec]['label']}**")
-        with col_c:
-            items = st.session_state['arbol_tarjetas'].get(sec, [])
-            if items:
+    for sec in ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"]:
+        st.markdown(f"**{CONFIG_PROB[sec]['label']}**")
+        items = st.session_state['arbol_tarjetas'].get(sec, [])
+        if items:
+            # Para el Problema Principal no usamos columnas múltiples
+            if sec == "Problema Principal":
+                render_card(sec, items[0], 0)
+            else:
                 cols = st.columns(len(items))
                 for i, it in enumerate(items):
                     with cols[i]: render_card(sec, it, i)
-            else: st.caption("Sin datos")
-
-    st.markdown("---")
-    
-    # 2. Problema Principal
-    col_l, col_c = st.columns([1, 4])
-    col_l.markdown(f"**{CONFIG_PROB['Problema Principal']['label']}**")
-    with col_c:
-        items = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
-        if items: render_card("Problema Principal", items[0], 0)
-    
-    st.markdown("---")
-
-    # 3. Causas
-    for sec in ["Causas Directas", "Causas Indirectas"]:
-        col_l, col_c = st.columns([1, 4])
-        col_l.markdown(f"**{CONFIG_PROB[sec]['label']}**")
-        with col_c:
-            items = st.session_state['arbol_tarjetas'].get(sec, [])
-            if items:
-                cols = st.columns(len(items))
-                for i, it in enumerate(items):
-                    with cols[i]: render_card(sec, it, i)
-            else: st.caption("Sin datos")
+        else: st.caption("Sin datos")
+        st.markdown("<br>", unsafe_allow_html=True)
