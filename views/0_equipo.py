@@ -15,13 +15,13 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 15px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 120px; /* Altura controlada para uniformidad */
+        height: 120px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 20px !important;
+        font-size: 18px !important;
         color: #1E3A8A;
         font-weight: bold;
         line-height: 1.1;
@@ -39,7 +39,7 @@ st.markdown("""
         text-align: left;
         margin-bottom: 20px;
     }
-    /* Contenedor del formulario con estilo suave */
+    /* Estilo del formulario */
     div[data-testid="stForm"] {
         border: 1px solid #eee;
         padding: 20px;
@@ -49,65 +49,64 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- LAYOUT: IMAGEN IZQUIERDA | GESTIÓN DERECHA ---
-# Ajustamos proporción para dar buen espacio a las tarjetas
-col_img, col_contenido = st.columns([1, 1.8], gap="large")
+# ---------------------------------------------------------
+# SECCIÓN SUPERIOR: TÍTULO Y TARJETAS (Ancho Completo)
+# ---------------------------------------------------------
+st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
-# --- COLUMNA 1: SOLO IMAGEN ---
+col_titulo, col_btn = st.columns([4, 1])
+with col_titulo:
+    st.subheader("👥 Miembros Registrados")
+with col_btn:
+    if st.button("↩️ Deshacer último", help="Borra el registro más reciente"):
+        if st.session_state.get('integrantes'):
+            st.session_state['integrantes'].pop()
+            guardar_datos_nube()
+            st.rerun()
+
+integrantes_raw = st.session_state.get('integrantes', [])
+integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
+
+if integrantes_validos:
+    # Distribuimos las tarjetas en 3 columnas arriba para aprovechar el ancho
+    cols = st.columns(3) 
+    for idx, persona in enumerate(integrantes_validos):
+        with cols[idx % 3]: 
+            try:
+                nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
+                nombre = str(nombre_raw).upper()
+                tel = persona.get("Teléfono") or "N/A"
+                email = persona.get("Correo Electrónico") or "N/A"
+                
+                st.markdown(f"""
+                    <div class="ficha-equipo">
+                        <div class="nombre-mediano">👤 {nombre}</div>
+                        <div class="detalle-pequeno">📞 {tel}</div>
+                        <div class="detalle-pequeno">✉️ {email}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            except Exception:
+                continue
+else:
+    st.info("No hay equipo registrado aún. Usa el formulario de abajo.")
+
+st.divider()
+
+# ---------------------------------------------------------
+# SECCIÓN INFERIOR: IMAGEN (IZQ) vs FORMULARIO (DER)
+# ---------------------------------------------------------
+col_img, col_form = st.columns([1, 1.5], gap="large")
+
+# --- COLUMNA 1: IMAGEN ---
 with col_img:
+    st.write("") # Espaciador para bajar un poco la imagen si es necesario
     if os.path.exists("unnamed.jpg"):
-        # Usamos use_container_width para que ocupe todo el ancho disponible y se vea grande
         st.image("unnamed.jpg", use_container_width=True)
     else:
         st.info("Logo JC Flow")
 
-# --- COLUMNA 2: GESTIÓN DE EQUIPO ---
-with col_contenido:
-    st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
-
-    # ---------------------------------------------------------
-    # BLOQUE 1: EQUIPO ACTUAL (AHORA ARRIBA)
-    # ---------------------------------------------------------
-    st.subheader("👥 Miembros Registrados")
-    
-    integrantes_raw = st.session_state.get('integrantes', [])
-    integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
-
-    if integrantes_validos:
-        # Mostramos las tarjetas en 2 columnas
-        cols = st.columns(2) 
-        for idx, persona in enumerate(integrantes_validos):
-            with cols[idx % 2]: 
-                try:
-                    nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
-                    nombre = str(nombre_raw).upper()
-                    tel = persona.get("Teléfono") or "N/A"
-                    email = persona.get("Correo Electrónico") or "N/A"
-                    
-                    st.markdown(f"""
-                        <div class="ficha-equipo">
-                            <div class="nombre-mediano">👤 {nombre}</div>
-                            <div class="detalle-pequeno">📞 {tel}</div>
-                            <div class="detalle-pequeno">✉️ {email}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                except Exception:
-                    continue
-        
-        # Botón discreto para borrar el último si hubo error
-        if st.button("Deshacer último registro", help="Borra el integrante más reciente"):
-            st.session_state['integrantes'].pop()
-            guardar_datos_nube()
-            st.rerun()
-            
-    else:
-        st.info("Aún no hay equipo registrado. Usa el formulario de abajo para comenzar.")
-
-    st.divider()
-
-    # ---------------------------------------------------------
-    # BLOQUE 2: FORMULARIO DE REGISTRO (AHORA ABAJO)
-    # ---------------------------------------------------------
+# --- COLUMNA 2: FORMULARIO DE REGISTRO ---
+with col_form:
     st.markdown("### 📝 Registrar Nuevo Integrante")
     
     with st.form("form_registro", clear_on_submit=True):
@@ -117,9 +116,9 @@ with col_contenido:
             nuevo_tel = st.text_input("Teléfono")
         with c2:
             nuevo_email = st.text_input("Correo Electrónico")
-            st.write("") # Espaciador
+            st.write("") # Espaciador visual
         
-        # Botón de ancho completo
+        # Botón de guardar
         submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
         
         if submitted:
