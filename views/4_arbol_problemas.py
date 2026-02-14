@@ -4,41 +4,48 @@ import os
 import uuid
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Asegurar persistencia y memoria
+# 1. Asegurar persistencia
 inicializar_session()
 
-# --- ESTILO DE LA INTERFAZ (Ajuste de bordes para fusión total) ---
+# --- ESTILO BLOQUEADO (Fusión total y Alineación Magnética al Suelo) ---
 st.markdown("""
     <style>
-    /* Estilo del área de texto (Parte Blanca) - SIN BORDES */
+    /* Contenedor de columna que empuja todo hacia abajo */
+    [data-testid="column"] > div > div > div > div.stVerticalBlock {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        height: 100% !important;
+    }
+
+    /* Altura mínima del lienzo de efectos para que no colapse */
+    .lienzo-efectos {
+        min-height: 700px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    /* Tarjetas: Estética aprobada (Sin bordes, fusión total) */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: none !important;           /* ELIMINAMOS EL BORDE RESALTADO */
+        border: none !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 14px !important;
         font-weight: 700 !important;
         color: #000 !important;
-        height: 100px !important;
-        box-shadow: none !important;      /* Aseguramos que no haya sombras de foco */
+        box-shadow: none !important;
     }
     
-    /* Botón de eliminar */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
         font-size: 1.3rem !important;
         margin-top: -15px !important;
-        position: relative;
         z-index: 2;
-    }
-
-    /* Espaciador de nivelación exacto */
-    .spacer-nivel {
-        height: 153px; 
-        margin-bottom: 15px;
-        visibility: hidden;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -51,13 +58,13 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- CONFIGURACIÓN DE COLORES SÓLIDOS (APROBADA) ---
+# --- PALETA DE COLORES (APROBADA) ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTOS INDIRECTOS"}, # Púrpura
-    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTOS DIRECTOS"},     # Azul Real
-    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA CENTRAL"},   # Rojo
-    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSAS DIRECTAS"},      # Oro
-    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}   # Naranja
+    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTOS INDIRECTOS"},
+    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTOS DIRECTOS"},
+    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA CENTRAL"},
+    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSAS DIRECTAS"},
+    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
 # --- MOTOR DE DIBUJO ---
@@ -97,11 +104,10 @@ def generar_grafo_problemas():
                 dot.edge(f"CI{i}_{j}", f"CD{i}")
     return dot
 
-# --- PANEL DE EDICIÓN ---
+# --- RENDERIZADO DE TARJETA ---
 def render_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
-    # Barra de color superior (Sin bordes para unión fluida)
     st.markdown(f'<div style="background-color: {CONFIG_PROB[seccion]["color"]}; height: 15px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     nuevo = st.text_area("t", value=item['texto'], key=f"txt_{id_u}", label_visibility="collapsed")
     if st.button("🗑️", key=f"btn_{id_u}"):
@@ -127,7 +133,6 @@ with st.sidebar:
             if tipo_sel == "Problema Principal": st.session_state['arbol_tarjetas'][tipo_sel] = [nueva]
             else: st.session_state['arbol_tarjetas'][tipo_sel].append(nueva)
             guardar_datos_nube(); st.rerun()
-    
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo:
@@ -141,23 +146,29 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN EFECTOS
+    # 1. EFECTOS (SOLUCIÓN FLEXBOX: SOLDADOS AL SUELO)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
     
     if ef_dir:
-        MAX_SLOTS_HIJOS = 4 
         cols_ef = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
             with cols_ef[i]:
+                # Abrimos contenedor con alineación al fondo
+                st.markdown('<div class="lienzo-efectos">', unsafe_allow_html=True)
+                
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos_padre = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
-                for _ in range(MAX_SLOTS_HIJOS - len(hijos_padre)):
-                    st.markdown('<div class="spacer-nivel"></div>', unsafe_allow_html=True)
+                
+                # Los hijos se apilan por encima
                 for idx_h, h in reversed(hijos_padre):
                     render_card("Efectos Indirectos", h, idx_h)
+                
+                # El padre queda pegado al borde inferior de la columna
                 render_card("Efectos Directos", ed, i)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     # 2. PROBLEMA CENTRAL
@@ -166,7 +177,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS
+    # 3. CAUSAS (CRECIMIENTO NATURAL HACIA ABAJO)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
