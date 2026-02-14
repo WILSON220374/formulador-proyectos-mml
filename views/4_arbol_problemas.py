@@ -7,19 +7,21 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO BLOQUEADO (Ingeniería de Anclaje Inverso) ---
+# --- ESTILO GLOBAL (Anclaje al Suelo y Fusión Estética) ---
 st.markdown("""
     <style>
-    /* EL SECRETO: Forzamos a la columna a crecer desde abajo hacia arriba */
-    .columna-anclada {
+    /* CONTENEDOR QUE FUERZA EL ANCLAJE AL PISO */
+    .suelo-fijo {
         display: flex !important;
-        flex-direction: column-reverse !important; /* El primer elemento del código va al SUELO */
-        justify-content: flex-start !important;
-        gap: 15px;
-        min-height: 300px;
+        flex-direction: column !important;
+        justify-content: flex-end !important; /* TODO AL PISO */
+        min-height: 650px !important;         /* ALTURA PARA CRECIMIENTO */
+        border-bottom: 4px solid #333;        /* LÍNEA DE SUELO VISUAL */
+        padding-bottom: 10px;
+        gap: 10px;
     }
 
-    /* Estética de Tarjetas: Fusión total (Aprobada) */
+    /* ESTÉTICA APROBADA: Fusión de tarjetas sin bordes de escritura */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -32,6 +34,7 @@ st.markdown("""
         min-height: 100px !important;
     }
     
+    /* Botón eliminar */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
@@ -51,7 +54,7 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- PALETA DE COLORES (APROBADA) ---
+# --- PALETA DE COLORES SÓLIDOS ---
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTOS INDIRECTOS"},
     "Efectos Directos": {"color": "#2E86C1", "label": "EFECTOS DIRECTOS"},
@@ -72,8 +75,7 @@ def generar_grafo_problemas():
     
     pc = datos.get("Problema Principal", [])
     if pc:
-        txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
-        dot.node('PC', limpiar(txt_pc), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='white', fontname='Arial Bold')
+        dot.node('PC', limpiar(pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='white', fontname='Arial Bold')
 
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
@@ -132,7 +134,7 @@ with st.sidebar:
     if grafo:
         st.download_button("🖼️ Descargar Árbol PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
-# --- PANEL PRINCIPAL ---
+# --- PANEL DE EDICIÓN ---
 if not any(st.session_state['arbol_tarjetas'].values()):
     st.warning("Agregue el Problema Principal en el panel lateral.")
 else:
@@ -140,7 +142,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (Anclaje Inverso: Padre al Suelo)
+    # 1. EFECTOS (Anclaje al Suelo)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -149,16 +151,17 @@ else:
         cols_ef = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
             with cols_ef[i]:
-                st.markdown('<div class="columna-anclada">', unsafe_allow_html=True)
+                # ENVOLVEMOS CADA COLUMNA EN EL "SUELO FIJO"
+                st.markdown('<div class="suelo-fijo">', unsafe_allow_html=True)
                 
-                # PASO 1: Renderizamos el PADRE (por ser el primero en columna-reverse, va al FONDO)
-                render_card("Efectos Directos", ed, i)
-                
-                # PASO 2: Renderizamos los HIJOS (aparecerán SOBRE el padre)
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
+                # Paso 1: Renderizar HIJOS (aparecen arriba por el flujo flex-end)
                 for idx_h, h in enumerate(ef_ind):
                     if isinstance(h, dict) and h.get('padre') == txt_p:
                         render_card("Efectos Indirectos", h, idx_h)
+                
+                # Paso 2: Renderizar PADRE (se clava al fondo de la columna)
+                render_card("Efectos Directos", ed, i)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -169,7 +172,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS (Normal: Padre arriba, hijos abajo)
+    # 3. CAUSAS
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
