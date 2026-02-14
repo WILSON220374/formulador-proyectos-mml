@@ -6,7 +6,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS PARA FICHAS ---
+# --- ESTILOS CSS (Ajustados para el nuevo layout) ---
 st.markdown("""
     <style>
     .ficha-equipo {
@@ -16,76 +16,100 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 15px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 160px;
+        height: 140px; /* Un poco más compacta */
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 26px !important;
+        font-size: 22px !important; /* Ajuste ligero de tamaño */
         color: #1E3A8A;
         font-weight: bold;
         line-height: 1.1;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
     }
     .detalle-pequeno {
-        font-size: 16px !important;
+        font-size: 14px !important;
         color: #555;
         margin-bottom: 2px;
     }
-    h2 { font-size: 38px !important; font-weight: 700 !important; }
+    /* Título alineado a la izquierda */
+    .titulo-principal {
+        font-size: 38px !important; 
+        font-weight: 800 !important; 
+        color: #4F8BFF;
+        text-align: left;
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- LOGO Y TÍTULO ---
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
+# --- LAYOUT DIVIDIDO: IMAGEN IZQUIERDA | GESTIÓN DERECHA ---
+# Usamos columnas con proporción 1 (Img) vs 2 (Contenido)
+col_img, col_contenido = st.columns([1, 2], gap="large")
+
+# --- COLUMNA 1: IMAGEN ---
+with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
-        st.title("🏗️ JC Flow")
-    st.markdown("<h2 style='text-align: center; color: #4F8BFF;'>Gestión de Equipo</h2>", unsafe_allow_html=True)
+        st.info("Logo JC Flow")
+    
+    # Un pequeño bloque informativo para aprovechar el espacio vertical
+    st.markdown("---")
+    st.info("""
+    **💡 Roles Sugeridos:**
+    * Director de Proyecto
+    * Formulador Técnico
+    * Analista Financiero
+    * Stakeholder Clave
+    """)
 
-st.divider()
+# --- COLUMNA 2: GESTIÓN DE EQUIPO (Toda tu lógica va aquí) ---
+with col_contenido:
+    st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
-# --- BLOQUE 1: FICHAS VISUALES CON BLINDAJE ---
-integrantes_raw = st.session_state.get('integrantes', [])
-integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
+    # --- BLOQUE 1: FICHAS VISUALES (Las tarjetas azules) ---
+    integrantes_raw = st.session_state.get('integrantes', [])
+    integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
-if integrantes_validos:
-    cols = st.columns(3) 
-    for idx, persona in enumerate(integrantes_validos):
-        with cols[idx % 3]: 
-            try:
-                # Recuperar datos con valores por defecto si son None
-                nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
-                nombre = str(nombre_raw).upper()
-                
-                tel = persona.get("Teléfono") or "N/A"
-                email = persona.get("Correo Electrónico") or "N/A"
-                
-                st.markdown(f"""
-                    <div class="ficha-equipo">
-                        <div class="nombre-mediano">👤 {nombre}</div>
-                        <div class="detalle-pequeno">📞 {tel}</div>
-                        <div class="detalle-pequeno">✉️ {email}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-            except Exception:
-                continue
-else:
-    st.info("No hay integrantes registrados.")
+    if integrantes_validos:
+        # Usamos 2 columnas dentro del panel derecho para que las tarjetas se vean bien
+        cols = st.columns(2) 
+        for idx, persona in enumerate(integrantes_validos):
+            with cols[idx % 2]: 
+                try:
+                    nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
+                    nombre = str(nombre_raw).upper()
+                    tel = persona.get("Teléfono") or "N/A"
+                    email = persona.get("Correo Electrónico") or "N/A"
+                    
+                    st.markdown(f"""
+                        <div class="ficha-equipo">
+                            <div class="nombre-mediano">👤 {nombre}</div>
+                            <div class="detalle-pequeno">📞 {tel}</div>
+                            <div class="detalle-pequeno">✉️ {email}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                except Exception:
+                    continue
+    else:
+        st.info("No hay integrantes registrados aún.")
 
-st.divider()
+    st.divider()
 
-# --- BLOQUE 2: EDITOR CON ORDEN DE COLUMNAS AJUSTADO ---
-with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
+    # --- BLOQUE 2: EDITOR (Tu lógica original intacta) ---
+    st.subheader("⚙️ Agregar o Editar Integrantes")
+    
     # Definimos el orden deseado de las columnas
     columnas_orden = ["Nombre Completo", "Teléfono", "Correo Electrónico"]
     
     if integrantes_validos:
-        # Creamos el DataFrame y forzamos el orden de las columnas
         df_equipo = pd.DataFrame(integrantes_validos)
+        # Aseguramos que existan las columnas para evitar errores
+        for col in columnas_orden:
+            if col not in df_equipo.columns:
+                df_equipo[col] = ""
         df_equipo = df_equipo.reindex(columns=columnas_orden)
     else:
         df_equipo = pd.DataFrame(columns=columnas_orden)
@@ -97,14 +121,15 @@ with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
         key="editor_compacto",
     )
 
-    if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
-        lista_nueva = edited_df.to_dict('records')
-        # Limpieza de filas vacías antes de guardar
-        st.session_state['integrantes'] = [
-            r for r in lista_nueva 
-            if r and any(str(v).strip() for v in r.values() if v is not None)
-        ]
-        
-        guardar_datos_nube()
-        st.success("¡Orden de columnas actualizado y datos guardados!")
-        st.rerun()
+    if st.button("💾 GUARDAR CAMBIOS", type="primary", use_container_width=True):
+        if edited_df is not None:
+            lista_nueva = edited_df.to_dict('records')
+            # Limpieza de filas vacías antes de guardar
+            st.session_state['integrantes'] = [
+                r for r in lista_nueva 
+                if r and any(str(v).strip() for v in r.values() if v is not None)
+            ]
+            
+            guardar_datos_nube()
+            st.toast("✅ Equipo actualizado correctamente")
+            st.rerun()
