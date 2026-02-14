@@ -7,10 +7,9 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Optimización de Pantalla) ---
+# --- ESTILO GLOBAL (Interfaz de Usuario) ---
 st.markdown("""
     <style>
-    /* Estética de Tarjetas: Fusión total con color (Aprobada) */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -22,8 +21,6 @@ st.markdown("""
         box-shadow: none !important;
         min-height: 100px !important;
     }
-    
-    /* Ajuste del botón eliminar */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
@@ -52,52 +49,60 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (FUENTE 20PT Y RELACIÓN 100-50) ---
+# --- MOTOR DE DIBUJO (AJUSTE DE ESTÉTICA FINAL) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
     dot = graphviz.Digraph(format='png')
     
-    # AJUSTES DE CALIDAD: 300 DPI y Fuente reducida a 20pt
-    dot.attr(dpi='300') 
-    dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled')
-    dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
+    # 1. CONFIGURACIÓN DEL TÍTULO Y LIENZO
+    # Añadimos el título con los iconos solicitados
+    dot.attr(label='🐢 ÁRBOL DE PROBLEMAS 🦋', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
+    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
+    
+    # 2. CONFIGURACIÓN GLOBAL DE NODOS (Sin bordes y con más aire)
+    dot.attr('node', 
+             fontsize='20', 
+             fontcolor='white', 
+             fontname='Arial Bold', 
+             style='filled', 
+             color='none',          # ELIMINA EL BORDE NEGRO
+             margin='0.6,0.4',      # SEPARA EL TEXTO DE LOS BORDES (Padding)
+             shape='box')
     
     import textwrap
-    # Limpiador estándar ajustado a 50 caracteres (Causas y Efectos)
     def limpiar_estandar(t): 
         return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=50))
     
-    # 1. PROBLEMA CENTRAL ajustado a 100 caracteres
+    # 3. PROBLEMA CENTRAL (Viga ancha)
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
-        # Relación 100 para que sea el doble de ancho que las demás
         txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=100))
-        dot.node('PC', txt_ancho, shape='box', fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.4,0.2')
+        dot.node('PC', txt_ancho, fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
 
-    # 2. EFECTOS (Ancho 50)
+    # 4. EFECTOS
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
         txt_ed = ed.get('texto', ed) if isinstance(ed, dict) else ed
-        dot.node(f"ED{i}", limpiar_estandar(txt_ed), shape='box', fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
+        dot.node(f"ED{i}", limpiar_estandar(txt_ed), fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
         dot.edge('PC', f"ED{i}")
         for j, ei in enumerate(ef_ind):
             if isinstance(ei, dict) and ei.get('padre') == txt_ed:
-                dot.node(f"EI{i}_{j}", limpiar_estandar(ei.get('texto')), shape='box', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
+                dot.node(f"EI{i}_{j}", limpiar_estandar(ei.get('texto')), fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(f"ED{i}", f"EI{i}_{j}")
 
-    # 3. CAUSAS (Ancho 50)
+    # 5. CAUSAS
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
     for i, cd in enumerate(ca_dir):
         txt_cd = cd.get('texto', cd) if isinstance(cd, dict) else cd
-        dot.node(f"CD{i}", limpiar_estandar(txt_cd), shape='box', fillcolor=CONFIG_PROB["Causas Directas"]["color"])
+        dot.node(f"CD{i}", limpiar_estandar(txt_cd), fillcolor=CONFIG_PROB["Causas Directas"]["color"])
         dot.edge(f"CD{i}", 'PC')
         for j, ci in enumerate(ca_ind):
             if isinstance(ci, dict) and ci.get('padre') == txt_cd:
-                dot.node(f"CI{i}_{j}", limpiar_estandar(ci.get('texto')), shape='box', fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
+                dot.node(f"CI{i}_{j}", limpiar_estandar(ci.get('texto')), fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
                 dot.edge(f"CI{i}_{j}", f"CD{i}")
     return dot
 
@@ -111,7 +116,7 @@ def render_card(seccion, item, idx):
         st.session_state['arbol_tarjetas'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
     if nuevo != item['texto']: item['texto'] = nuevo; guardar_datos_nube()
 
-# --- SIDEBAR (GESTIÓN Y EXPORTACIÓN) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_PROB.keys()))
@@ -140,7 +145,6 @@ with st.sidebar:
 if not any(st.session_state['arbol_tarjetas'].values()):
     st.warning("Agregue el Problema Principal en el panel lateral.")
 else:
-    # Mostramos la imagen procesada con use_container_width
     grafo_final = generar_grafo_problemas()
     if grafo_final:
         st.image(grafo_final.pipe(format='png'), use_container_width=True)
@@ -194,7 +198,7 @@ else:
         for i, cd in enumerate(ca_dir):
             with cols_ca[i]:
                 render_card("Causas Directas", cd, i)
-                txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
+                txt_pc = cd.get('texto', cd) if isinstance(cd, dict) else cd
                 for idx_hc, hc in enumerate(ca_ind):
                     if isinstance(hc, dict) and hc.get('padre') == txt_pc:
                         render_card("Causas Indirectas", hc, idx_hc)
