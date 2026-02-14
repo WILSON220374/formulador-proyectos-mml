@@ -10,18 +10,17 @@ inicializar_session()
 if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
     st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
 
-# --- LÓGICA DE ACCESO (LOGIN) CON DISEÑO DIVIDIDO (IZQ: FORM / DER: LOGO) ---
+# --- LÓGICA DE ACCESO (LOGIN) - IMAGEN IZQUIERDA / FORMULARIO DERECHA ---
 if not st.session_state['autenticado']:
     st.markdown("""
         <style>
-        /* Título alineado a la izquierda para combinar con el formulario */
         .titulo-acceso { 
             font-size: 32px !important; 
             font-weight: 800 !important; 
             color: #4F8BFF; 
             text-align: left; 
-            margin-bottom: 10px; 
-            margin-top: 20px;
+            margin-bottom: 15px; 
+            margin-top: 10px;
         }
         .label-mediana { 
             font-size: 16px !important; 
@@ -44,17 +43,29 @@ if not st.session_state['autenticado']:
             border-radius: 12px !important; 
             margin-top: 25px; 
         }
+        /* Alineación vertical para que se vea centrado */
+        [data-testid="stVerticalBlock"] {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # Creamos dos columnas: Izquierda (Formulario) y Derecha (Imagen Grande)
-    # Ajustamos la proporción (1.2 vs 1.8) para dar más espacio a la imagen si es necesario
-    col_form, col_img = st.columns([1.2, 1.8], gap="large")
+    # COLUMNAS INVERTIDAS: [Imagen Grande (1.8), Formulario (1.2)]
+    col_img, col_form = st.columns([1.8, 1.2], gap="large")
 
+    # 1. COLUMNA IZQUIERDA: IMAGEN
+    with col_img:
+        if os.path.exists("unnamed.jpg"):
+            st.image("unnamed.jpg", use_container_width=True) 
+        else:
+            st.info("Carga la imagen 'unnamed.jpg' en la carpeta raíz.")
+
+    # 2. COLUMNA DERECHA: FORMULARIO
     with col_form:
         st.markdown('<div class="titulo-acceso">Acceso Grupal<br>Posgrado</div>', unsafe_allow_html=True)
         
-        # Contenedor del formulario
         with st.container(border=True):
             st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
@@ -65,7 +76,7 @@ if not st.session_state['autenticado']:
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
-                    # Mantenemos tu lógica exacta de validación
+                    # Validación exacta para tu base de datos
                     res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
                     if res.data:
                         st.session_state['autenticado'] = True
@@ -76,18 +87,9 @@ if not st.session_state['autenticado']:
                         st.error("Credenciales incorrectas.")
                 except Exception:
                     st.error("Error de conexión.")
-
-    with col_img:
-        # Imagen a la derecha, ocupando todo el ancho disponible para verse grande
-        if os.path.exists("unnamed.jpg"):
-            st.image("unnamed.jpg", use_container_width=True) 
-        else:
-            # Placeholder por si la imagen no carga
-            st.info("Logotipo JC Flow (Cargar imagen 'unnamed.jpg')")
-
     st.stop()
 
-# --- SIDEBAR Y NAVEGACIÓN (Original intacto) ---
+# --- SIDEBAR Y NAVEGACIÓN (Se mantiene tu lógica original) ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
