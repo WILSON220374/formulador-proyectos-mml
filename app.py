@@ -6,78 +6,48 @@ from session_state import inicializar_session, conectar_db, cargar_datos_nube, g
 st.set_page_config(page_title="JC Flow - Formulador MML", layout="wide")
 inicializar_session()
 
-# --- PURIFICACIÓN DE RAÍZ ---
+# --- PURIFICACIÓN DE RAÍZ (ORIGINAL) ---
 if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
     st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
 
-# --- LÓGICA DE ACCESO (LOGIN) ---
+# --- LÓGICA DE ACCESO (LOGIN) CON AJUSTE VISUAL ---
 if not st.session_state['autenticado']:
-    # CSS AJUSTADO PARA EVITAR SCROLL
     st.markdown("""
         <style>
-        .titulo-acceso { 
-            font-size: 26px !important; 
-            font-weight: 800 !important; 
-            color: #4F8BFF; 
-            text-align: center; 
-            margin-bottom: 10px; 
-        }
-        .label-mediana { 
-            font-size: 16px !important; 
-            font-weight: bold; 
-            color: #1E3A8A; 
-            margin-bottom: 4px !important; 
-            margin-top: 10px !important; 
-            display: block; 
-        }
-        input { 
-            font-size: 18px !important; 
-            height: 42px !important; 
-            text-align: center !important; 
-            border-radius: 8px !important; 
-        }
-        div.stButton > button { 
-            font-size: 18px !important; 
-            height: 45px !important; 
-            font-weight: bold !important; 
-            background-color: #4F8BFF !important; 
-            border-radius: 12px !important; 
-            margin-top: 15px; 
-        }
-        /* Reducción de espacio en el contenedor del formulario */
-        [data-testid="stVerticalBlock"] > div {
-            padding-top: 0.1rem !important;
-            padding-bottom: 0.1rem !important;
-        }
+        /* Reducción de tamaños para que quepa en pantalla al 100% */
+        .titulo-acceso { font-size: 28px !important; font-weight: 800 !important; color: #4F8BFF; text-align: center; margin-bottom: 10px; }
+        .label-mediana { font-size: 16px !important; font-weight: bold; color: #1E3A8A; margin-bottom: 4px !important; margin-top: 10px !important; margin-left: 5px; display: block; }
+        input { font-size: 18px !important; height: 45px !important; text-align: center !important; border-radius: 10px !important; }
+        div.stButton > button { font-size: 20px !important; height: 2.5em !important; font-weight: bold !important; background-color: #4F8BFF !important; border-radius: 12px !important; margin-top: 15px; }
         </style>
     """, unsafe_allow_html=True)
 
-    # Ajuste de proporciones de columnas para un formulario más estilizado
+    # Ajuste de columnas para centrar mejor el formulario
     col1, col2, col3 = st.columns([1.2, 1.6, 1.2])
     with col2:
-        # Control de tamaño del logo para que no empuje el contenido
+        # Controlamos el tamaño de la imagen para que no desplace el botón
         if os.path.exists("unnamed.jpg"):
-            st.image("unnamed.jpg", width=200) 
+            st.image("unnamed.jpg", width=220) # Tamaño fijo para evitar desbordamiento
         else:
             st.title("🏗️ JC Flow")
-        
+            
         st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
         
         with st.container(border=True):
             st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
-            
             st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
+            # LÓGICA DE BOTÓN ORIGINAL
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
-                    # Nota: Usamos 'u' para buscar tanto en user_id como para cargar datos
                     res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
                     if res.data:
                         st.session_state['autenticado'] = True
                         st.session_state['usuario_id'] = u
+                        # Cargamos usando u, igual que en tu código original
                         cargar_datos_nube(u)
                         st.rerun()
                     else:
@@ -86,9 +56,9 @@ if not st.session_state['autenticado']:
                     st.error("Error de conexión.")
     st.stop()
 
-# --- SIDEBAR Y NAVEGACIÓN ---
+# --- SIDEBAR Y NAVEGACIÓN (ORIGINAL SIN CAMBIOS) ---
 with st.sidebar:
-    st.header(f"👷 {st.session_state.get('usuario_id', 'Usuario')}")
+    st.header(f"👷 {st.session_state.get('usuario_id', 'Grupo')}")
     
     integrantes = st.session_state.get('integrantes', [])
     if integrantes and isinstance(integrantes, list):
