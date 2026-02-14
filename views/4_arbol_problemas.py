@@ -50,11 +50,11 @@ def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
 
-    # Modo BT para que las causas queden abajo y los efectos arriba
     dot = graphviz.Digraph(format='png')
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
              fontsize='22', fontname='Arial Bold', fontcolor='#1E3A8A')
     
+    # rankdir='BT' para que las causas queden abajo y los efectos arriba
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
 
     def limpiar(t): 
@@ -145,8 +145,9 @@ else:
 
     st.divider()
 
-    # --- FUNCIÓN RENDERIZADO DE TARJETA ---
+    # --- FUNCIÓN RENDERIZADO DE TARJETA CON ESCUDO ---
     def render_card(seccion, item, idx):
+        # Compatibilidad con datos antiguos sin ID
         if not isinstance(item, dict) or 'id_unico' not in item:
             texto = item.get('texto', item) if isinstance(item, dict) else item
             padre = item.get('padre') if isinstance(item, dict) else None
@@ -168,24 +169,26 @@ else:
             item['texto'] = nuevo_txt
             guardar_datos_nube()
 
-    # --- PANEL DE EDICIÓN CON ALINEACIÓN HORIZONTAL ---
+    # --- PANEL DE EDICIÓN CON CRECIMIENTO INVERSO ---
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN DE EFECTOS (Stacking Vertical por rama, pero Padres alineados)
+    # 1. SECCIÓN DE EFECTOS (Hijos arriba del todo, Padres alineados abajo)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_directos = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     if ef_directos:
-        # Fila de hijos para mantener alineación superior
+        # Fila de HIJOS: Se renderizan antes (arriba)
         cols_h_ef = st.columns(len(ef_directos))
         ef_indirectos = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
         for i, ed in enumerate(ef_directos):
             with cols_h_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
-                for idx_h, h in enumerate(ef_indirectos):
-                    if isinstance(h, dict) and h.get('padre') == txt_p:
-                        render_card("Efectos Indirectos", h, idx_h)
+                # Obtenemos hijos de este padre
+                hijos_de_este = [(idx, h) for idx, h in enumerate(ef_indirectos) if isinstance(h, dict) and h.get('padre') == txt_p]
+                # REVERTIMOS: El último agregado (final de lista) aparece arriba del todo
+                for idx_h, h in reversed(hijos_de_este):
+                    render_card("Efectos Indirectos", h, idx_h)
         
-        # Fila de padres para garantizar línea horizontal única
+        # Fila de PADRES: Se mantienen alineados en una sola línea abajo de los hijos
         cols_p_ef = st.columns(len(ef_directos))
         for i, ed in enumerate(ef_directos):
             with cols_p_ef[i]:
@@ -202,17 +205,17 @@ else:
 
     st.markdown("---")
 
-    # 3. SECCIÓN DE CAUSAS (Padres alineados arriba, hijos alineados abajo)
+    # 3. SECCIÓN DE CAUSAS (Padres alineados arriba, hijos crecen hacia abajo)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_directas = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     if ca_directas:
-        # Fila de padres (Causas Directas) - ALINEADOS HORIZONTALMENTE
+        # Fila de PADRES: Alineados horizontalmente arriba
         cols_p_ca = st.columns(len(ca_directas))
         for i, cd in enumerate(ca_directas):
             with cols_p_ca[i]:
                 render_card("Causas Directas", cd, i)
         
-        # Fila de hijos (Causas Indirectas) - APARECEN DEBAJO
+        # Fila de HIJOS: Aparecen debajo
         cols_h_ca = st.columns(len(ca_directas))
         ca_indirectas = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
         for i, cd in enumerate(ca_directas):
