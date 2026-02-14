@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
@@ -9,40 +9,43 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS REFINADOS ---
+# --- ESTILOS CSS AGRESIVOS (PARA FORZAR EL DISEÑO) ---
 st.markdown("""
     <style>
-    /* 1. Ajuste del Scroll de Página (Espacio extra abajo) */
-    .block-container {
-        padding-bottom: 200px !important;
-    }
+    /* 1. Espacio extra al final para el scroll */
+    .block-container { padding-bottom: 250px !important; }
 
+    /* 2. Títulos Generales */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* 2. KPIs en Negro */
-    .kpi-card {
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .kpi-val { font-size: 24px; font-weight: 800; color: #000000 !important; } /* AHORA NEGRO */
-    .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* 3. Estilo de Cabecera de Tabla (Azul Oscuro y Letra Blanca) */
-    .ag-header {
+    /* 3. FORZAR CABECERA AZUL OSCURO EN AG-GRID */
+    /* Usamos selectores muy específicos para que no fallen */
+    div[data-testid="stAgGrid"] .ag-header {
         background-color: #1E3A8A !important;
     }
-    .ag-header-cell-text {
+    div[data-testid="stAgGrid"] .ag-header-cell-text {
         color: #FFFFFF !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
     }
-    .ag-header-icon {
-        color: #FFFFFF !important;
+    div[data-testid="stAgGrid"] .ag-header-icon {
+        color: #FFFFFF !important; /* Iconos de filtro blancos */
     }
+    div[data-testid="stAgGrid"] .ag-root-wrapper {
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }
+
+    /* 4. KPIs en Negro */
+    .kpi-card {
+        background: white; padding: 15px; border-radius: 10px;
+        border: 1px solid #e2e8f0; text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .kpi-val { font-size: 24px; font-weight: 800; color: #000000 !important; } 
+    .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
 
     /* Ajustes generales */
     [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
@@ -58,7 +61,7 @@ with col_t:
     
     tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any() if 'NOMBRE' in df_actual.columns else False
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
-    st.progress(progreso, text=f"Completitud del Análisis: {int(progreso * 100)}%")
+    st.progress(progreso, text=f"Completitud: {int(progreso * 100)}%")
 
 with col_l:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -66,7 +69,7 @@ with col_l:
 
 st.divider()
 
-# --- KPIs (Números en Negro) ---
+# --- KPIs ---
 if tiene_datos:
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{len(df_actual.dropna(subset=["NOMBRE"]))}</div><div class="kpi-label">Total Actores</div></div>', unsafe_allow_html=True)
@@ -80,62 +83,60 @@ if tiene_datos:
         p_alto = len(df_actual[df_actual["PODER"] == "Alto"])
         st.markdown(f'<div class="kpi-card"><div class="kpi-val">{p_alto}</div><div class="kpi-label">Poder Alto</div></div>', unsafe_allow_html=True)
 
-# --- MATRIZ DE DATOS (AG-GRID) ---
+# --- MATRIZ DE DATOS ---
 st.subheader("📝 Matriz de Datos")
 
-# 1. Preparar DataFrame
+# 1. BOTÓN PARA AGREGAR FILAS (LA SOLUCIÓN A TU PREGUNTA 1)
+col_btn, _ = st.columns([1, 4])
+with col_btn:
+    if st.button("➕ Agregar Nuevo Actor", type="primary", use_container_width=True):
+        # Creamos una fila vacía con la misma estructura
+        new_row = pd.DataFrame([{
+            "NOMBRE": "", "GRUPO": "Gremio", "POSICIÓN": "Indiferente", 
+            "EXPECTATIVA": "", "CONTRIBUCION AL PROYECTO": "", 
+            "PODER": "Bajo", "INTERÉS": "Bajo", "ESTRATEGIA": ""
+        }])
+        # La unimos al dataframe actual y recargamos
+        st.session_state['df_interesados'] = pd.concat([df_actual, new_row], ignore_index=True)
+        st.rerun()
+
+# 2. Preparar DataFrame
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
 if df_actual.empty: df_actual = pd.DataFrame(columns=cols_orden)
 for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_render = df_actual[cols_orden].copy()
 
-# 2. Configurar AgGrid
+# 3. Configurar AgGrid
 gb = GridOptionsBuilder.from_dataframe(df_render)
 gb.configure_default_column(editable=True, resizable=True, filterable=True, wrapText=True, autoHeight=True)
 gb.configure_grid_options(domLayout='autoHeight') # Tabla auto-expandible
 
-# 3. COLORES PASTEL (JS Code) - Letra normal (no bold)
+# 4. COLORES PASTEL (JS Code) - Letra normal
 cell_style_js = JsCode("""
 function(params) {
-    // Colores Pastel muy suaves, letra oscura normal (#333)
-    if (params.value == 'Opositor') { 
-        return {'backgroundColor': '#FFEBEE', 'color': '#333333'}; // Rojo muy pastel
-    }
-    if (params.value == 'Cooperante') { 
-        return {'backgroundColor': '#E8F5E9', 'color': '#333333'}; // Verde muy pastel
-    }
-    if (params.value == 'Beneficiario') { 
-        return {'backgroundColor': '#E3F2FD', 'color': '#333333'}; // Azul muy pastel
-    }
-    if (params.value == 'Perjudicado') { 
-        return {'backgroundColor': '#FFFDE7', 'color': '#333333'}; // Amarillo muy pastel
-    }
+    if (params.value == 'Opositor') { return {'backgroundColor': '#FFEBEE', 'color': '#333333'}; }
+    if (params.value == 'Cooperante') { return {'backgroundColor': '#E8F5E9', 'color': '#333333'}; }
+    if (params.value == 'Beneficiario') { return {'backgroundColor': '#E3F2FD', 'color': '#333333'}; }
+    if (params.value == 'Perjudicado') { return {'backgroundColor': '#FFFDE7', 'color': '#333333'}; }
     return {};
 }
 """)
 
-# 4. Definición de Columnas
-gb.configure_column("NOMBRE", header_name="Actor / Entidad", minWidth=200, pinned="left")
+gb.configure_column("NOMBRE", header_name="Actor / Entidad", minWidth=220, pinned="left")
 gb.configure_column("GRUPO", width=120)
-gb.configure_column("POSICIÓN", 
-    cellStyle=cell_style_js, 
-    cellEditor='agSelectCellEditor', 
-    cellEditorParams={'values': ['Opositor', 'Cooperante', 'Beneficiario', 'Perjudicado', 'Indiferente']},
-    width=130
-)
+gb.configure_column("POSICIÓN", cellStyle=cell_style_js, cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Opositor', 'Cooperante', 'Beneficiario', 'Perjudicado', 'Indiferente']}, width=130)
 gb.configure_column("EXPECTATIVA", width=300)
 gb.configure_column("CONTRIBUCION AL PROYECTO", header_name="Contribución", width=200)
 gb.configure_column("PODER", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
 gb.configure_column("INTERÉS", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
-
-# ESTRATEGIA: Letra NEGRITA (Bold) y color gris oscuro
+# ESTRATEGIA: Negrita (Bold)
 gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'fontWeight': 'bold', 'color': '#444'}, width=220)
 
 gb.configure_selection('single', use_checkbox=False)
 gridOptions = gb.build()
 
-st.caption("💡 Doble clic para editar.")
+st.caption("💡 Use el botón superior para agregar filas. Doble clic en celdas para editar.")
 
 # 5. Renderizar AgGrid
 grid_response = AgGrid(
@@ -145,8 +146,8 @@ grid_response = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     height=None, 
     fit_columns_on_grid_load=True,
-    theme='streamlit',
-    key='aggrid_interesados_final_pastel'
+    theme='streamlit', # El CSS personalizado sobrescribirá esto
+    key='aggrid_interesados_final_fix2'
 )
 
 df_modificado = pd.DataFrame(grid_response['data'])
@@ -158,7 +159,6 @@ st.subheader("📊 Mapa de Influencia")
 
 if not df_modificado.empty and 'NOMBRE' in df_modificado.columns:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
-    
     def obtener_lista(p, i):
         f = df_modificado[(df_modificado['PODER'] == p) & (df_modificado['INTERÉS'] == i) & (df_modificado['NOMBRE'].notna()) & (df_modificado['NOMBRE'] != "")]
         return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}**" for _, r in f.iterrows()] or ["*Sin actores*"]
@@ -183,7 +183,7 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL (Ahora visible gracias al padding) ---
+# --- ANÁLISIS FINAL (Visible por el padding extra) ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, height=200, 
