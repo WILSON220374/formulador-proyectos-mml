@@ -3,10 +3,10 @@ import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Inicialización de persistencia
+# 1. Inicialización de seguridad
 inicializar_session()
 
-# --- ESTILOS CSS (Diseño de Tabla y Dashboard) ---
+# --- ESTILOS CSS (Diseño Profesional Unificado) ---
 st.markdown("""
     <style>
     .titulo-seccion {
@@ -21,84 +21,66 @@ st.markdown("""
         color: #666;
         margin-bottom: 10px;
     }
-    
-    /* Contenedor para que la tabla no parezca Excel */
-    div[data-testid="stDataEditor"] {
+    /* Estilo para las cajas de texto y el editor */
+    .stTextArea textarea {
+        background-color: #fcfdfe;
         border: 1px solid #e0e7ff;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        border-radius: 8px;
     }
-
-    /* Estilo para los cuadrantes de estrategia */
-    .cuadrante-box {
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        border: 1px solid #eee;
-    }
-
     /* Hack imagen estática */
     [data-testid="stImage"] img { pointer-events: none; user-select: none; border-radius: 10px; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
+    
+    div[data-testid="stAlert"] { padding: 10px; border-radius: 10px; }
+    
+    /* Línea divisoria gruesa sutil */
+    .linea-gruesa {
+        border: none;
+        height: 3px;
+        background-color: #31333F;
+        opacity: 0.1;
+        border-radius: 5px;
+        margin: 30px 0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA INTEGRADA (Armonía visual) ---
+# --- CABECERA INTEGRADA CON LOGO Y PROGRESO ---
 col_titulo, col_logo = st.columns([4, 1], gap="medium", vertical_alignment="center")
 
 with col_titulo:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Matriz de actores y mapa estratégico de involucramiento.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Identificación de actores, posiciones y estrategias de involucramiento.</div>', unsafe_allow_html=True)
     
-    # Progreso de la fase
+    # --- CÁLCULO DE PROGRESO ---
     df_actual = st.session_state.get('df_interesados', pd.DataFrame())
+    analisis_txt = st.session_state.get('analisis_participantes', "")
+    
+    # Progreso: 50% por tener al menos 1 actor con nombre, 50% por análisis cualitativo
     tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any()
-    progreso = 1.0 if tiene_datos else 0.0
+    tiene_analisis = len(str(analisis_txt).strip()) > 20
+    progreso = (0.5 if tiene_datos else 0) + (0.5 if tiene_analisis else 0)
+    
     st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
 
 with col_logo:
-    logo_path = "unnamed.jpg" if os.path.exists("unnamed.jpg") else "unnamed-1.jpg"
-    if os.path.exists(logo_path):
-        st.image(logo_path, use_container_width=True)
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
-# --- CONTEXTO: PROBLEMA CENTRAL ---
-problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
-with st.expander("📌 Contexto: Problema Central (Referencia)", expanded=False):
-    st.info(f"**Problema:** {problema_actual}")
+# --- FUNCIONES DE SOPORTE ---
+def calcular_altura_texto(texto, min_h=150):
+    if not texto: return min_h
+    lineas = str(texto).count('\n') + (len(str(texto)) // 85)
+    return max(min_h, (lineas + 2) * 24)
 
-# --- 1. MATRIZ DE DATOS (DISEÑO MEJORADO) ---
-st.subheader("📝 Matriz de Datos de Interesados")
+def calcular_altura_tabla(df):
+    num_filas = len(df)
+    return max(200, (num_filas + 2) * 35 + 80)
 
-columnas_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "PODER", "INTERÉS", "ESTRATEGIA"]
-opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
-opciones_nivel = ["Alto", "Bajo"]
-
-# Asegurar estructura del DataFrame
-if df_actual.empty:
-    df_actual = pd.DataFrame(columns=columnas_orden)
-
-# Editor con configuración de diseño de tabla
-df_editado = st.data_editor(
-    df_actual,
-    column_config={
-        "NOMBRE": st.column_config.TextColumn("Nombre del Actor", width="medium", required=True),
-        "GRUPO": st.column_config.TextColumn("Entidad / Grupo", width="small"),
-        "POSICIÓN": st.column_config.SelectboxColumn("Posición", options=opciones_posicion, width="small"),
-        "EXPECTATIVA": st.column_config.TextColumn("Expectativa Principal", width="large"),
-        "PODER": st.column_config.SelectboxColumn("Poder", options=opciones_nivel, width="small"),
-        "INTERÉS": st.column_config.SelectboxColumn("Interés", options=opciones_nivel, width="small"),
-        "ESTRATEGIA": st.column_config.TextColumn("Estrategia Sugerida", disabled=True, width="medium"),
-    },
-    num_rows="dynamic",
-    use_container_width=True,
-    hide_index=True,
-    key="editor_interesados_pro_final"
-)
-
-# Lógica de guardado y cálculo automático
 def calcular_estrategia(row):
     p, i = str(row.get('PODER', '')).strip(), str(row.get('INTERÉS', '')).strip()
     if p == "Alto" and i == "Alto": return "Involucrar y mantener cerca"
@@ -107,59 +89,101 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
+# --- CONTEXTO: PROBLEMA CENTRAL ---
+problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
+with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True):
+    st.info(f"**Problema Identificado:** {problema_actual}")
+
+# --- 1. MATRIZ DE DATOS ---
+st.subheader("📝 Matriz de Datos")
+columnas_finales = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA DE INVOLUCRAMIENTO"]
+opciones_posicion = ["Opositor", "Beneficiario", "Cooperante", "Perjudicado"]
+opciones_nivel = ["Alto", "Bajo"]
+
+# Limpieza y preparación del DataFrame
+if df_actual.empty:
+    df_actual = pd.DataFrame(columns=columnas_finales)
+
+if "#" in df_actual.columns: df_actual = df_actual.drop(columns=["#"])
+for col in columnas_finales:
+    if col not in df_actual.columns: df_actual[col] = None
+
+df_actual = df_actual[columnas_finales]
+df_actual.index = range(1, len(df_actual) + 1)
+
+df_editado = st.data_editor(
+    df_actual,
+    column_config={
+        "POSICIÓN": st.column_config.SelectboxColumn("POSICIÓN", options=opciones_posicion),
+        "PODER": st.column_config.SelectboxColumn("PODER", options=opciones_nivel),
+        "INTERÉS": st.column_config.SelectboxColumn("INTERÉS", options=opciones_nivel),
+        "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("ESTRATEGIA (AUTO)", disabled=True),
+    },
+    num_rows="dynamic", use_container_width=True, hide_index=False,
+    height=calcular_altura_tabla(df_actual),
+    key="editor_interesados_v3"
+)
+
+# Lógica de guardado y cálculo automático de estrategia
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
-        df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
+        df_editado["ESTRATEGIA DE INVOLUCRAMIENTO"] = df_editado.apply(calcular_estrategia, axis=1)
     st.session_state['df_interesados'] = df_editado
     guardar_datos_nube()
     st.rerun()
 
-st.write("")
+st.markdown('<hr class="linea-gruesa">', unsafe_allow_html=True)
 
-# --- 2. MAPA ESTRATÉGICO (LOS CUADRANTES IMPORTANTES) ---
+# --- 2. MAPA ESTRATÉGICO DE ACTORES ---
 st.subheader("📊 Mapa Estratégico de Actores")
-
 if not df_editado.empty and df_editado['NOMBRE'].dropna().any():
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     
     def obtener_lista(p, i):
         filtro = df_editado[(df_editado['PODER'] == p) & (df_editado['INTERÉS'] == i) & (df_editado['NOMBRE'].notna())]
-        return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}**" for _, r in filtro.iterrows()] or ["*Sin actores*"]
+        return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}** ({r['GRUPO']})" for _, r in filtro.iterrows()] or ["*Sin actores*"]
 
-    # Distribución en 2x2
+    # Distribución en cuadrantes
     c1, c2 = st.columns(2)
     with c1:
         with st.container(border=True):
-            st.markdown("🤝 **SATISFACER (P:Alto / I:Bajo)**")
+            st.error("🤝 **CONSULTAR Y MANTENER SATISFECHOS** (P:Alto / I:Bajo)")
             for item in obtener_lista("Alto", "Bajo"): st.markdown(item)
         with st.container(border=True):
-            st.markdown("🔍 **MONITORIZAR (P:Bajo / I:Bajo)**")
+            st.warning("🔍 **MONITORIZAR** (P:Bajo / I:Bajo)")
             for item in obtener_lista("Bajo", "Bajo"): st.markdown(item)
     with c2:
         with st.container(border=True):
-            st.markdown("🚀 **INVOLUCRAR (P:Alto / I:Alto)**")
+            st.success("🚀 **INVOLUCRAR Y MANTENER CERCA** (P:Alto / I:Alto)")
             for item in obtener_lista("Alto", "Alto"): st.markdown(item)
         with st.container(border=True):
-            st.markdown("📧 **INFORMAR (P:Bajo / I:Alto)**")
+            st.info("📧 **MANTENER INFORMADOS** (P:Bajo / I:Alto)")
             for item in obtener_lista("Bajo", "Alto"): st.markdown(item)
     
-    st.caption("📌 **Actitud:** 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
+    st.caption("📌 **Leyenda:** 🔴 Opositor | 🔵 Cooperante | 🟢 Beneficiario | 🟣 Perjudicado")
 else:
-    st.warning("Ingrese datos en la tabla para visualizar el mapa estratégico.")
+    st.info("Complete la matriz de datos para generar el mapa estratégico.")
 
-st.divider()
+st.markdown('<hr class="linea-gruesa">', unsafe_allow_html=True)
 
-# --- 3. ANÁLISIS CUALITATIVO ---
+# --- 3. ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
+st.caption("Escriba a continuación el análisis cualitativo de la situación de los actores:")
+
 analisis_previo = st.session_state.get('analisis_participantes', "")
+h_analisis = calcular_altura_texto(analisis_previo)
 
-analisis_actual = st.text_area(
-    "Escriba el análisis cualitativo aquí:",
-    value=analisis_previo,
-    height=200,
-    key="txt_analisis_participantes_final"
-)
+with st.container(border=True):
+    analisis_actual = st.text_area(
+        "Texto de análisis", 
+        value=analisis_previo, 
+        height=h_analisis, 
+        key="txt_analisis_participantes", 
+        label_visibility="collapsed",
+        placeholder="Describa las estrategias de negociación, alianzas o mitigación de riesgos..."
+    )
 
+# Guardado automático del análisis
 if analisis_actual != analisis_previo:
     st.session_state['analisis_participantes'] = analisis_actual
     guardar_datos_nube()
