@@ -9,10 +9,10 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS AGRESIVOS (PARA FORZAR EL DISEÑO) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
-    /* 1. SOLUCIÓN AL SCROLL: Espacio extra al final de la página */
+    /* 1. Espacio extra al final para el scroll */
     .block-container { padding-bottom: 250px !important; }
 
     /* 2. Títulos Generales */
@@ -20,7 +20,6 @@ st.markdown("""
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
     /* 3. FORZAR CABECERA AZUL OSCURO EN AG-GRID */
-    /* Sobrescribimos las variables CSS del tema de AgGrid */
     .ag-theme-streamlit {
         --ag-header-background-color: #1E3A8A !important;
         --ag-header-foreground-color: #FFFFFF !important;
@@ -49,7 +48,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CABECERA ---
-col_t, col_l = st.columns([4, 1]) # vertical_alignment removido por compatibilidad
+col_t, col_l = st.columns([4, 1])
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
@@ -81,17 +80,25 @@ if tiene_datos:
 # --- MATRIZ DE DATOS ---
 st.subheader("📝 Matriz de Datos")
 
-# 1. BOTÓN PARA AGREGAR FILAS
+# 1. BOTÓN PARA AGREGAR FILAS VACÍAS (Corregido)
 col_btn, _ = st.columns([1, 4])
 with col_btn:
     if st.button("➕ Agregar Nuevo Actor", type="primary", use_container_width=True):
+        # Creamos una fila TOTALMENTE VACÍA
         new_row = pd.DataFrame([{
-            "NOMBRE": "", "GRUPO": "Gremio", "POSICIÓN": "Indiferente", 
-            "EXPECTATIVA": "", "CONTRIBUCION AL PROYECTO": "", 
-            "PODER": "Bajo", "INTERÉS": "Bajo", "ESTRATEGIA": ""
+            "NOMBRE": "", 
+            "GRUPO": "", 
+            "POSICIÓN": "", # Vacío para que el usuario elija
+            "EXPECTATIVA": "", 
+            "CONTRIBUCION AL PROYECTO": "", 
+            "PODER": "", 
+            "INTERÉS": "", 
+            "ESTRATEGIA": ""
         }])
+        # Unimos y guardamos inmediatamente
         st.session_state['df_interesados'] = pd.concat([df_actual, new_row], ignore_index=True)
-        st.rerun()
+        guardar_datos_nube() # Guardado de seguridad
+        st.rerun() # Recargamos para mostrar la fila vacía
 
 # 2. Preparar DataFrame
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
@@ -103,9 +110,9 @@ df_render = df_actual[cols_orden].copy()
 # 3. Configurar AgGrid
 gb = GridOptionsBuilder.from_dataframe(df_render)
 gb.configure_default_column(editable=True, resizable=True, filterable=True, wrapText=True, autoHeight=True)
-gb.configure_grid_options(domLayout='autoHeight') # Tabla auto-expandible
+gb.configure_grid_options(domLayout='autoHeight') 
 
-# 4. COLORES PASTEL (JS Code) - Letra normal
+# 4. COLORES PASTEL
 cell_style_js = JsCode("""
 function(params) {
     if (params.value == 'Opositor') { return {'backgroundColor': '#FFEBEE', 'color': '#333333'}; }
@@ -123,13 +130,12 @@ gb.configure_column("EXPECTATIVA", width=300)
 gb.configure_column("CONTRIBUCION AL PROYECTO", header_name="Contribución", width=200)
 gb.configure_column("PODER", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
 gb.configure_column("INTERÉS", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
-# ESTRATEGIA: Negrita (Bold)
 gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'fontWeight': 'bold', 'color': '#444'}, width=220)
 
 gb.configure_selection('single', use_checkbox=False)
 gridOptions = gb.build()
 
-st.caption("💡 Use el botón superior para agregar filas. Doble clic en celdas para editar.")
+st.caption("💡 Use el botón superior para agregar filas vacías. Doble clic para editar.")
 
 # 5. Renderizar AgGrid
 grid_response = AgGrid(
@@ -140,7 +146,7 @@ grid_response = AgGrid(
     height=None, 
     fit_columns_on_grid_load=True,
     theme='streamlit',
-    key='aggrid_interesados_fixed_syntax'
+    key='aggrid_interesados_final_v3'
 )
 
 df_modificado = pd.DataFrame(grid_response['data'])
@@ -176,7 +182,7 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL (Visible por el padding extra) ---
+# --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, height=200, 
