@@ -8,23 +8,24 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS (DISEÑO MINIMALISTA SIN BORDES EXTERNOS) ---
+# --- ESTILOS CSS (DISEÑO LIMPIO) ---
 st.markdown("""
     <style>
+    /* Espacio para scroll */
     .block-container { padding-bottom: 150px !important; }
 
     /* Títulos */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* QUITAR BORDE EXTERNO DE LA TABLA (Para que se vea más ligera) */
+    /* TABLA LIMPIA (Sin bordes externos, fondo transparente) */
     div[data-testid="stDataEditor"] {
-        border: none !important; /* Sin borde */
-        box-shadow: none !important; /* Sin sombra */
+        border: none !important;
+        box-shadow: none !important;
         background-color: transparent !important;
     }
 
-    /* KPIs Limpios */
+    /* KPIs */
     .kpi-card {
         background: #f8f9fa; padding: 15px; border-radius: 8px;
         text-align: center; border: 1px solid #eee;
@@ -53,7 +54,7 @@ with col_l:
 
 st.divider()
 
-# --- ACTUALIZACIÓN DE DATOS (ICONOS) ---
+# --- ACTUALIZACIÓN DE ICONOS ---
 if not df_actual.empty:
     mapeo_iconos = {
         "Opositor": "🔴 Opositor", "Cooperante": "🟢 Cooperante", 
@@ -94,36 +95,35 @@ config_columnas = {
     "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia", disabled=True, width="medium")
 }
 
+# Preparación LIMPIA del DataFrame (Esto evita que aparezca el índice como columna)
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
 if df_actual.empty: df_actual = pd.DataFrame(columns=cols_orden)
+# Aseguramos que solo existan estas columnas, eliminando cualquier rastro de índices viejos
 for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_actual = df_actual[cols_orden]
 
-# Renderizado Nativo (Limpio)
+# RENDERIZADO (Aquí está el truco: hide_index=True)
 df_editado = st.data_editor(
     df_actual,
     column_config=config_columnas,
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True,
-    key="editor_interesados_clean_v2"
+    hide_index=True,  # <--- ESTO OCULTA LA COLUMNA DE NÚMEROS (0,1,2...)
+    key="editor_interesados_no_index"
 )
 
-# --- LÓGICA CORREGIDA (TEXTOS EXACTOS) ---
+# --- CÁLCULO DE ESTRATEGIAS ---
 def calcular_estrategia(row):
-    # Limpiar iconos para comparar
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     
-    # Textos EXACTOS solicitados
     if p == "Alto" and i == "Bajo": return "INVOLUCRAR - MANTENER SATISFECHOS"
     if p == "Alto" and i == "Alto": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
     if p == "Bajo" and i == "Alto": return "MANTENER INFORMADOS"
     if p == "Bajo" and i == "Bajo": return "MONITOREAR"
     return ""
 
-# Guardado y Actualización
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
         df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
@@ -133,7 +133,7 @@ if not df_editado.equals(df_actual):
 
 st.write("")
 
-# --- MAPA ESTRATÉGICO (CON TEXTOS CORREGIDOS) ---
+# --- MAPA ESTRATÉGICO ---
 st.subheader("📊 Mapa de Influencia")
 if tiene_datos:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
