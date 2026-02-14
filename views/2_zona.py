@@ -6,7 +6,7 @@ from session_state import inicializar_session, guardar_datos_nube
 inicializar_session()
 datos = st.session_state.get('datos_zona', {})
 
-# --- ESTILOS CSS (Diseño Profesional Unificado) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .titulo-seccion {
@@ -47,8 +47,8 @@ with col_titulo:
     st.markdown('<div class="subtitulo-gris">Delimitación geográfica, límites y contexto económico.</div>', unsafe_allow_html=True)
     
     # --- CÁLCULO DE PROGRESO ---
-    # Campos que revisamos para ver si están llenos
-    campos_clave = ['pob_total', 'ubicacion', 'limites', 'economia', 'vias']
+    # Revisamos si hay datos clave
+    campos_clave = ['pob_total', 'municipio', 'limites', 'economia', 'vias']
     llenos = sum(1 for c in campos_clave if datos.get(c) and str(datos.get(c)).strip())
     progreso = llenos / len(campos_clave)
     
@@ -62,11 +62,10 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
+# --- FUNCIÓN DE AUTO-AJUSTE ---
 def calcular_altura(texto, min_h=100):
     if not texto: return min_h
     texto_str = str(texto)
-    # Calculamos líneas por 'Enter' y por longitud (ajustado a 60 caracteres por línea aprox)
     lineas = texto_str.count('\n') + (len(texto_str) // 60)
     return max(min_h, (lineas + 2) * 24)
 
@@ -78,7 +77,7 @@ with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True
 # --- FORMULARIO ESTRUCTURADO ---
 st.subheader("📍 Detalles del Área")
 
-# BLOQUE 1: POBLACIÓN (3 Columnas)
+# BLOQUE 1: POBLACIÓN
 with st.container(border=True):
     st.markdown("##### 👥 Población Afectada")
     c1, c2, c3 = st.columns(3)
@@ -91,19 +90,22 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 2: UBICACIÓN Y LÍMITES
+# BLOQUE 2: UBICACIÓN DETALLADA (Restaurado como pediste)
 with st.container(border=True):
     st.markdown("##### 🗺️ Ubicación Geográfica")
     
-    # Campo Ubicación (Una sola línea como pediste)
-    val_ubicacion = datos.get('ubicacion', "")
-    ubicacion = st.text_input("Localización Específica (Municipio/Vereda)", value=val_ubicacion, placeholder="Ej: Municipio de Sogamoso, Vereda X")
+    c4, c5 = st.columns(2)
+    with c4:
+        departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá")
+        municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso")
+    with c5:
+        vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte")
+        coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long")
     
     st.markdown("---")
     
     st.markdown("##### 🚧 Límites Geográficos")
     val_limites = datos.get('limites', "")
-    # APLICAMOS AUTO-AJUSTE AQUÍ
     limites = st.text_area(
         "Norte, Sur, Oriente, Occidente...", 
         value=val_limites, 
@@ -114,7 +116,7 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 3: ECONOMÍA Y VÍAS (2 Columnas con Auto-Ajuste)
+# BLOQUE 3: ECONOMÍA Y VÍAS
 with st.container(border=True):
     st.markdown("##### 💰 Contexto Socioeconómico y Físico")
     
@@ -123,7 +125,6 @@ with st.container(border=True):
     with col_a:
         st.markdown("**Principal Actividad Económica**")
         val_eco = datos.get('economia', "")
-        # APLICAMOS AUTO-AJUSTE AQUÍ
         economia = st.text_area(
             "Economia", 
             value=val_eco, 
@@ -135,7 +136,6 @@ with st.container(border=True):
     with col_b:
         st.markdown("**División del Territorio / Vías**")
         val_vias = datos.get('vias', "")
-        # APLICAMOS AUTO-AJUSTE AQUÍ
         vias = st.text_area(
             "Vias", 
             value=val_vias, 
@@ -149,7 +149,10 @@ nueva_data = {
     'pob_total': p_total,
     'pob_urbana': p_urbana,
     'pob_rural': p_rural,
-    'ubicacion': ubicacion,
+    'departamento': departamento,  # Campo restaurado
+    'municipio': municipio,        # Campo restaurado
+    'vereda': vereda,              # Campo restaurado
+    'coordenadas': coordenadas,    # Campo restaurado
     'limites': limites,
     'economia': economia,
     'vias': vias
