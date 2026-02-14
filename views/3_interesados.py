@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 # 1. Inicialización
 inicializar_session()
@@ -17,13 +18,13 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* Tabla Limpia */
+    /* Tabla Limpia: Eliminamos bordes innecesarios para un look más moderno */
     div[data-testid="stDataEditor"] {
         border: none !important;
         background-color: transparent !important;
     }
 
-    /* KPIs */
+    /* KPIs Minimalistas */
     .kpi-card {
         background: #f8f9fa; padding: 15px; border-radius: 8px;
         text-align: center; border: 1px solid #eee;
@@ -56,8 +57,7 @@ with col_l:
 
 st.divider()
 
-# --- 1. LIMPIEZA PROFUNDA DE DATOS (ESTO BORRA EL ÍNDICE FANTASMA) ---
-# Definimos estrictamente qué columnas queremos. Todo lo demás (índices, números raros) se borra.
+# --- 1. LIMPIEZA Y REINICIO DE ÍNDICE (BORRADO DEFINITIVO DE NÚMEROS) ---
 columnas_validas = [
     "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", 
     "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"
@@ -66,20 +66,21 @@ columnas_validas = [
 if df_actual.empty: 
     df_clean = pd.DataFrame(columns=columnas_validas)
 else:
-    # 1. Aseguramos que existan las columnas
+    # Aseguramos que existan las columnas
     for col in columnas_validas:
         if col not in df_actual.columns:
             df_actual[col] = ""
     
-    # 2. FILTRO DRÁSTICO: Creamos una copia SOLO con las columnas válidas.
-    # Esto elimina cualquier columna "0", "Unnamed: 0", "index", etc.
+    # Filtramos columnas y REINICIAMOS el índice para que desaparezcan los números viejos
     df_clean = df_actual[columnas_validas].copy()
-    
-    # 3. Mapeo de Iconos (si no los tienen)
+    df_clean = df_clean.reset_index(drop=True) # <-- ESTA LÍNEA BORRA EL ÍNDICE FANTASMA
+
+    # Mapeo de Iconos
     mapeo_iconos = {
         "Opositor": "🔴 Opositor", "Cooperante": "🟢 Cooperante", 
         "Beneficiario": "🔵 Beneficiario", "Perjudicado": "🟣 Perjudicado",
-        "Alto": "⚡ Alto", "Bajo": "🔅 Bajo"
+        "Alto": "⚡ Alto", "Bajo": "🔅 Bajo",
+        "ALTO": "⚡ ALTO", "BAJO": "🔅 BAJO"
     }
     for col in ["POSICIÓN", "PODER", "INTERÉS"]:
         df_clean[col] = df_clean[col].apply(lambda x: mapeo_iconos.get(str(x).strip(), x) if str(x).strip() in mapeo_iconos else x)
@@ -101,7 +102,7 @@ if tiene_datos:
 st.subheader("📝 Matriz de Datos")
 
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
-opciones_niv = ["⚡ Alto", "🔅 Bajo"]
+opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
 config_columnas = {
     "NOMBRE": st.column_config.TextColumn("👤 Nombre del Actor", width="medium", required=True),
@@ -114,35 +115,32 @@ config_columnas = {
     "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia", disabled=True, width="medium")
 }
 
-# RENDERIZADO
-# Al usar df_clean, garantizamos que no hay columnas extrañas que Streamlit confunda con datos.
+# RENDERIZADO (Garantizamos que hide_index actúe sobre un DataFrame limpio)
 df_editado = st.data_editor(
     df_clean,
     column_config=config_columnas,
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True, # AHORA SÍ DEBERÍA FUNCIONAR PORQUE EL DF ESTÁ LIMPIO
-    key="editor_interesados_final_clean_v3"
+    hide_index=True, # AHORA SÍ SE OCULTA EL ÍNDICE
+    key="editor_interesados_final_v4"
 )
 
-# --- LÓGICA DE ESTRATEGIA (CON TUS TEXTOS) ---
+# --- LÓGICA DE ESTRATEGIA (TEXTOS SEGÚN TU IMAGEN) ---
 def calcular_estrategia(row):
-    # Limpiamos iconos para calcular
-    p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
-    i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
+    p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
+    i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
     
-    if p == "Alto" and i == "Bajo": return "INVOLUCRAR - MANTENER SATISFECHOS"
-    if p == "Alto" and i == "Alto": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
-    if p == "Bajo" and i == "Alto": return "MANTENER INFORMADOS"
-    if p == "Bajo" and i == "Bajo": return "MONITOREAR"
+    if p == "ALTO" and i == "BAJO": return "INVOLUCRAR - MANTENER SATISFECHOS"
+    if p == "ALTO" and i == "ALTO": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
+    if p == "BAJO" and i == "ALTO": return "MANTENER INFORMADOS"
+    if p == "BAJO" and i == "BAJO": return "MONITOREAR"
     return ""
 
-# Guardado Inteligente
-if not df_editado.equals(df_actual): # Comparamos con el original para detectar cambios
+# Guardado
+if not df_editado.equals(df_actual):
     if not df_editado.empty:
         df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
     
-    # Guardamos la versión limpia en la nube
     st.session_state['df_interesados'] = df_editado
     guardar_datos_nube()
     st.rerun()
@@ -155,9 +153,10 @@ if tiene_datos:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     
     def obtener_lista(p_key, i_key):
+        # Filtramos buscando el texto clave ignorando mayúsculas/minúsculas e iconos
         f = df_editado[
-            (df_editado['PODER'].astype(str).str.contains(p_key)) & 
-            (df_editado['INTERÉS'].astype(str).str.contains(i_key)) & 
+            (df_editado['PODER'].astype(str).str.upper().str.contains(p_key)) & 
+            (df_editado['INTERÉS'].astype(str).str.upper().str.contains(i_key)) & 
             (df_editado['NOMBRE'].notna()) & (df_editado['NOMBRE'] != "")
         ]
         res = []
@@ -173,17 +172,17 @@ if tiene_datos:
     with c1:
         with st.container(border=True):
             st.error("🤝 **INVOLUCRAR - MANTENER SATISFECHOS** (P:Alto / I:Bajo)")
-            for item in obtener_lista("Alto", "Bajo"): st.markdown(item)
+            for item in obtener_lista("ALTO", "BAJO"): st.markdown(item)
         with st.container(border=True):
             st.warning("🔍 **MONITOREAR** (P:Bajo / I:Bajo)")
-            for item in obtener_lista("Bajo", "Bajo"): st.markdown(item)
+            for item in obtener_lista("BAJO", "BAJO"): st.markdown(item)
     with c2:
         with st.container(border=True):
             st.success("🚀 **INVOLUCRAR Y ATRAER EFECTIVAMENTE** (P:Alto / I:Alto)")
-            for item in obtener_lista("Alto", "Alto"): st.markdown(item)
+            for item in obtener_lista("ALTO", "ALTO"): st.markdown(item)
         with st.container(border=True):
             st.info("📧 **MANTENER INFORMADOS** (P:Bajo / I:Alto)")
-            for item in obtener_lista("Bajo", "Alto"): st.markdown(item)
+            for item in obtener_lista("BAJO", "ALTO"): st.markdown(item)
 else:
     st.info("Complete la matriz para activar el mapa estratégico.")
 
