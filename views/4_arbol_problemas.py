@@ -7,9 +7,10 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Interfaz Limpia) ---
+# --- ESTILO GLOBAL (Interfaz Limpia y Sin Botón de Expansión) ---
 st.markdown("""
     <style>
+    /* Estética de Tarjetas: Fusión total con color */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -21,6 +22,12 @@ st.markdown("""
         box-shadow: none !important;
         min-height: 100px !important;
     }
+
+    /* OCULTAR EL BOTÓN DE PANTALLA COMPLETA (FULLSCREEN) */
+    button[title="View fullscreen"] {
+        display: none !important;
+    }
+    
     .main .stButton button {
         border: none !important;
         background: transparent !important;
@@ -49,7 +56,7 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSA\nINDIRECTA"}
 }
 
-# --- MOTOR DE DIBUJO (ETIQUETAS COMO TEXTO PLANO) ---
+# --- MOTOR DE DIBUJO ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
@@ -58,29 +65,23 @@ def generar_grafo_problemas():
     dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
-    # Nodos de Contenido (Tarjetas con color)
     dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
     
     import textwrap
     def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=w))
 
-    # --- CREACIÓN DE ETIQUETAS LATERALES (SOLO TEXTO) ---
     def crear_nodo_etiqueta(id_et, tipo):
         conf = CONFIG_PROB[tipo]
-        # shape='plaintext' elimina el recuadro completamente
         dot.node(id_et, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold')
 
-    # Definir nodos de etiquetas
     etiquetas = ["L_EI", "L_ED", "L_PC", "L_CD", "L_CI"]
     tipos = ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"]
     for id_e, tipo in zip(etiquetas, tipos):
         crear_nodo_etiqueta(id_e, tipo)
     
-    # Vincular etiquetas verticalmente (invisible)
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
-    # --- RENDERIZADO DE CONTENIDO POR NIVELES ---
     pc = datos.get("Problema Principal", [])
     if pc:
         dot.node('PC', limpiar(pc[0]['texto'], 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
