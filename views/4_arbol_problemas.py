@@ -42,14 +42,14 @@ with col_logo:
         st.image("unnamed-1.jpg", use_container_width=True)
 
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO\nINDIRECTO", "bg_etiqueta": "#D2B4DE"},
-    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTO\nDIRECTO", "bg_etiqueta": "#AED6F1"},
-    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA\nCENTRAL", "bg_etiqueta": "#E6B0AA"},
-    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSA\nDIRECTA", "bg_etiqueta": "#F9E79F"},
-    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSA\nINDIRECTA", "bg_etiqueta": "#F5CBA7"}
+    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO\nINDIRECTO"},
+    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTO\nDIRECTO"},
+    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA\nCENTRAL"},
+    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSA\nDIRECTA"},
+    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSA\nINDIRECTA"}
 }
 
-# --- MOTOR DE DIBUJO (ETIQUETAS INTEGRADAS EN PNG) ---
+# --- MOTOR DE DIBUJO (ETIQUETAS COMO TEXTO PLANO) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
@@ -58,29 +58,29 @@ def generar_grafo_problemas():
     dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
-    # Nodos de Contenido
+    # Nodos de Contenido (Tarjetas con color)
     dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
     
     import textwrap
     def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=w))
 
-    # --- CREACIÓN DE ETIQUETAS LATERALES EN LA GRÁFICA ---
+    # --- CREACIÓN DE ETIQUETAS LATERALES (SOLO TEXTO) ---
     def crear_nodo_etiqueta(id_et, tipo):
         conf = CONFIG_PROB[tipo]
-        dot.node(id_et, conf['label'], fillcolor=conf['bg_etiqueta'], fontcolor='black', fontsize='16', margin='0.3,0.3')
+        # shape='plaintext' elimina el recuadro completamente
+        dot.node(id_et, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold')
 
-    # Definir nodos de etiquetas para cada nivel
+    # Definir nodos de etiquetas
     etiquetas = ["L_EI", "L_ED", "L_PC", "L_CD", "L_CI"]
     tipos = ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"]
     for id_e, tipo in zip(etiquetas, tipos):
         crear_nodo_etiqueta(id_e, tipo)
     
-    # Vincular etiquetas verticalmente (invisible) para asegurar el orden izquierdo
+    # Vincular etiquetas verticalmente (invisible)
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
     # --- RENDERIZADO DE CONTENIDO POR NIVELES ---
-    # Problema Central
     pc = datos.get("Problema Principal", [])
     if pc:
         dot.node('PC', limpiar(pc[0]['texto'], 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
@@ -89,7 +89,6 @@ def generar_grafo_problemas():
             s.node('L_PC')
             s.node('PC')
 
-    # Efectos y Causas
     for tipo, id_et, p_key, edge_dir in [
         ("Efectos Directos", "L_ED", "PC", "forward"), 
         ("Causas Directas", "L_CD", "PC", "back")
@@ -98,7 +97,6 @@ def generar_grafo_problemas():
         h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
         id_et_h = "L_EI" if "Efecto" in tipo else "L_CI"
         
-        # Agrupar padres con su etiqueta
         with dot.subgraph() as s_p:
             s_p.attr(rank='same')
             s_p.node(id_et)
@@ -109,7 +107,6 @@ def generar_grafo_problemas():
                 if edge_dir == "forward": dot.edge('PC', node_id)
                 else: dot.edge(node_id, 'PC')
 
-        # Agrupar hijos con su etiqueta
         with dot.subgraph() as s_h:
             s_h.attr(rank='same')
             s_h.node(id_et_h)
@@ -172,7 +169,6 @@ else:
         hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
         max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
 
-        # Filas de Hijos
         for h_idx in range(max_h - 1, -1, -1) if "Efecto" in tipo_padre else range(max_h):
             cols = st.columns(len(padres))
             for p_idx, col in enumerate(cols):
@@ -182,7 +178,6 @@ else:
                         render_card(tipo_hijo, h_data, idx_real)
                     else: st.empty()
 
-        # Fila de Padres
         cols_p = st.columns(len(padres))
         for i, p_data in enumerate(padres):
             with cols_p[i]: render_card(tipo_padre, p_data, i)
