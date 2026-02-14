@@ -5,7 +5,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Inicializar memoria y configuración
 inicializar_session()
 
-# --- ESTILOS CSS (Igualando el diseño de Equipo) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .titulo-seccion {
@@ -20,7 +20,6 @@ st.markdown("""
         color: #666;
         margin-bottom: 10px;
     }
-    /* Estilo para las cajas de texto */
     .stTextArea textarea {
         background-color: #fcfdfe;
         border: 1px solid #e0e7ff;
@@ -30,7 +29,6 @@ st.markdown("""
         border-color: #4F8BFF;
         box-shadow: 0 0 0 2px rgba(79, 139, 255, 0.1);
     }
-    /* Hack para imagen estática y sin fullscreen */
     [data-testid="stImage"] img {
         pointer-events: none;
         user-select: none;
@@ -38,7 +36,6 @@ st.markdown("""
     }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     
-    /* Contenedores con borde suave */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 12px;
         border: 1px solid #f0f2f6;
@@ -46,17 +43,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA INTEGRADA (Mejor distribución) ---
-# Usamos [4, 1] para que el logo tenga su espacio pero no se aleje tanto
+# --- CABECERA INTEGRADA ---
 col_titulo, col_logo = st.columns([4, 1], gap="medium", vertical_alignment="center")
 
 with col_titulo:
     st.markdown('<div class="titulo-seccion">🎯 1. Diagnóstico del Problema</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Defina la situación negativa central y sus evidencias.</div>', unsafe_allow_html=True)
     
-    # --- CÁLCULO DE PROGRESO INTEGRADO AL TÍTULO ---
     datos = st.session_state['datos_problema']
-    # Aseguramos que los campos existan antes de calcular
     c_p = datos.get('problema_central', '')
     c_s = datos.get('sintomas', '')
     c_c = datos.get('causas_inmediatas', '')
@@ -69,7 +63,6 @@ with col_titulo:
     st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
 
 with col_logo:
-    # Verificamos ambas opciones de nombre por seguridad
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     elif os.path.exists("unnamed-1.jpg"):
@@ -77,28 +70,34 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA (MANTENIDA) ---
+# --- FUNCIÓN DE ALTURA CORREGIDA (MÁS SENSIBLE) ---
 def calcular_altura(texto, min_h=150):
     if not texto: return min_h
-    # Ajuste ligero al cálculo para que no sea tan alto tan rápido
-    lineas = str(texto).count('\n') + (len(str(texto)) // 90)
-    return max(min_h, (lineas + 1) * 24)
+    texto_str = str(texto)
+    # AJUSTE: Bajamos de 90 a 55 caracteres por línea.
+    # Esto hace que el cuadro crezca más rápido cuando el texto se dobla.
+    lineas_por_enter = texto_str.count('\n') 
+    lineas_por_longitud = len(texto_str) // 55 
+    
+    total_lineas = lineas_por_enter + lineas_por_longitud
+    return max(min_h, (total_lineas + 2) * 24)
 
 # --- SECCIÓN 1: EL PROBLEMA CENTRAL ---
 with st.container(border=True):
     st.markdown("### 🚨 El Problema Central")
-    st.caption("Describa claramente la situación negativa (No la falta de una solución).")
+    st.caption("Describa claramente la situación negativa.")
     
     val_problema = datos.get('problema_central', '')
-    h_p = calcular_altura(val_problema)
+    # Para el problema central (que es ancho), usamos un cálculo un poco más relajado (80 chars)
+    h_p = max(100, (str(val_problema).count('\n') + (len(str(val_problema)) // 80) + 2) * 24)
     
     p_central = st.text_area(
         "Descripción", value=val_problema, height=h_p,
         key="txt_p_central", label_visibility="collapsed",
-        placeholder="Ej: Aumento de la accidentalidad en la vía Sogamoso..."
+        placeholder="Ej: Aumento de la accidentalidad..."
     )
 
-st.write("") # Espaciador
+st.write("")
 
 # --- SECCIÓN 2: ANÁLISIS (2 COLUMNAS) ---
 c1, c2 = st.columns(2, gap="large")
@@ -113,13 +112,8 @@ with c1:
         
         sintomas = st.text_area(
             "S", value=val_sintomas, height=h_s, 
-            key="txt_sintomas", label_visibility="collapsed",
-            placeholder="Ej: Quejas constantes, deterioro físico visible..."
+            key="txt_sintomas", label_visibility="collapsed"
         )
-
-    # Colocamos Factores Agravantes aquí abajo para equilibrar si prefieres
-    # O mantenemos tu estructura original de 2 columnas + 1 abajo.
-    # Vamos a mantener tu estructura original (Causas a la derecha)
 
 with c2:
     with st.container(border=True):
@@ -127,12 +121,12 @@ with c2:
         st.caption("¿Por qué está ocurriendo esto ahora?")
         
         val_causas = datos.get('causas_inmediatas', '')
+        # Aquí se aplicará el nuevo cálculo más sensible (55 chars)
         h_c = calcular_altura(val_causas)
         
         causas = st.text_area(
             "C", value=val_causas, height=h_c, 
-            key="txt_causas", label_visibility="collapsed",
-            placeholder="Ej: Falta de mantenimiento, diseño inadecuado..."
+            key="txt_causas", label_visibility="collapsed"
         )
 
 st.write("") 
@@ -140,19 +134,18 @@ st.write("")
 # --- SECCIÓN 3: FACTORES AGRAVANTES ---
 with st.container(border=True):
     st.markdown("### ⚠️ Factores Agravantes")
-    st.caption("Elementos externos o contextos que empeoran la situación.")
+    st.caption("Elementos externos que empeoran la situación.")
     
     val_agravantes = datos.get('factores_agravantes', '')
+    # Usamos la misma función sensible por si escriben mucho
     h_a = calcular_altura(val_agravantes)
     
     agravantes = st.text_area(
         "A", value=val_agravantes, height=h_a, 
-        key="txt_agravantes", label_visibility="collapsed",
-        placeholder="Ej: Temporada de lluvias, recortes presupuestales..."
+        key="txt_agravantes", label_visibility="collapsed"
     )
 
-# --- LÓGICA DE GUARDADO AUTOMÁTICO (MANTENIDA) ---
-# Comparamos los valores actuales con los de sesión para detectar cambios
+# --- GUARDADO AUTOMÁTICO ---
 if (p_central != datos.get('problema_central') or 
     sintomas != datos.get('sintomas') or 
     causas != datos.get('causas_inmediatas') or 
