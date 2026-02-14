@@ -49,32 +49,32 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (AJUSTE DE ESTÉTICA FINAL) ---
+# --- MOTOR DE DIBUJO (TÍTULO LIMPIO Y SIN BORDES) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
     dot = graphviz.Digraph(format='png')
     
-    # 1. CONFIGURACIÓN DEL TÍTULO Y LIENZO
-    # Añadimos el título con los iconos solicitados
-    dot.attr(label='🐢 ÁRBOL DE PROBLEMAS 🦋', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
+    # 1. CONFIGURACIÓN DEL TÍTULO (SIN ICONOS) Y LIENZO
+    dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
-    # 2. CONFIGURACIÓN GLOBAL DE NODOS (Sin bordes y con más aire)
+    # 2. CONFIGURACIÓN GLOBAL DE NODOS (Sin bordes y con margen interno)
     dot.attr('node', 
              fontsize='20', 
              fontcolor='white', 
              fontname='Arial Bold', 
              style='filled', 
-             color='none',          # ELIMINA EL BORDE NEGRO
-             margin='0.6,0.4',      # SEPARA EL TEXTO DE LOS BORDES (Padding)
+             color='none',          # Elimina el borde negro de las tarjetas
+             margin='0.6,0.4',      # Espacio interno para que el texto no toque los bordes
              shape='box')
     
     import textwrap
+    # Limpiador para causas y efectos (Ancho 50)
     def limpiar_estandar(t): 
         return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=50))
     
-    # 3. PROBLEMA CENTRAL (Viga ancha)
+    # 3. PROBLEMA CENTRAL (Ancho 100)
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
