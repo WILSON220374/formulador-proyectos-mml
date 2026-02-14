@@ -6,6 +6,47 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
+    # --- INYECCIÓN DE DISEÑO GLOBAL COMPACTO (Ajuste de Pantalla) ---
+    st.markdown("""
+        <style>
+        /* 1. Elimina el espacio gigante en la parte superior de todas las páginas */
+        .block-container {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1rem !important;
+        }
+        
+        /* 2. Compacta los títulos principales para que suban más */
+        h1 {
+            margin-top: -1.5rem !important;
+            padding-top: 0 !important;
+            margin-bottom: 1rem !important;
+            font-size: 2.5rem !important;
+        }
+
+        /* 3. Oculta el botón de pantalla completa en las imágenes */
+        button[title="View fullscreen"] {
+            display: none !important;
+        }
+
+        /* 4. Estilo unificado para las tarjetas (TextArea) en todo el proyecto */
+        div[data-testid="stTextArea"] textarea {
+            background-color: #ffffff !important;
+            border: none !important;           
+            border-radius: 0 0 10px 10px !important;
+            text-align: center !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            color: #000 !important;
+        }
+
+        /* 5. Ajuste para que los subtítulos en el Sidebar también sean compactos */
+        [data-testid="stSidebar"] h2 {
+            margin-top: -1rem !important;
+            padding-top: 0.5rem !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     if 'autenticado' not in st.session_state:
         st.session_state['autenticado'] = False
     
@@ -55,9 +96,7 @@ def cargar_datos_nube(user_id):
         res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
         if res.data and res.data[0]['datos']:
             d = res.data[0]['datos']
-            # Carga de datos del equipo
             st.session_state['integrantes'] = d.get('integrantes', [])
-            
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['datos_zona'] = d.get('zona', {})
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
@@ -79,7 +118,7 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
         paquete = {
-            "integrantes": st.session_state['integrantes'], # Guardar equipo
+            "integrantes": st.session_state['integrantes'],
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['datos_zona'],
             "interesados": st.session_state['df_interesados'].to_dict(),
