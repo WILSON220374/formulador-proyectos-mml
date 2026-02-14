@@ -19,18 +19,15 @@ st.markdown("""
     .subtitulo-gris {
         font-size: 16px !important;
         color: #666;
-        margin-bottom: 20px;
+        margin-bottom: 10px; /* Reducido para pegar más la barra */
     }
-    /* Estilo para inputs numéricos y texto */
     div[data-testid="stNumberInput"], div[data-testid="stTextInput"] {
         background-color: #fcfdfe;
         border-radius: 8px;
     }
-    /* Hack imagen estática */
     [data-testid="stImage"] img { pointer-events: none; user-select: none; border-radius: 10px; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
     
-    /* Contenedor del problema central (Referencia) */
     div[data-testid="stAlert"] {
         padding: 10px;
         border-radius: 10px;
@@ -38,12 +35,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA INTEGRADA ---
+# --- CABECERA INTEGRADA CON BARRA DE PROGRESO ---
 col_titulo, col_logo = st.columns([4, 1], gap="medium", vertical_alignment="center")
 
 with col_titulo:
     st.markdown('<div class="titulo-seccion">🗺️ 2. Zona de Estudio</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Delimitación geográfica y demográfica del área de influencia.</div>', unsafe_allow_html=True)
+    
+    # --- CÁLCULO DE PROGRESO (Para la barra azul) ---
+    # Verificamos 4 campos clave para determinar el avance
+    hay_poblacion = int(datos_zona.get('poblacion_total', 0)) > 0
+    hay_depto = len(datos_zona.get('departamento', '')) > 2
+    hay_muni = len(datos_zona.get('municipio', '')) > 2
+    hay_vias = len(datos_zona.get('vias', '')) > 10
+    
+    items_check = [hay_poblacion, hay_depto, hay_muni, hay_vias]
+    progreso = sum(items_check) / 4
+    
+    # LA BARRA AZUL DE ARMONÍA
+    st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
 
 with col_logo:
     if os.path.exists("unnamed.jpg"):
@@ -53,7 +63,7 @@ with col_logo:
 
 st.divider()
 
-# --- REFERENCIA: EL PROBLEMA (Para no perder el foco) ---
+# --- REFERENCIA: EL PROBLEMA ---
 problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', 'No definido aún.')
 
 with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True):
@@ -63,7 +73,7 @@ with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True
 st.subheader("📍 Detalles del Área")
 
 with st.container(border=True):
-    # BLOQUE 1: POBLACIÓN (3 Columnas)
+    # BLOQUE 1: POBLACIÓN
     st.markdown("##### 👥 Población Afectada")
     c1, c2, c3 = st.columns(3)
     
@@ -76,7 +86,7 @@ with st.container(border=True):
 
     st.markdown("---")
 
-    # BLOQUE 2: UBICACIÓN (2 Columnas)
+    # BLOQUE 2: UBICACIÓN
     st.markdown("##### 🌍 Localización Geográfica")
     c4, c5 = st.columns(2)
     with c4:
@@ -84,7 +94,6 @@ with st.container(border=True):
         municipio = st.text_input("Municipio / Ciudad", value=datos_zona.get('municipio', ''), placeholder="Ej: Sogamoso")
     with c5:
         vereda = st.text_input("Vereda / Localidad", value=datos_zona.get('vereda', ''), placeholder="Ej: Sector Norte")
-        # Un campo extra por si necesitan coordenadas o detalles específicos
         coordenadas = st.text_input("Coordenadas (Opcional)", value=datos_zona.get('coordenadas', ''), placeholder="Lat, Long")
 
     st.markdown("---")
@@ -95,11 +104,10 @@ with st.container(border=True):
         "Detalles físicos", 
         value=datos_zona.get('vias', ''),
         height=120,
-        placeholder="Describa el estado de las vías de acceso, condiciones climáticas relevantes o características del terreno...",
+        placeholder="Describa el estado de las vías de acceso, condiciones climáticas...",
         label_visibility="collapsed"
     )
 
-    # Botón de guardar manual para dar feedback visual
     if st.button("💾 GUARDAR ZONA DE ESTUDIO", type="primary", use_container_width=True):
         nueva_zona = {
             "poblacion_total": pob_total,
@@ -114,9 +122,9 @@ with st.container(border=True):
         st.session_state['datos_zona'] = nueva_zona
         guardar_datos_nube()
         st.toast("✅ Información de zona actualizada")
+        st.rerun() # Recarga para actualizar la barra azul
 
-# --- GUARDADO AUTOMÁTICO (Respaldo) ---
-# Si cambian valores y no hunden el botón, guardamos igual al detectar cambio
+# --- GUARDADO AUTOMÁTICO DE RESPALDO ---
 nueva_zona_auto = {
     "poblacion_total": pob_total,
     "poblacion_urbana": pob_urbana,
@@ -131,4 +139,3 @@ nueva_zona_auto = {
 if nueva_zona_auto != datos_zona:
     st.session_state['datos_zona'] = nueva_zona_auto
     guardar_datos_nube()
-    # No hacemos rerun aquí para no cortar la escritura del usuario
