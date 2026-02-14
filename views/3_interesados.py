@@ -2,61 +2,31 @@ import streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
-# 1. Inicialización de seguridad y datos
+# 1. Inicialización
 inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS (Transformación de Tabla a Panel) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    
-    /* Contenedor del Panel de Datos */
-    div[data-testid="stDataEditor"] {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 10px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-    
-    /* Estilo para Tarjetas de KPI (Resumen) */
-    .kpi-container {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-    .kpi-card {
-        flex: 1;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #f1f5f9;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .kpi-val { font-size: 24px; font-weight: 800; color: #4F8BFF; }
-    .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* Ajustes generales */
-    [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    [data-testid="stImage"] img { pointer-events: none; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA INTEGRADA ---
+# --- CABECERA ---
 col_t, col_l = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
-    
-    # Progreso visual
+    st.markdown('<div class="subtitulo-gris">Matriz de actores con semaforización de riesgos.</div>', unsafe_allow_html=True)
+    # Progreso
     tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any() if 'NOMBRE' in df_actual.columns else False
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
-    st.progress(progreso, text=f"Completitud del Análisis: {int(progreso * 100)}%")
+    st.progress(progreso, text=f"Fase de Identificación: {int(progreso * 100)}%")
 
 with col_l:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -64,54 +34,75 @@ with col_l:
 
 st.divider()
 
-# --- PANEL DE INDICADORES RÁPIDOS (KPIs) ---
-if tiene_datos:
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{len(df_actual.dropna(subset=["NOMBRE"]))}</div><div class="kpi-label">Total Actores</div></div>', unsafe_allow_html=True)
-    with c2: 
-        opos = len(df_actual[df_actual["POSICIÓN"] == "Opositor"])
-        st.markdown(f'<div class="kpi-card"><div class="kpi-val" style="color:#ef4444;">{opos}</div><div class="kpi-label">Opositores</div></div>', unsafe_allow_html=True)
-    with c3:
-        coop = len(df_actual[df_actual["POSICIÓN"] == "Cooperante"])
-        st.markdown(f'<div class="kpi-card"><div class="kpi-val" style="color:#22c55e;">{coop}</div><div class="kpi-label">Cooperantes</div></div>', unsafe_allow_html=True)
-    with c4:
-        p_alto = len(df_actual[df_actual["PODER"] == "Alto"])
-        st.markdown(f'<div class="kpi-card"><div class="kpi-val">{p_alto}</div><div class="kpi-label">Poder Alto</div></div>', unsafe_allow_html=True)
+# --- CONTEXTO ---
+problema = st.session_state.get('datos_problema', {}).get('problema_central', "No definido")
+with st.expander("📌 Contexto: Problema Central", expanded=False):
+    st.info(f"**Problema:** {problema}")
 
-# --- MATRIZ DE DATOS (EL PANEL PRINCIPAL) ---
-st.subheader("📝 Matriz de Datos")
+# --- MATRIZ PROFESIONAL (AG-GRID) ---
+st.subheader("📝 Matriz de Gestión")
 
-# Configuración de columnas para romper el look de Excel
-config_columnas = {
-    "NOMBRE": st.column_config.TextColumn("Nombre del Actor", width="medium", required=True),
-    "GRUPO": st.column_config.TextColumn("Grupo / Entidad", width="small"),
-    "POSICIÓN": st.column_config.SelectboxColumn("Posición", options=["Opositor", "Beneficiario", "Cooperante", "Perjudicado"], width="small"),
-    "EXPECTATIVA": st.column_config.TextColumn("Expectativa Principal", width="large"),
-    "CONTRIBUCION AL PROYECTO": st.column_config.TextColumn("Contribución", width="medium"),
-    "PODER": st.column_config.SelectboxColumn("Poder", options=["Alto", "Bajo"], width="small"),
-    "INTERÉS": st.column_config.SelectboxColumn("Interés", options=["Alto", "Bajo"], width="small"),
-    "ESTRATEGIA DE INVOLUCRAMIENTO": st.column_config.TextColumn("Estrategia Sugerida", disabled=True, width="medium")
+# 1. Preparar datos
+columnas = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "PODER", "INTERÉS", "ESTRATEGIA"]
+if df_actual.empty: df_actual = pd.DataFrame(columns=columnas)
+# Asegurar que existan todas las columnas
+for c in columnas:
+    if c not in df_actual.columns: df_actual[c] = ""
+df_actual = df_actual[columnas] # Reordenar
+
+# 2. Configurar la Tabla AgGrid
+gb = GridOptionsBuilder.from_dataframe(df_actual)
+gb.configure_default_column(editable=True, resizable=True, filterable=True)
+
+# --> AQUI ESTA LA MAGIA: Colores Condicionales (JavaScript inyectado)
+cell_style_posicion = JsCode("""
+function(params) {
+    if (params.value == 'Opositor') {
+        return {'backgroundColor': '#ffcccc', 'color': '#990000', 'fontWeight': 'bold'};
+    }
+    if (params.value == 'Cooperante') {
+        return {'backgroundColor': '#ccffcc', 'color': '#006600', 'fontWeight': 'bold'};
+    }
+    if (params.value == 'Beneficiario') {
+        return {'backgroundColor': '#cceeff', 'color': '#003366'};
+    }
+    return {};
 }
+""")
 
-# Preparar DataFrame
-columnas_finales = list(config_columnas.keys())
-if df_actual.empty: df_actual = pd.DataFrame(columns=columnas_finales)
-if "#" in df_actual.columns: df_actual = df_actual.drop(columns=["#"])
-for col in columnas_finales:
-    if col not in df_actual.columns: df_actual[col] = None
-df_actual = df_actual[columnas_finales]
+# Configuración de Columnas Específicas
+gb.configure_column("NOMBRE", header_name="Actor / Entidad", minWidth=200, pinned="left")
+gb.configure_column("GRUPO", header_name="Grupo", width=120)
+gb.configure_column("POSICIÓN", 
+    cellStyle=cell_style_posicion, # Aplicamos el color
+    cellEditor='agSelectCellEditor', 
+    cellEditorParams={'values': ['Opositor', 'Cooperante', 'Beneficiario', 'Perjudicado', 'Indiferente']},
+    width=130
+)
+gb.configure_column("EXPECTATIVA", width=300, wrapText=True, autoHeight=True)
+gb.configure_column("PODER", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
+gb.configure_column("INTERÉS", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
+gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'color': 'gray', 'fontStyle': 'italic'}, width=200)
 
-# Renderizado del editor con formato limpio
-df_editado = st.data_editor(
+gb.configure_selection('single', use_checkbox=False)
+gridOptions = gb.build()
+
+# 3. Mostrar Tabla
+st.caption("💡 Doble clic en una celda para editar. Los colores cambian automáticamente según la Posición.")
+grid_response = AgGrid(
     df_actual,
-    column_config=config_columnas,
-    num_rows="dynamic",
-    use_container_width=True,
-    hide_index=True, # Elimina los números de fila
-    key="editor_interesados_panel_v1"
+    gridOptions=gridOptions,
+    allow_unsafe_jscode=True, # Permitir JS para los colores
+    update_mode=GridUpdateMode.VALUE_CHANGED,
+    height=400,
+    theme='streamlit', # Opciones: 'streamlit', 'alpine', 'balham'
+    key='aggrid_interesados'
 )
 
-# Lógica de cálculo y guardado
+# 4. Recuperar y Guardar Datos
+df_modificado = grid_response['data']
+
+# Recalcular estrategias (Lógica de negocio en Python)
 def calcular_estrategia(row):
     p, i = str(row.get('PODER', '')).strip(), str(row.get('INTERÉS', '')).strip()
     if p == "Alto" and i == "Alto": return "Involucrar y mantener cerca"
@@ -120,49 +111,29 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
-if not df_editado.equals(df_actual):
-    if not df_editado.empty:
-        df_editado["ESTRATEGIA DE INVOLUCRAMIENTO"] = df_editado.apply(calcular_estrategia, axis=1)
-    st.session_state['df_interesados'] = df_editado
+# Convertir a DataFrame para procesar
+if isinstance(df_modificado, pd.DataFrame):
+    df_new = df_modificado
+else:
+    df_new = pd.DataFrame(df_modificado)
+
+# Aplicar cálculo solo si hubo cambios
+df_new["ESTRATEGIA"] = df_new.apply(calcular_estrategia, axis=1)
+
+# Guardar si hay diferencias
+if not df_new.equals(df_actual):
+    st.session_state['df_interesados'] = df_new
     guardar_datos_nube()
     st.rerun()
-
-st.write("")
-
-# --- MAPA ESTRATÉGICO (CUADRANTES ANALÍTICOS) ---
-st.subheader("📊 Mapa de Influencia")
-if tiene_datos:
-    color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
-    def obtener_lista(p, i):
-        f = df_editado[(df_editado['PODER'] == p) & (df_editado['INTERÉS'] == i) & (df_editado['NOMBRE'].notna())]
-        return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}**" for _, r in f.iterrows()] or ["*Sin actores*"]
-
-    c1, c2 = st.columns(2)
-    with c1:
-        with st.container(border=True):
-            st.error("🤝 **CONSULTAR / SATISFACER** (P:Alto / I:Bajo)")
-            for item in obtener_lista("Alto", "Bajo"): st.markdown(item)
-        with st.container(border=True):
-            st.warning("🔍 **MONITORIZAR** (P:Bajo / I:Bajo)")
-            for item in obtener_lista("Bajo", "Bajo"): st.markdown(item)
-    with c2:
-        with st.container(border=True):
-            st.success("🚀 **INVOLUCRAR / CERCA** (P:Alto / I:Alto)")
-            for item in obtener_lista("Alto", "Alto"): st.markdown(item)
-        with st.container(border=True):
-            st.info("📧 **INFORMAR** (P:Bajo / I:Alto)")
-            for item in obtener_lista("Bajo", "Alto"): st.markdown(item)
-else:
-    st.info("Complete la matriz para activar el mapa estratégico.")
 
 st.divider()
 
 # --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
-    "Analisis", value=analisis_txt, height=200, 
-    key="txt_analisis_final_panel", label_visibility="collapsed",
-    placeholder="Escriba aquí el análisis cualitativo y las estrategias de negociación..."
+    "Analisis", value=analisis_txt, height=150, 
+    key="txt_analisis_final", label_visibility="collapsed",
+    placeholder="Escriba aquí el análisis cualitativo..."
 )
 
 if analisis_actual != analisis_txt:
