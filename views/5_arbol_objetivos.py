@@ -5,16 +5,16 @@ import uuid
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Persistencia y Memoria
+# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Tarjetas y Limpieza) ---
+# --- ESTILO GLOBAL (Interfaz Limpia y Tarjetas) ---
 st.markdown("""
     <style>
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estética de Tarjetas */
+    /* Estética de Tarjetas: Fusión total con color */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -57,7 +57,7 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE NIVELES ---
+# --- CONFIGURACIÓN DE COLORES Y NIVELES ---
 CONFIG_OBJ = {
     "Fin Último": {"color": "#C1E1C1", "label": "FIN ÚLTIMO"},
     "Fines Indirectos": {"color": "#B3D9FF", "label": "FIN INDIRECTO"},
@@ -79,15 +79,12 @@ def generar_grafo_objetivos():
     
     def limpiar(t, w=45): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
-    # Nodos Especiales: Fin Último y Objetivo General
-    for sec in ["Fin Último", "Objetivo General"]:
-        if datos.get(sec):
-            node_id = "FU" if sec == "Fin Último" else "OG"
-            dot.node(node_id, limpiar(datos[sec][0]['texto']), fillcolor=CONFIG_OBJ[sec]["color"])
-
-    # Objetivo General -> Fin Último (Lógica de fondo si existen ambos)
-    if datos.get("Fin Último") and datos.get("Objetivo General"):
-        dot.edge("OG", "FU", style="invis")
+    # Nodos Centrales
+    if datos.get("Fin Último"):
+        dot.node("FU", limpiar(datos["Fin Último"][0]['texto']), fillcolor=CONFIG_OBJ["Fin Último"]["color"])
+    if datos.get("Objetivo General"):
+        dot.node("OG", limpiar(datos["Objetivo General"][0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"])
+        if datos.get("Fin Último"): dot.edge("OG", "FU", style="invis")
 
     # Ramas: Fines y Medios
     for p_sec, h_sec, p_id_base, h_id_base, edge_dir in [
@@ -98,13 +95,10 @@ def generar_grafo_objetivos():
         for i, p in enumerate(padres):
             p_node = f"{p_id_base}{i}"
             dot.node(p_node, limpiar(p['texto']), fillcolor=CONFIG_OBJ[p_sec]["color"])
-            
-            # Conexión al Objetivo General
             if datos.get("Objetivo General"):
                 if edge_dir == "forward": dot.edge("OG", p_node)
                 else: dot.edge(p_node, "OG")
             
-            # Conexión a Hijos (Indirectos)
             hijos = [h for h in datos.get(h_sec, []) if h.get('padre') == p['texto']]
             for j, h in enumerate(hijos):
                 h_node = f"{h_id_base}{i}_{j}"
@@ -118,7 +112,7 @@ def generar_grafo_objetivos():
 def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
-    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     nuevo = st.text_area("t", value=item['texto'], key=f"obj_txt_{id_u}", label_visibility="collapsed")
     if st.button("🗑️", key=f"obj_btn_{id_u}"):
         st.session_state['arbol_objetivos'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
@@ -148,7 +142,6 @@ with st.sidebar:
                 }
                 st.session_state['arbol_objetivos'][o_sec].append(nueva)
         
-        # Fin último por defecto
         if not st.session_state['arbol_objetivos']["Fin Último"]:
             st.session_state['arbol_objetivos']["Fin Último"] = [{"texto": "MEJORAR LA CALIDAD DE VIDA", "id_unico": str(uuid.uuid4())}]
         
@@ -174,9 +167,8 @@ with st.sidebar:
 
 # --- PANEL PRINCIPAL ---
 if not hay_datos:
-    st.info("Utilice el botón en la barra lateral para importar los datos desde el Árbol de Problemas o cree fichas manualmente.")
+    st.info("Utilice el botón en la barra lateral para importar los datos desde el Árbol de Problemas.")
 else:
-    # 1. Visualización
     grafo = generar_grafo_objetivos()
     if grafo: st.image(grafo.pipe(format='png'), use_container_width=True)
     
@@ -192,7 +184,7 @@ else:
         hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
         max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
 
-        # ORDEN PARA FINES: Indirectos arriba, Directos abajo
+        # FINES: Indirectos (hijos) arriba, Directos (padres) abajo
         if "Fin" in tipo_padre:
             for h_idx in range(max_h - 1, -1, -1):
                 cols = st.columns(len(padres))
@@ -205,7 +197,7 @@ else:
             for i, p_data in enumerate(padres):
                 with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
         
-        # ORDEN PARA MEDIOS: Directos arriba, Indirectos abajo (Igual que causas)
+        # MEDIOS: Directos (padres) arriba, Indirectos (hijos) abajo
         else:
             cols_p = st.columns(len(padres))
             for i, p_data in enumerate(padres):
@@ -218,7 +210,6 @@ else:
                             idx_real, h_data = hijos_por_p[p_idx][h_idx]
                             render_card_obj(tipo_hijo, h_data, idx_real)
 
-    # Construcción Visual del Editor
     # 1. Fines
     pc_fu = st.session_state['arbol_objetivos'].get("Fin Último", [])
     if pc_fu: 
@@ -227,7 +218,7 @@ else:
     render_seccion_jerarquica("Fines Directos", "Fines Indirectos")
     
     st.markdown("---")
-    # 2. Objetivo
+    # 2. Objetivo General
     pc_og = st.session_state['arbol_objetivos'].get("Objetivo General", [])
     if pc_og: 
         st.write("**Objetivo General**")
