@@ -52,7 +52,7 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (ALTA DEFINICIÓN) ---
+# --- MOTOR DE DIBUJO (RELACIÓN AJUSTADA 100-50) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
@@ -64,17 +64,19 @@ def generar_grafo_problemas():
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
     import textwrap
+    # Limpiador estándar ajustado a 50 caracteres (Causas y Efectos)
     def limpiar_estandar(t): 
-        return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=100))
+        return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=50))
     
-    # 1. PROBLEMA CENTRAL (Ancho 200)
+    # 1. PROBLEMA CENTRAL ajustado a 100 caracteres
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
-        txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=200))
+        # Relación 100 para que sea el doble de ancho que las demás pero no infinito
+        txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=100))
         dot.node('PC', txt_ancho, shape='box', fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.4,0.2')
 
-    # 2. EFECTOS
+    # 2. EFECTOS (Ancho 50)
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
@@ -86,7 +88,7 @@ def generar_grafo_problemas():
                 dot.node(f"EI{i}_{j}", limpiar_estandar(ei.get('texto')), shape='box', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(f"ED{i}", f"EI{i}_{j}")
 
-    # 3. CAUSAS (Letra Blanca Forzada)
+    # 3. CAUSAS (Ancho 50)
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
     for i, cd in enumerate(ca_dir):
@@ -138,10 +140,9 @@ with st.sidebar:
 if not any(st.session_state['arbol_tarjetas'].values()):
     st.warning("Agregue el Problema Principal en el panel lateral.")
 else:
-    # SOLUCIÓN DE VISUALIZACIÓN: Usar st.image en lugar de st.graphviz_chart
+    # Mostramos la imagen procesada en alta calidad
     grafo_final = generar_grafo_problemas()
     if grafo_final:
-        # Generamos la imagen en binario y la mostramos con el ancho total del contenedor
         st.image(grafo_final.pipe(format='png'), use_container_width=True)
     
     st.divider()
@@ -193,7 +194,7 @@ else:
         for i, cd in enumerate(ca_dir):
             with cols_ca[i]:
                 render_card("Causas Directas", cd, i)
-                txt_pc = cd.get('texto', cd) if isinstance(cd, dict) else cd
+                txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
                 for idx_hc, hc in enumerate(ca_ind):
                     if isinstance(hc, dict) and hc.get('padre') == txt_pc:
                         render_card("Causas Indirectas", hc, idx_hc)
