@@ -6,29 +6,6 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- AJUSTE DE VISUALIZACIÓN COMPACTA ---
-    st.markdown("""
-        <style>
-        /* Eliminar el espacio superior (header) de Streamlit */
-        header[data-testid="stHeader"] { display: none !important; }
-        
-        /* Reducir el padding del contenedor principal */
-        .block-container {
-            padding-top: 1rem !important; 
-            padding-bottom: 0rem !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-        }
-
-        /* Títulos más compactos */
-        h1, h2, h3 { 
-            margin-top: 0px !important; 
-            padding-top: 0px !important; 
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # --- INICIALIZACIÓN DE VARIABLES (ORIGINAL SIN CAMBIOS) ---
     if 'autenticado' not in st.session_state: st.session_state['autenticado'] = False
     if 'usuario_id' not in st.session_state: st.session_state['usuario_id'] = ""
     if 'grupo_id' not in st.session_state: st.session_state['grupo_id'] = ""
