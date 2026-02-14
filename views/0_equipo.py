@@ -50,7 +50,6 @@ st.divider()
 
 # --- BLOQUE 1: FICHAS VISUALES CON BLINDAJE ---
 integrantes_raw = st.session_state.get('integrantes', [])
-# Filtro 1: Asegurar que solo procesamos diccionarios válidos
 integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
 if integrantes_validos:
@@ -58,9 +57,9 @@ if integrantes_validos:
     for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
             try:
-                # Filtro 2: Manejar casos donde el campo sea None o no exista
+                # Recuperar datos con valores por defecto si son None
                 nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
-                nombre = str(nombre_raw).upper() # Forzamos a texto antes de .upper()
+                nombre = str(nombre_raw).upper()
                 
                 tel = persona.get("Teléfono") or "N/A"
                 email = persona.get("Correo Electrónico") or "N/A"
@@ -73,16 +72,23 @@ if integrantes_validos:
                     </div>
                 """, unsafe_allow_html=True)
             except Exception:
-                # Filtro 3: Si algo falla con esta ficha, simplemente la saltamos
                 continue
 else:
     st.info("No hay integrantes registrados.")
 
 st.divider()
 
-# --- BLOQUE 2: EDITOR CON LIMPIEZA PROFUNDA AL GUARDAR ---
+# --- BLOQUE 2: EDITOR CON ORDEN DE COLUMNAS AJUSTADO ---
 with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
-    df_equipo = pd.DataFrame(integrantes_validos) if integrantes_validos else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
+    # Definimos el orden deseado de las columnas
+    columnas_orden = ["Nombre Completo", "Teléfono", "Correo Electrónico"]
+    
+    if integrantes_validos:
+        # Creamos el DataFrame y forzamos el orden de las columnas
+        df_equipo = pd.DataFrame(integrantes_validos)
+        df_equipo = df_equipo.reindex(columns=columnas_orden)
+    else:
+        df_equipo = pd.DataFrame(columns=columnas_orden)
 
     edited_df = st.data_editor(
         df_equipo,
@@ -92,13 +98,13 @@ with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
     )
 
     if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
-        # Limpieza radical: eliminamos filas nulas, vacías o que solo tengan espacios
         lista_nueva = edited_df.to_dict('records')
+        # Limpieza de filas vacías antes de guardar
         st.session_state['integrantes'] = [
             r for r in lista_nueva 
             if r and any(str(v).strip() for v in r.values() if v is not None)
         ]
         
         guardar_datos_nube()
-        st.success("¡Base de datos purificada!")
+        st.success("¡Orden de columnas actualizado y datos guardados!")
         st.rerun()
