@@ -8,55 +8,29 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS "NUCLEAR" (PARA OBLIGAR AL SCROLL A APARECER) ---
+# --- ESTILOS CSS (DISEÑO MINIMALISTA SIN BORDES EXTERNOS) ---
 st.markdown("""
     <style>
-    /* 1. Ajuste de padding inferior para que no se corte el final */
     .block-container { padding-bottom: 150px !important; }
 
-    /* 2. FORZAR BARRAS DE SCROLL SIEMPRE VISIBLES (GLOBAL) */
-    /* Esto afecta a toda la app para asegurar que la tabla no se escape */
-    ::-webkit-scrollbar {
-        -webkit-appearance: none;
-        width: 14px !important;  /* Más gruesa verticalmente */
-        height: 14px !important; /* Más gruesa horizontalmente */
-        display: block !important;
-        background: #f1f1f1;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background-color: #888 !important; /* Color gris oscuro visible */
-        border-radius: 4px;
-        border: 2px solid #f1f1f1;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background-color: #555 !important; /* Más oscuro al tocar */
-    }
-
-    /* Compatibilidad con Firefox */
-    * {
-        scrollbar-width: auto !important;
-        scrollbar-color: #888 #f1f1f1 !important;
-    }
-
-    /* 3. Estilos de Títulos y KPIs */
+    /* Títulos */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
+    /* QUITAR BORDE EXTERNO DE LA TABLA (Para que se vea más ligera) */
+    div[data-testid="stDataEditor"] {
+        border: none !important; /* Sin borde */
+        box-shadow: none !important; /* Sin sombra */
+        background-color: transparent !important;
+    }
+
+    /* KPIs Limpios */
     .kpi-card {
-        background: white; padding: 15px; border-radius: 10px;
-        border: 1px solid #f1f5f9; text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        background: #f8f9fa; padding: 15px; border-radius: 8px;
+        text-align: center; border: 1px solid #eee;
     }
     .kpi-val { font-size: 24px; font-weight: 800; color: #000000; }
-    .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-    
-    /* Contenedor de tabla */
-    div[data-testid="stDataEditor"] {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
+    .kpi-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
 
     [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
@@ -79,7 +53,7 @@ with col_l:
 
 st.divider()
 
-# --- MIGRACIÓN DE ICONOS ---
+# --- ACTUALIZACIÓN DE DATOS (ICONOS) ---
 if not df_actual.empty:
     mapeo_iconos = {
         "Opositor": "🔴 Opositor", "Cooperante": "🟢 Cooperante", 
@@ -98,7 +72,7 @@ if tiene_datos:
     p_alto = len(df_actual[df_actual["PODER"].astype(str).str.contains("Alto", case=False, na=False)])
 
     c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{total}</div><div class="kpi-label">Total Actores</div></div>', unsafe_allow_html=True)
+    with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{total}</div><div class="kpi-label">Total</div></div>', unsafe_allow_html=True)
     with c2: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{opos}</div><div class="kpi-label">Opositores</div></div>', unsafe_allow_html=True)
     with c3: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{coop}</div><div class="kpi-label">Cooperantes</div></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{p_alto}</div><div class="kpi-label">Poder Alto</div></div>', unsafe_allow_html=True)
@@ -111,13 +85,13 @@ opciones_niv = ["⚡ Alto", "🔅 Bajo"]
 
 config_columnas = {
     "NOMBRE": st.column_config.TextColumn("👤 Nombre del Actor", width="medium", required=True),
-    "GRUPO": st.column_config.TextColumn("🏢 Grupo / Entidad", width="small"),
+    "GRUPO": st.column_config.TextColumn("🏢 Grupo", width="small"),
     "POSICIÓN": st.column_config.SelectboxColumn("🚩 Posición", options=opciones_pos, width="small"),
-    "EXPECTATIVA": st.column_config.TextColumn("🎯 Expectativa Principal", width="large"),
+    "EXPECTATIVA": st.column_config.TextColumn("🎯 Expectativa", width="large"),
     "CONTRIBUCION AL PROYECTO": st.column_config.TextColumn("💡 Contribución", width="medium"),
     "PODER": st.column_config.SelectboxColumn("⚡ Poder", options=opciones_niv, width="small"),
     "INTERÉS": st.column_config.SelectboxColumn("👁️ Interés", options=opciones_niv, width="small"),
-    "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia Sugerida", disabled=True, width="medium") # Ajustado a medium
+    "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia", disabled=True, width="medium")
 }
 
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
@@ -126,28 +100,30 @@ for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_actual = df_actual[cols_orden]
 
+# Renderizado Nativo (Limpio)
 df_editado = st.data_editor(
     df_actual,
     column_config=config_columnas,
     num_rows="dynamic",
-    use_container_width=True, # IMPORTANTE: Intenta usar todo el ancho
+    use_container_width=True,
     hide_index=True,
-    key="editor_interesados_v_final_scroll"
+    key="editor_interesados_clean_v2"
 )
 
-# --- LÓGICA DE ESTRATEGIA (ACTUALIZADA SEGÚN TU SOLICITUD) ---
+# --- LÓGICA CORREGIDA (TEXTOS EXACTOS) ---
 def calcular_estrategia(row):
-    # Limpieza de iconos para comparar texto limpio
+    # Limpiar iconos para comparar
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     
-    # Lógica exacta solicitada:
+    # Textos EXACTOS solicitados
     if p == "Alto" and i == "Bajo": return "INVOLUCRAR - MANTENER SATISFECHOS"
     if p == "Alto" and i == "Alto": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
     if p == "Bajo" and i == "Alto": return "MANTENER INFORMADOS"
     if p == "Bajo" and i == "Bajo": return "MONITOREAR"
     return ""
 
+# Guardado y Actualización
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
         df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
@@ -157,7 +133,7 @@ if not df_editado.equals(df_actual):
 
 st.write("")
 
-# --- MAPA ESTRATÉGICO ---
+# --- MAPA ESTRATÉGICO (CON TEXTOS CORREGIDOS) ---
 st.subheader("📊 Mapa de Influencia")
 if tiene_datos:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
