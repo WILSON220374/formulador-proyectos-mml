@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import os
 from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube
 
@@ -6,14 +6,14 @@ from session_state import inicializar_session, conectar_db, cargar_datos_nube, g
 st.set_page_config(page_title="JC Flow - Formulador MML", layout="wide")
 inicializar_session()
 
-# --- PURIFICACIÓN DE RAÍZ (INICIO ABSOLUTO) ---
-# Limpiamos la lista de integrantes de cualquier valor nulo cada vez que la app se refresca
+# --- BLINDAJE EXTREMO AL INICIO ---
+# Limpiamos la memoria local antes de que cualquier otra cosa ocurra
 if 'integrantes' in st.session_state:
-    st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if isinstance(p, dict) and p]
+    if isinstance(st.session_state['integrantes'], list):
+        st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if isinstance(p, dict) and p is not None]
 
 # --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
-    
     st.markdown("""
         <style>
         .titulo-acceso { font-size: 38px !important; font-weight: 800 !important; color: #4F8BFF; text-align: center; margin-bottom: 20px; }
@@ -24,7 +24,6 @@ if not st.session_state['autenticado']:
     """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
-    
     with col2:
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True)
@@ -36,7 +35,6 @@ if not st.session_state['autenticado']:
         with st.container(border=True):
             st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
-            
             st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
@@ -48,8 +46,9 @@ if not st.session_state['autenticado']:
                         st.session_state['autenticado'] = True
                         st.session_state['usuario_id'] = u
                         cargar_datos_nube(u)
-                        # Limpieza inmediata tras descargar de la nube
-                        st.session_state['integrantes'] = [p for p in st.session_state.get('integrantes', []) if isinstance(p, dict) and p]
+                        # Limpieza inmediata post-descarga
+                        if 'integrantes' in st.session_state:
+                            st.session_state['integrantes'] = [i for i in st.session_state['integrantes'] if isinstance(i, dict) and i]
                         st.rerun()
                     else:
                         st.error("Credenciales incorrectas.")
@@ -61,24 +60,32 @@ if not st.session_state['autenticado']:
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
-    # --- BLINDAJE DE SEGURIDAD EN SIDEBAR ---
-    # Volvemos a filtrar aquí para asegurar que 'persona' NUNCA sea None en el bucle
-    integrantes_raw = st.session_state.get('integrantes', [])
-    integrantes = [p for p in integrantes_raw if isinstance(p, dict) and p]
+    # BOTÓN DE REPARACIÓN DE EMERGENCIA
+    if st.button("🚨 REPARAR BASE DE DATOS", use_container_width=True, help="Elimina registros corruptos de la nube"):
+        if 'integrantes' in st.session_state:
+            # Filtramos y guardamos inmediatamente en la nube
+            st.session_state['integrantes'] = [i for i in st.session_state['integrantes'] if isinstance(i, dict) and i]
+            guardar_datos_nube()
+            st.success("Base de datos saneada. El error no debería volver.")
+            st.rerun()
+
+    st.divider()
     
-    if integrantes:
-        for persona in integrantes:
-            # Verificación final antes de usar .get()
-            nombre_full = persona.get("Nombre Completo", "").strip()
-            if nombre_full:
-                nombre_pila = nombre_full.split()[0].upper()
-                st.markdown(f"**👤 {nombre_pila}**")
+    # Renderizado ultra-seguro de integrantes
+    integrantes_raw = st.session_state.get('integrantes', [])
+    if isinstance(integrantes_raw, list):
+        for persona in integrantes_raw:
+            if isinstance(persona, dict) and persona is not None:
+                nombre_full = persona.get("Nombre Completo", "").strip()
+                if nombre_full:
+                    nombre_pila = nombre_full.split()[0].upper()
+                    st.markdown(f"**👤 {nombre_pila}**")
                 
     st.divider()
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
         guardar_datos_nube()
         st.toast("✅ Avance guardado", icon="🚀")
-    st.divider()
+    
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
         st.rerun()
