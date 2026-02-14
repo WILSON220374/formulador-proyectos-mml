@@ -34,7 +34,7 @@ with col_titulo:
     st.title("🌳 4. Árbol de Problemas")
 with col_logo:
     if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", width="stretch")
+        st.image("unnamed-1.jpg", use_container_width=True)
 
 # --- CONFIGURACIÓN DE COLORES ---
 CONFIG_PROB = {
@@ -58,13 +58,11 @@ def generar_grafo_problemas():
         import textwrap
         return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=25))
 
-    # 1. Problema Principal
     pc = datos.get("Problema Principal", [])
     if pc:
         txt = pc[0].get('texto', pc[0]) if isinstance(pc[0], dict) else pc[0]
         dot.node('PC', limpiar(txt), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontname='Arial Bold')
 
-    # 2. EFECTOS
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
@@ -78,7 +76,6 @@ def generar_grafo_problemas():
                 dot.node(id_ei, limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(id_ed, id_ei)
 
-    # 3. CAUSAS
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
     for i, cd in enumerate(ca_dir):
@@ -91,7 +88,6 @@ def generar_grafo_problemas():
                 id_ci = f"CI{i}_{j}"
                 dot.node(id_ci, limpiar(ci.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
                 dot.edge(id_ci, id_cd)
-
     return dot
 
 # --- SIDEBAR ---
@@ -117,7 +113,7 @@ with st.sidebar:
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo:
-        st.download_button("🖼️ Descargar Árbol PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", width="stretch")
+        st.download_button("🖼️ Descargar Árbol PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
 # --- PANEL DE EDICIÓN ---
 def render_card(seccion, item, idx):
@@ -140,27 +136,24 @@ if not any(st.session_state['arbol_tarjetas'].values()):
 else:
     st.subheader("📊 Visualización Estructural")
     st.graphviz_chart(generar_grafo_problemas())
-
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (Lógica de Espejo: Hijos arriba en su fila, Padres abajo en la suya)
+    # 1. EFECTOS (Unificación Vertical: Crecimiento hacia arriba)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
     if ef_dir:
-        # FILA DE HIJOS (Arriba)
-        cols_h = st.columns(len(ef_dir))
+        cols_ef = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
-            with cols_h[i]:
+            with cols_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
-                for idx_h, h in enumerate(ef_ind):
-                    if isinstance(h, dict) and h.get('padre') == txt_p:
-                        render_card("Efectos Indirectos", h, idx_h)
-        # FILA DE PADRES (Abajo - Alineados)
-        cols_p = st.columns(len(ef_dir))
-        for i, ed in enumerate(ef_dir):
-            with cols_p[i]: render_card("Efectos Directos", ed, i)
+                hijos = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
+                # Renderizar hijos en reversa (el más nuevo queda arriba de todo)
+                for idx_h, h in reversed(hijos):
+                    render_card("Efectos Indirectos", h, idx_h)
+                # El padre queda en la base de la columna (más cerca del problema central)
+                render_card("Efectos Directos", ed, i)
 
     st.markdown("---")
     # 2. PROBLEMA CENTRAL
@@ -169,17 +162,17 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS (Lógica Normal: Padres arriba, Hijos abajo)
+    # 3. CAUSAS (Unificación Vertical: Crecimiento hacia abajo)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
     if ca_dir:
-        cols_cp = st.columns(len(ca_dir))
+        cols_ca = st.columns(len(ca_dir))
         for i, cd in enumerate(ca_dir):
-            with cols_cp[i]: render_card("Causas Directas", cd, i)
-        cols_ch = st.columns(len(ca_dir))
-        for i, cd in enumerate(ca_dir):
-            with cols_ch[i]:
+            with cols_ca[i]:
+                # El padre queda arriba (cerca del problema central)
+                render_card("Causas Directas", cd, i)
+                # Los hijos se apilan hacia abajo
                 txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
                 for idx_hc, hc in enumerate(ca_ind):
                     if isinstance(hc, dict) and hc.get('padre') == txt_pc:
