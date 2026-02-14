@@ -92,7 +92,7 @@ with st.sidebar:
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
         for persona in integrantes:
-            # AJUSTE DE SEGURIDAD: Verificamos que 'persona' sea un diccionario válido
+            # AJUSTE DE SEGURIDAD: Validamos que persona sea un diccionario antes de usar .get()
             if isinstance(persona, dict):
                 nombre_full = persona.get("Nombre Completo", "").strip()
                 if nombre_full:
