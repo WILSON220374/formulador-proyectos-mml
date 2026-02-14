@@ -8,51 +8,53 @@ inicializar_session()
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
+    /* 1. TARJETAS MÁS GRANDES */
     .ficha-equipo {
         background-color: #f0f5ff;
-        border-left: 8px solid #4F8BFF;
-        padding: 15px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 120px;
+        border-left: 10px solid #4F8BFF; /* Borde más grueso */
+        padding: 20px; /* Más relleno */
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 4px 4px 10px rgba(0,0,0,0.08);
+        height: 160px; /* AUMENTADO DE 120px A 160px */
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 18px !important;
+        font-size: 24px !important; /* AUMENTADO DE 18px A 24px */
         color: #1E3A8A;
-        font-weight: bold;
-        line-height: 1.1;
-        margin-bottom: 5px;
+        font-weight: 800;
+        line-height: 1.2;
+        margin-bottom: 8px;
     }
     .detalle-pequeno {
-        font-size: 13px !important;
+        font-size: 15px !important; /* AUMENTADO DE 13px A 15px */
         color: #555;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
     }
+    
     .titulo-principal {
-        font-size: 38px !important; 
+        font-size: 42px !important; 
         font-weight: 800 !important; 
         color: #4F8BFF;
         text-align: left;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
+
+    /* Estilo del formulario (más compacto visualmente) */
     div[data-testid="stForm"] {
         border: 1px solid #eee;
-        padding: 20px;
-        border-radius: 10px;
+        padding: 15px;
+        border-radius: 12px;
         background-color: #fafafa;
     }
     
-    /* --- HACK DEFINITIVO PARA DESACTIVAR EL CLICK EN LA IMAGEN --- */
-    /* Esto hace que la imagen ignore el ratón, evitando que se agrande */
+    /* --- HACK PARA DESACTIVAR EL CLICK EN LA IMAGEN --- */
     [data-testid="stImage"] img {
         pointer-events: none;
         user-select: none;
     }
-    /* Ocultamos también el botón por si acaso */
     [data-testid="StyledFullScreenButton"] {
         display: none !important;
     }
@@ -60,7 +62,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SECCIÓN SUPERIOR: TÍTULO Y TARJETAS (Ancho Completo)
+# SECCIÓN SUPERIOR: TÍTULO Y TARJETAS (MÁS GRANDES)
 # ---------------------------------------------------------
 st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
@@ -78,6 +80,7 @@ integrantes_raw = st.session_state.get('integrantes', [])
 integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
 if integrantes_validos:
+    # Mantenemos 3 columnas pero el CSS las hace ver más robustas
     cols = st.columns(3) 
     for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
@@ -102,32 +105,34 @@ else:
 st.divider()
 
 # ---------------------------------------------------------
-# SECCIÓN INFERIOR: IMAGEN (IZQ) vs FORMULARIO (DER)
+# SECCIÓN INFERIOR: IMAGEN Y FORMULARIO (MÁS PEQUEÑOS Y CENTRADOS)
 # ---------------------------------------------------------
-col_img, col_form = st.columns([1, 1.5], gap="large")
+# Usamos columnas vacías a los lados (0.5 y 0.5) para "comprimir" el contenido en el centro
+col_izq_vacia, col_img, col_form, col_der_vacia = st.columns([0.5, 1.5, 2.5, 0.5])
 
-# --- COLUMNA 1: IMAGEN (ESTÁTICA, NO CLICKEABLE) ---
+# --- COLUMNA IMAGEN (Reducida visualmente por las columnas laterales) ---
 with col_img:
-    st.write("") 
+    st.markdown("<br>", unsafe_allow_html=True) # Un pequeño espacio arriba para alinear
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
         st.info("Logo JC Flow")
 
-# --- COLUMNA 2: FORMULARIO DE REGISTRO ---
+# --- COLUMNA FORMULARIO (Reducida visualmente) ---
 with col_form:
-    st.markdown("### 📝 Registrar Nuevo Integrante")
+    st.markdown("##### 📝 Registrar Nuevo Integrante") # Título un poco más pequeño (h5)
     
     with st.form("form_registro", clear_on_submit=True):
+        # Campos apilados para que el formulario sea más estrecho y alto, o en columnas compactas
         c1, c2 = st.columns(2)
         with c1:
-            nuevo_nombre = st.text_input("Nombre Completo *")
+            nuevo_nombre = st.text_input("Nombre *")
             nuevo_tel = st.text_input("Teléfono")
         with c2:
-            nuevo_email = st.text_input("Correo Electrónico")
+            nuevo_email = st.text_input("Email")
             st.write("") 
         
-        submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("💾 GUARDAR", type="primary", use_container_width=True)
         
         if submitted:
             if nuevo_nombre:
@@ -145,4 +150,4 @@ with col_form:
                 st.toast(f"✅ {nuevo_nombre} agregado correctamente")
                 st.rerun()
             else:
-                st.error("⚠️ El nombre es obligatorio.")
+                st.error("⚠️ Nombre obligatorio.")
