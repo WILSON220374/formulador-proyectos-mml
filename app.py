@@ -89,16 +89,18 @@ if not st.session_state['autenticado']:
 # --- SIDEBAR Y NAVEGACIÓN ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
-    integrantes = st.session_state.get('integrantes', [])
+    
+    # FILTRO DE SEGURIDAD: Solo procesamos elementos que sean diccionarios válidos
+    integrantes_raw = st.session_state.get('integrantes', [])
+    integrantes = [p for p in integrantes_raw if isinstance(p, dict)]
+    
     if integrantes:
         for persona in integrantes:
-            # AJUSTE DE SEGURIDAD: Validamos que persona sea un diccionario antes de usar .get()
-            if isinstance(persona, dict):
-                nombre_full = persona.get("Nombre Completo", "").strip()
-                if nombre_full:
-                    nombre_pila = nombre_full.split()[0].upper()
-                    st.markdown(f"**👤 {nombre_pila}**")
-                    
+            nombre_full = persona.get("Nombre Completo", "").strip()
+            if nombre_full:
+                nombre_pila = nombre_full.split()[0].upper()
+                st.markdown(f"**👤 {nombre_pila}**")
+                
     st.divider()
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
         guardar_datos_nube()
