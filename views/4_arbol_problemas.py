@@ -7,9 +7,13 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Interfaz Limpia y Sin Botón de Expansión) ---
+# --- ESTILO GLOBAL ACTUALIZADO ---
 st.markdown("""
     <style>
+    /* Estilos de Títulos Estándar (Igual que Interesados/Zona) */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+
     /* Estética de Tarjetas: Fusión total con color */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
@@ -23,10 +27,9 @@ st.markdown("""
         min-height: 100px !important;
     }
 
-    /* OCULTAR EL BOTÓN DE PANTALLA COMPLETA (FULLSCREEN) */
-    button[title="View fullscreen"] {
-        display: none !important;
-    }
+    /* Ajustes de imagen y ocultar botones innecesarios */
+    [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
+    button[title="View fullscreen"] { display: none !important; }
     
     .main .stButton button {
         border: none !important;
@@ -40,13 +43,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ---
-col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
-with col_titulo:
-    st.title("🌳 4. Árbol de Problemas")
-with col_logo:
-    if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+# --- ENCABEZADO ESTÁNDAR (TEXTO IZQUIERDA, LOGO DERECHA) ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Identificación del problema central, sus causas raíces y efectos directos.</div>', unsafe_allow_html=True)
+    
+    # Progreso basado en si hay tarjetas creadas
+    hay_tarjetas = any(st.session_state['arbol_tarjetas'].values())
+    progreso = 1.0 if hay_tarjetas else 0.0
+    st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
+
+with col_img:
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
+
+st.divider()
+
+# =========================================================
+# TODA LA LÓGICA SIGUIENTE SE MANTIENE EXACTAMENTE IGUAL
+# =========================================================
 
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO\nINDIRECTO"},
@@ -153,7 +169,7 @@ with st.sidebar:
     if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
-if not any(st.session_state['arbol_tarjetas'].values()):
+if not hay_tarjetas:
     st.warning("Inicie con el Problema Principal.")
 else:
     grafo_f = generar_grafo_problemas()
