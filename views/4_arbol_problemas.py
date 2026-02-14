@@ -8,7 +8,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO DE LA INTERFAZ ---
+# --- ESTILO DE LA INTERFAZ (Alineación y Estabilidad) ---
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
@@ -25,7 +25,7 @@ st.markdown("""
         font-size: 1.2rem !important;
         margin-top: -10px !important;
     }
-    /* Espaciador invisible para mantener la simetría horizontal */
+    /* Espaciador invisible para nivelar los padres en Efectos */
     .spacer-web {
         height: 190px; 
         margin-bottom: 20px;
@@ -34,7 +34,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON LOGO ---
+# --- ENCABEZADO ---
 col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
 with col_titulo:
     st.title("🌳 4. Árbol de Problemas")
@@ -51,7 +51,7 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (GRAPHVIZ) ---
+# --- MOTOR DE DIBUJO PROFESIONAL (GRAPHVIZ) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
@@ -60,7 +60,7 @@ def generar_grafo_problemas():
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
              fontsize='22', fontname='Arial Bold', fontcolor='#1E3A8A')
     
-    # rankdir='BT' (Bottom to Top) para flujo técnico correcto
+    # rankdir='BT' para que las causas suban al problema y el problema a los efectos
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
 
     def limpiar(t): 
@@ -69,8 +69,7 @@ def generar_grafo_problemas():
         return "\n".join(textwrap.wrap(t, width=25))
 
     def get_txt(it):
-        if isinstance(it, dict): return it.get('texto', '')
-        return str(it)
+        return it.get('texto', '') if isinstance(it, dict) else str(it)
 
     # 1. Problema Principal
     p_principal = datos.get("Problema Principal", [])
@@ -86,13 +85,13 @@ def generar_grafo_problemas():
         txt_ed = get_txt(ed)
         id_ed = f"ED{i}"
         dot.node(id_ed, limpiar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
-        dot.edge('PC', id_ed) # PC -> Efecto Directo
+        dot.edge('PC', id_ed) # Conexión limpia usando IDs
         
         for j, ei in enumerate(ef_ind):
             if isinstance(ei, dict) and ei.get('padre') == txt_ed:
                 id_ei = f"EI{i}_{j}"
                 dot.node(id_ei, limpiar(ei.get('texto', '')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
-                dot.edge(id_ed, id_ei) # Efecto Directo -> Efecto Indirecto
+                dot.edge(id_ed, id_ei)
 
     # 3. CAUSAS (Hacia abajo)
     ca_dir = datos.get("Causas Directas", [])
@@ -101,17 +100,17 @@ def generar_grafo_problemas():
         txt_cd = get_txt(cd)
         id_cd = f"CD{i}"
         dot.node(id_cd, limpiar(txt_cd), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Directas"]["color"])
-        dot.edge(id_cd, 'PC') # Causa Directa -> Problema
+        dot.edge(id_cd, 'PC') # Solo una conexión por nodo para evitar duplicidad
         
         for j, ci in enumerate(ca_ind):
             if isinstance(ci, dict) and ci.get('padre') == txt_cd:
                 id_ci = f"CI{i}_{j}"
                 dot.node(id_ci, limpiar(ci.get('texto', '')), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
-                dot.edge(id_ci, id_cd) # Causa Indirecta -> Causa Directa
+                dot.edge(id_ci, id_cd)
 
     return dot
 
-# --- SIDEBAR ---
+# --- SIDEBAR: GESTIÓN DE FICHAS ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_PROB.keys()))
@@ -121,11 +120,11 @@ with st.sidebar:
         padre_asociado = None
         
         if "Indirectas" in tipo_sel or "Indirectos" in tipo_sel:
-            padre_key = "Efectos Directos" if "Efectos" in tipo_sel else "Causas Directas"
-            items_p = st.session_state['arbol_tarjetas'].get(padre_key, [])
+            p_key = "Efectos Directos" if "Efectos" in tipo_sel else "Causas Directas"
+            items_p = st.session_state['arbol_tarjetas'].get(p_key, [])
             opciones_p = [it.get('texto', it) if isinstance(it, dict) else it for it in items_p]
             if opciones_p:
-                padre_asociado = st.selectbox(f"Vincular a {CONFIG_PROB[padre_key]['label']}:", opciones_p)
+                padre_asociado = st.selectbox(f"Vincular a {CONFIG_PROB[p_key]['label']}:", opciones_p)
         
         if st.form_submit_button("Generar Ficha") and texto_input:
             nueva_ficha = {"texto": texto_input, "id_unico": str(uuid.uuid4())}
@@ -147,6 +146,7 @@ with st.sidebar:
 
 # --- PANEL DE EDICIÓN ---
 def render_card(seccion, item, idx):
+    # Escudo contra KeyError: Asigna ID a fichas antiguas automáticamente
     if not isinstance(item, dict) or 'id_unico' not in item:
         texto = item.get('texto', item) if isinstance(item, dict) else item
         padre = item.get('padre') if isinstance(item, dict) else None
@@ -168,7 +168,7 @@ def render_card(seccion, item, idx):
         guardar_datos_nube()
 
 if not any(st.session_state['arbol_tarjetas'].values()):
-    st.warning("Agregue el Problema Principal en el panel lateral.")
+    st.warning("Comience agregando el Problema Principal.")
 else:
     st.subheader("📊 Visualización Estructural")
     with st.container(border=True):
@@ -177,58 +177,49 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (FILAS INDEPENDIENTES PARA ALINEACIÓN)
+    # 1. EFECTOS: Lógica de crecimiento hacia arriba con base fija
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
-    ef_directos = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
-    ef_indirectos = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
+    ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
+    ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
     
-    if ef_directos:
-        # Calcular el máximo de hijos para crear espaciadores
-        counts = [sum(1 for h in ef_indirectos if isinstance(h, dict) and h.get('padre') == (ed.get('texto') if isinstance(ed, dict) else ed)) for ed in ef_directos]
+    if ef_dir:
+        # Calculamos la altura máxima de la fila para nivelar los padres
+        counts = [sum(1 for h in ef_ind if isinstance(h, dict) and h.get('padre') == (ed.get('texto') if isinstance(ed, dict) else ed)) for ed in ef_dir]
         max_h = max(counts) if counts else 0
 
-        # FILA SUPERIOR: HIJOS (con espaciadores para empujar hacia el padre)
-        cols_h = st.columns(len(ef_directos))
-        for i, ed in enumerate(ef_directos):
-            with cols_h[i]:
-                p_txt = ed.get('texto') if isinstance(ed, dict) else ed
-                mis_hijos = [(idx, h) for idx, h in enumerate(ef_indirectos) if isinstance(h, dict) and h.get('padre') == p_txt]
+        cols_ef = st.columns(len(ef_dir))
+        for i, ed in enumerate(ef_dir):
+            with cols_ef[i]:
+                txt_p = ed.get('texto') if isinstance(ed, dict) else ed
+                mis_hijos = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
                 
-                # Espaciadores para que el padre no suba
+                # A. ESPACIADORES: Rellenan el vacío superior para empujar el contenido hacia abajo
                 for _ in range(max_h - len(mis_hijos)):
                     st.markdown('<div class="spacer-web"></div>', unsafe_allow_html=True)
                 
-                # Renderizar hijos en orden natural (el nuevo va abajo, pegado al padre)
+                # B. HIJOS: Se listan en orden, el nuevo aparece de último pegado al padre
                 for idx_h, h in mis_hijos:
                     render_card("Efectos Indirectos", h, idx_h)
-        
-        # FILA INFERIOR: PADRES (alineados perfectamente)
-        cols_p = st.columns(len(ef_directos))
-        for i, ed in enumerate(ef_directos):
-            with cols_p[i]:
+                
+                # C. PADRE: Ancla fija en la parte inferior de la sección
                 render_card("Efectos Directos", ed, i)
 
     st.markdown("---")
     # 2. PROBLEMA CENTRAL
     st.write(f"**{CONFIG_PROB['Problema Principal']['label']}**")
-    pc = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
-    if pc: render_card("Problema Principal", pc[0], 0)
+    pc_list = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
+    if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS
+    # 3. CAUSAS: Lógica estándar (Padres arriba, hijos abajo)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
-    ca_directas = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
-    ca_indirectas = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
-    if ca_directas:
-        cols_cp = st.columns(len(ca_directas))
-        for i, cd in enumerate(ca_directas):
-            with cols_cp[i]:
+    ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
+    ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
+    if ca_dir:
+        cols_ca = st.columns(len(ca_dir))
+        for i, cd in enumerate(ca_dir):
+            with cols_ca[i]:
                 render_card("Causas Directas", cd, i)
-        
-        cols_ch = st.columns(len(ca_directas))
-        for i, cd in enumerate(ca_directas):
-            with cols_ch[i]:
-                p_txt = cd.get('texto') if isinstance(cd, dict) else cd
-                for idx_hc, hc in enumerate(ca_indirectas):
-                    if isinstance(hc, dict) and hc.get('padre') == p_txt:
+                for idx_hc, hc in enumerate(ca_ind):
+                    if isinstance(hc, dict) and hc.get('padre') == (cd.get('texto') if isinstance(cd, dict) else cd):
                         render_card("Causas Indirectas", hc, idx_hc)
