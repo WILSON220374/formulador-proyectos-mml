@@ -53,49 +53,55 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (AJUSTADO CON LÍMITES AMPLIADOS PARA ANCHO HORIZONTAL) ---
+# --- MOTOR DE DIBUJO (AJUSTADO: FUENTE 18 Y LETRA BLANCA TOTAL) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
     dot = graphviz.Digraph(format='png')
+    
+    # Configuración global de nodos: Letra Blanca y Tamaño 18
+    dot.attr('node', fontsize='18', fontcolor='white', fontname='Arial Bold')
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
     import textwrap
-    # Limpiador estándar ampliado a 100 caracteres para que sean rectángulos anchos
     def limpiar_estandar(t): 
         return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=100))
     
-    # 1. PROBLEMA CENTRAL (Ampliado a 200 caracteres para ocupar todo el ancho)
+    # 1. PROBLEMA CENTRAL (Ancho 200, Letra Blanca)
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
         txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=200))
         dot.node('PC', txt_ancho, shape='box', style='filled', 
                  fillcolor=CONFIG_PROB["Problema Principal"]["color"], 
-                 fontcolor='white', fontname='Arial Bold', margin='0.3,0.1')
+                 margin='0.3,0.1')
 
-    # 2. EFECTOS
+    # 2. EFECTOS (Letra Blanca)
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
         txt_ed = ed.get('texto', ed) if isinstance(ed, dict) else ed
-        dot.node(f"ED{i}", limpiar_estandar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"], fontcolor='white')
+        dot.node(f"ED{i}", limpiar_estandar(txt_ed), shape='box', style='filled', 
+                 fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
         dot.edge('PC', f"ED{i}")
         for j, ei in enumerate(ef_ind):
             if isinstance(ei, dict) and ei.get('padre') == txt_ed:
-                dot.node(f"EI{i}_{j}", limpiar_estandar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"], fontcolor='white')
+                dot.node(f"EI{i}_{j}", limpiar_estandar(ei.get('texto')), shape='box', style='filled', 
+                         fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(f"ED{i}", f"EI{i}_{j}")
 
-    # 3. CAUSAS
+    # 3. CAUSAS (Ahora también con Letra Blanca)
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
     for i, cd in enumerate(ca_dir):
         txt_cd = cd.get('texto', cd) if isinstance(cd, dict) else cd
-        dot.node(f"CD{i}", limpiar_estandar(txt_cd), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Directas"]["color"])
+        dot.node(f"CD{i}", limpiar_estandar(txt_cd), shape='box', style='filled', 
+                 fillcolor=CONFIG_PROB["Causas Directas"]["color"])
         dot.edge(f"CD{i}", 'PC')
         for j, ci in enumerate(ca_ind):
             if isinstance(ci, dict) and ci.get('padre') == txt_cd:
-                dot.node(f"CI{i}_{j}", limpiar_estandar(ci.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
+                dot.node(f"CI{i}_{j}", limpiar_estandar(ci.get('texto')), shape='box', style='filled', 
+                         fillcolor=CONFIG_PROB["Causas Indirectas"]["color"])
                 dot.edge(f"CI{i}_{j}", f"CD{i}")
     return dot
 
@@ -142,7 +148,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN EFECTOS (TABLA RÍGIDA PARA ALINEACIÓN HORIZONTAL)
+    # 1. SECCIÓN EFECTOS (TABLA RÍGIDA)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -156,7 +162,6 @@ else:
             hijos_por_padre.append(h_padre)
             max_hijos = max(max_hijos, len(h_padre))
 
-        # Renderizar filas de hijos de abajo hacia arriba para apilar sobre el padre
         for h_idx in range(max_hijos - 1, -1, -1):
             cols_h = st.columns(len(ef_dir))
             for p_idx, col in enumerate(cols_h):
@@ -167,7 +172,6 @@ else:
                     else:
                         st.empty()
 
-        # Fila final de padres nivelada horizontalmente
         cols_p = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
             with cols_p[i]:
@@ -180,7 +184,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. SECCIÓN CAUSAS (ESTRUCTURA ESTÁNDAR)
+    # 3. SECCIÓN CAUSAS
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
