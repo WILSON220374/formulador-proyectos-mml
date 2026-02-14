@@ -52,15 +52,15 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (RELACIÓN AJUSTADA 100-50) ---
+# --- MOTOR DE DIBUJO (FUENTE 20PT Y RELACIÓN 100-50) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
     dot = graphviz.Digraph(format='png')
     
-    # AJUSTES DE CALIDAD: 300 DPI y Fuente 24pt
+    # AJUSTES DE CALIDAD: 300 DPI y Fuente reducida a 20pt
     dot.attr(dpi='300') 
-    dot.attr('node', fontsize='24', fontcolor='white', fontname='Arial Bold', style='filled')
+    dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled')
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
     import textwrap
@@ -72,7 +72,7 @@ def generar_grafo_problemas():
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
-        # Relación 100 para que sea el doble de ancho que las demás pero no infinito
+        # Relación 100 para que sea el doble de ancho que las demás
         txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=100))
         dot.node('PC', txt_ancho, shape='box', fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.4,0.2')
 
@@ -111,7 +111,7 @@ def render_card(seccion, item, idx):
         st.session_state['arbol_tarjetas'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
     if nuevo != item['texto']: item['texto'] = nuevo; guardar_datos_nube()
 
-# --- SIDEBAR ---
+# --- SIDEBAR (GESTIÓN Y EXPORTACIÓN) ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_PROB.keys()))
@@ -140,7 +140,7 @@ with st.sidebar:
 if not any(st.session_state['arbol_tarjetas'].values()):
     st.warning("Agregue el Problema Principal en el panel lateral.")
 else:
-    # Mostramos la imagen procesada en alta calidad
+    # Mostramos la imagen procesada con use_container_width
     grafo_final = generar_grafo_problemas()
     if grafo_final:
         st.image(grafo_final.pipe(format='png'), use_container_width=True)
