@@ -92,10 +92,13 @@ with st.sidebar:
     integrantes = st.session_state.get('integrantes', [])
     if integrantes:
         for persona in integrantes:
-            nombre_full = persona.get("Nombre Completo", "").strip()
-            if nombre_full:
-                nombre_pila = nombre_full.split()[0].upper()
-                st.markdown(f"**👤 {nombre_pila}**")
+            # AJUSTE DE SEGURIDAD: Verificamos que 'persona' sea un diccionario válido
+            if isinstance(persona, dict):
+                nombre_full = persona.get("Nombre Completo", "").strip()
+                if nombre_full:
+                    nombre_pila = nombre_full.split()[0].upper()
+                    st.markdown(f"**👤 {nombre_pila}**")
+                    
     st.divider()
     if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
         guardar_datos_nube()
