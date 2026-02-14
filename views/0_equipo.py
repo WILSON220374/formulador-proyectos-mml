@@ -15,20 +15,20 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 15px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 140px;
+        height: 120px; /* Altura controlada para uniformidad */
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 22px !important;
+        font-size: 20px !important;
         color: #1E3A8A;
         font-weight: bold;
         line-height: 1.1;
         margin-bottom: 5px;
     }
     .detalle-pequeno {
-        font-size: 14px !important;
+        font-size: 13px !important;
         color: #555;
         margin-bottom: 2px;
     }
@@ -39,22 +39,24 @@ st.markdown("""
         text-align: left;
         margin-bottom: 20px;
     }
-    /* Estilo para el formulario limpio */
+    /* Contenedor del formulario con estilo suave */
     div[data-testid="stForm"] {
-        border: 1px solid #ddd;
+        border: 1px solid #eee;
         padding: 20px;
         border-radius: 10px;
-        background-color: white;
+        background-color: #fafafa;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # --- LAYOUT: IMAGEN IZQUIERDA | GESTIÓN DERECHA ---
-col_img, col_contenido = st.columns([1, 2], gap="large")
+# Ajustamos proporción para dar buen espacio a las tarjetas
+col_img, col_contenido = st.columns([1, 1.8], gap="large")
 
 # --- COLUMNA 1: SOLO IMAGEN ---
 with col_img:
     if os.path.exists("unnamed.jpg"):
+        # Usamos use_container_width para que ocupe todo el ancho disponible y se vea grande
         st.image("unnamed.jpg", use_container_width=True)
     else:
         st.info("Logo JC Flow")
@@ -63,59 +65,16 @@ with col_img:
 with col_contenido:
     st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
-    # --- BLOQUE 1: FORMULARIO DE REGISTRO (REEMPLAZA A LA TABLA) ---
-    st.subheader("📝 Registrar Nuevo Integrante")
-    
-    with st.form("form_registro", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            nuevo_nombre = st.text_input("Nombre Completo *")
-            nuevo_tel = st.text_input("Teléfono")
-        with c2:
-            nuevo_email = st.text_input("Correo Electrónico")
-            # Espacio vacío para alinear
-            st.write("") 
-        
-        # Botón de envío que ocupa todo el ancho
-        submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
-        
-        if submitted:
-            if nuevo_nombre:
-                # Crear el nuevo integrante
-                nuevo_integrante = {
-                    "Nombre Completo": nuevo_nombre,
-                    "Teléfono": nuevo_tel,
-                    "Correo Electrónico": nuevo_email
-                }
-                
-                # Agregar a la lista en sesión
-                if 'integrantes' not in st.session_state:
-                    st.session_state['integrantes'] = []
-                
-                st.session_state['integrantes'].append(nuevo_integrante)
-                
-                # Guardar en Supabase inmediatamente
-                guardar_datos_nube()
-                st.toast(f"✅ {nuevo_nombre} agregado correctamente")
-                st.rerun()
-            else:
-                st.error("⚠️ El nombre es obligatorio.")
-
-    st.divider()
-
-    # --- BLOQUE 2: FICHAS VISUALES (SOLO LECTURA) ---
-    st.subheader("👥 Equipo Actual")
+    # ---------------------------------------------------------
+    # BLOQUE 1: EQUIPO ACTUAL (AHORA ARRIBA)
+    # ---------------------------------------------------------
+    st.subheader("👥 Miembros Registrados")
     
     integrantes_raw = st.session_state.get('integrantes', [])
     integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
     if integrantes_validos:
-        # Botón pequeño para borrar el último (por si se equivocan)
-        if st.button("↩️ Deshacer último registro", help="Borra el último integrante agregado"):
-            st.session_state['integrantes'].pop()
-            guardar_datos_nube()
-            st.rerun()
-
+        # Mostramos las tarjetas en 2 columnas
         cols = st.columns(2) 
         for idx, persona in enumerate(integrantes_validos):
             with cols[idx % 2]: 
@@ -134,5 +93,49 @@ with col_contenido:
                     """, unsafe_allow_html=True)
                 except Exception:
                     continue
+        
+        # Botón discreto para borrar el último si hubo error
+        if st.button("Deshacer último registro", help="Borra el integrante más reciente"):
+            st.session_state['integrantes'].pop()
+            guardar_datos_nube()
+            st.rerun()
+            
     else:
-        st.info("Aún no hay integrantes. Usa el formulario de arriba para registrarte.")
+        st.info("Aún no hay equipo registrado. Usa el formulario de abajo para comenzar.")
+
+    st.divider()
+
+    # ---------------------------------------------------------
+    # BLOQUE 2: FORMULARIO DE REGISTRO (AHORA ABAJO)
+    # ---------------------------------------------------------
+    st.markdown("### 📝 Registrar Nuevo Integrante")
+    
+    with st.form("form_registro", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            nuevo_nombre = st.text_input("Nombre Completo *")
+            nuevo_tel = st.text_input("Teléfono")
+        with c2:
+            nuevo_email = st.text_input("Correo Electrónico")
+            st.write("") # Espaciador
+        
+        # Botón de ancho completo
+        submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
+        
+        if submitted:
+            if nuevo_nombre:
+                nuevo_integrante = {
+                    "Nombre Completo": nuevo_nombre,
+                    "Teléfono": nuevo_tel,
+                    "Correo Electrónico": nuevo_email
+                }
+                
+                if 'integrantes' not in st.session_state:
+                    st.session_state['integrantes'] = []
+                
+                st.session_state['integrantes'].append(nuevo_integrante)
+                guardar_datos_nube()
+                st.toast(f"✅ {nuevo_nombre} agregado correctamente")
+                st.rerun()
+            else:
+                st.error("⚠️ El nombre es obligatorio.")
