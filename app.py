@@ -90,9 +90,10 @@ if not st.session_state['autenticado']:
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
-    # FILTRO DE SEGURIDAD: Solo procesamos elementos que sean diccionarios válidos
+    # --- FILTRO DE SEGURIDAD (CORRECCIÓN) ---
     integrantes_raw = st.session_state.get('integrantes', [])
-    integrantes = [p for p in integrantes_raw if isinstance(p, dict)]
+    # Filtramos la lista para ignorar valores nulos o corruptos antes de procesarlos
+    integrantes = [p for p in integrantes_raw if isinstance(p, dict) and p is not None]
     
     if integrantes:
         for persona in integrantes:
