@@ -6,29 +6,40 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- INYECCIÓN DE DISEÑO GLOBAL COMPACTO (Ajuste de Pantalla) ---
+    # --- INYECCIÓN DE DISEÑO ULTRA COMPACTO (Ajuste Final) ---
     st.markdown("""
         <style>
-        /* 1. Elimina el espacio gigante en la parte superior de todas las páginas */
-        .block-container {
-            padding-top: 1.5rem !important;
-            padding-bottom: 1rem !important;
-        }
-        
-        /* 2. Compacta los títulos principales para que suban más */
-        h1 {
-            margin-top: -1.5rem !important;
-            padding-top: 0 !important;
-            margin-bottom: 1rem !important;
-            font-size: 2.5rem !important;
+        /* 1. Ocultar el header vacío de Streamlit que ocupa espacio arriba */
+        header[data-testid="stHeader"] {
+            display: none !important;
         }
 
-        /* 3. Oculta el botón de pantalla completa en las imágenes */
+        /* 2. Reducir el padding superior al mínimo absoluto */
+        .block-container {
+            padding-top: 0rem !important;
+            padding-bottom: 0rem !important;
+            margin-top: -3rem !important; /* Sube todo el bloque principal */
+        }
+        
+        /* 3. Compactar títulos y reducir su margen superior */
+        h1 {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* 4. Ajustar el contenedor de imágenes para que no empuje el contenido */
+        [data-testid="stImage"] {
+            margin-top: -1rem !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* 5. Ocultar el botón de pantalla completa en todas las imágenes */
         button[title="View fullscreen"] {
             display: none !important;
         }
 
-        /* 4. Estilo unificado para las tarjetas (TextArea) en todo el proyecto */
+        /* 6. Estilo unificado para tarjetas (TextArea) */
         div[data-testid="stTextArea"] textarea {
             background-color: #ffffff !important;
             border: none !important;           
@@ -37,12 +48,6 @@ def inicializar_session():
             font-size: 14px !important;
             font-weight: 700 !important;
             color: #000 !important;
-        }
-
-        /* 5. Ajuste para que los subtítulos en el Sidebar también sean compactos */
-        [data-testid="stSidebar"] h2 {
-            margin-top: -1rem !important;
-            padding-top: 0.5rem !important;
         }
         </style>
     """, unsafe_allow_html=True)
