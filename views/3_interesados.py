@@ -1,4 +1,4 @@
-iimport streamlit as st
+import streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
@@ -12,7 +12,7 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 # --- ESTILOS CSS AGRESIVOS (PARA FORZAR EL DISEÑO) ---
 st.markdown("""
     <style>
-    /* 1. Espacio extra al final para el scroll */
+    /* 1. SOLUCIÓN AL SCROLL: Espacio extra al final de la página */
     .block-container { padding-bottom: 250px !important; }
 
     /* 2. Títulos Generales */
@@ -20,22 +20,17 @@ st.markdown("""
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
     /* 3. FORZAR CABECERA AZUL OSCURO EN AG-GRID */
-    /* Usamos selectores muy específicos para que no fallen */
-    div[data-testid="stAgGrid"] .ag-header {
-        background-color: #1E3A8A !important;
+    /* Sobrescribimos las variables CSS del tema de AgGrid */
+    .ag-theme-streamlit {
+        --ag-header-background-color: #1E3A8A !important;
+        --ag-header-foreground-color: #FFFFFF !important;
     }
-    div[data-testid="stAgGrid"] .ag-header-cell-text {
-        color: #FFFFFF !important;
+    .ag-header-cell-text {
         font-weight: 700 !important;
         font-size: 14px !important;
     }
-    div[data-testid="stAgGrid"] .ag-header-icon {
-        color: #FFFFFF !important; /* Iconos de filtro blancos */
-    }
-    div[data-testid="stAgGrid"] .ag-root-wrapper {
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 10px !important;
-        overflow: hidden !important;
+    .ag-header-icon {
+        color: #FFFFFF !important;
     }
 
     /* 4. KPIs en Negro */
@@ -54,12 +49,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CABECERA ---
-col_t, col_l = st.columns([4, 1], vertical_alignment="center")
+col_t, col_l = st.columns([4, 1]) # vertical_alignment removido por compatibilidad
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
     
-    tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any() if 'NOMBRE' in df_actual.columns else False
+    tiene_datos = not df_actual.empty and 'NOMBRE' in df_actual.columns and df_actual['NOMBRE'].dropna().any()
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
     st.progress(progreso, text=f"Completitud: {int(progreso * 100)}%")
 
@@ -86,17 +81,15 @@ if tiene_datos:
 # --- MATRIZ DE DATOS ---
 st.subheader("📝 Matriz de Datos")
 
-# 1. BOTÓN PARA AGREGAR FILAS (LA SOLUCIÓN A TU PREGUNTA 1)
+# 1. BOTÓN PARA AGREGAR FILAS
 col_btn, _ = st.columns([1, 4])
 with col_btn:
     if st.button("➕ Agregar Nuevo Actor", type="primary", use_container_width=True):
-        # Creamos una fila vacía con la misma estructura
         new_row = pd.DataFrame([{
             "NOMBRE": "", "GRUPO": "Gremio", "POSICIÓN": "Indiferente", 
             "EXPECTATIVA": "", "CONTRIBUCION AL PROYECTO": "", 
             "PODER": "Bajo", "INTERÉS": "Bajo", "ESTRATEGIA": ""
         }])
-        # La unimos al dataframe actual y recargamos
         st.session_state['df_interesados'] = pd.concat([df_actual, new_row], ignore_index=True)
         st.rerun()
 
@@ -146,8 +139,8 @@ grid_response = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     height=None, 
     fit_columns_on_grid_load=True,
-    theme='streamlit', # El CSS personalizado sobrescribirá esto
-    key='aggrid_interesados_final_fix2'
+    theme='streamlit',
+    key='aggrid_interesados_fixed_syntax'
 )
 
 df_modificado = pd.DataFrame(grid_response['data'])
