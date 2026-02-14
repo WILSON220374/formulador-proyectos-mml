@@ -164,4 +164,21 @@ else:
 
     st.markdown("---")
     # 2. PROBLEMA CENTRAL
-    st.write(f"**
+    st.write(f"**{CONFIG_PROB['Problema Principal']['label']}**")
+    pc_list = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
+    if pc_list: render_card("Problema Principal", pc_list[0], 0)
+
+    st.markdown("---")
+    # 3. CAUSAS (Normal: Padre arriba, hijos abajo)
+    st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
+    ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
+    ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
+    if ca_dir:
+        cols_ca = st.columns(len(ca_dir))
+        for i, cd in enumerate(ca_dir):
+            with cols_ca[i]:
+                render_card("Causas Directas", cd, i)
+                txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
+                for idx_hc, hc in enumerate(ca_ind):
+                    if isinstance(hc, dict) and hc.get('padre') == txt_pc:
+                        render_card("Causas Indirectas", hc, idx_hc)
