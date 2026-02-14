@@ -2,31 +2,47 @@ import streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
-# IMPORTANTE: Librería para la tabla profesional con colores
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
-# 1. Inicialización de seguridad y datos
+# 1. Inicialización
 inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS ---
+# --- ESTILOS CSS REFINADOS ---
 st.markdown("""
     <style>
+    /* 1. Ajuste del Scroll de Página (Espacio extra abajo) */
+    .block-container {
+        padding-bottom: 200px !important;
+    }
+
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* Estilo para Tarjetas de KPI */
+    /* 2. KPIs en Negro */
     .kpi-card {
         background: white;
         padding: 15px;
         border-radius: 10px;
-        border: 1px solid #f1f5f9;
+        border: 1px solid #e2e8f0;
         text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    .kpi-val { font-size: 24px; font-weight: 800; color: #4F8BFF; }
+    .kpi-val { font-size: 24px; font-weight: 800; color: #000000 !important; } /* AHORA NEGRO */
     .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* 3. Estilo de Cabecera de Tabla (Azul Oscuro y Letra Blanca) */
+    .ag-header {
+        background-color: #1E3A8A !important;
+    }
+    .ag-header-cell-text {
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+    }
+    .ag-header-icon {
+        color: #FFFFFF !important;
+    }
 
     /* Ajustes generales */
     [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
@@ -34,13 +50,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA INTEGRADA ---
+# --- CABECERA ---
 col_t, col_l = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
     
-    # Progreso visual
     tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any() if 'NOMBRE' in df_actual.columns else False
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
     st.progress(progreso, text=f"Completitud del Análisis: {int(progreso * 100)}%")
@@ -51,21 +66,21 @@ with col_l:
 
 st.divider()
 
-# --- PANEL DE INDICADORES RÁPIDOS (KPIs) ---
+# --- KPIs (Números en Negro) ---
 if tiene_datos:
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.markdown(f'<div class="kpi-card"><div class="kpi-val">{len(df_actual.dropna(subset=["NOMBRE"]))}</div><div class="kpi-label">Total Actores</div></div>', unsafe_allow_html=True)
     with c2: 
         opos = len(df_actual[df_actual["POSICIÓN"] == "Opositor"])
-        st.markdown(f'<div class="kpi-card"><div class="kpi-val" style="color:#ef4444;">{opos}</div><div class="kpi-label">Opositores</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-val">{opos}</div><div class="kpi-label">Opositores</div></div>', unsafe_allow_html=True)
     with c3:
         coop = len(df_actual[df_actual["POSICIÓN"] == "Cooperante"])
-        st.markdown(f'<div class="kpi-card"><div class="kpi-val" style="color:#22c55e;">{coop}</div><div class="kpi-label">Cooperantes</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-val">{coop}</div><div class="kpi-label">Cooperantes</div></div>', unsafe_allow_html=True)
     with c4:
         p_alto = len(df_actual[df_actual["PODER"] == "Alto"])
         st.markdown(f'<div class="kpi-card"><div class="kpi-val">{p_alto}</div><div class="kpi-label">Poder Alto</div></div>', unsafe_allow_html=True)
 
-# --- MATRIZ DE DATOS (AHORA CON AG-GRID) ---
+# --- MATRIZ DE DATOS (AG-GRID) ---
 st.subheader("📝 Matriz de Datos")
 
 # 1. Preparar DataFrame
@@ -78,16 +93,24 @@ df_render = df_actual[cols_orden].copy()
 # 2. Configurar AgGrid
 gb = GridOptionsBuilder.from_dataframe(df_render)
 gb.configure_default_column(editable=True, resizable=True, filterable=True, wrapText=True, autoHeight=True)
-# CLAVE: Esto permite que la tabla crezca sola y no tenga scroll interno
-gb.configure_grid_options(domLayout='autoHeight')
+gb.configure_grid_options(domLayout='autoHeight') # Tabla auto-expandible
 
-# 3. Colores Condicionales (Semáforo)
+# 3. COLORES PASTEL (JS Code) - Letra normal (no bold)
 cell_style_js = JsCode("""
 function(params) {
-    if (params.value == 'Opositor') { return {'backgroundColor': '#ffcccc', 'color': '#990000', 'fontWeight': 'bold'}; }
-    if (params.value == 'Cooperante') { return {'backgroundColor': '#ccffcc', 'color': '#006600', 'fontWeight': 'bold'}; }
-    if (params.value == 'Beneficiario') { return {'backgroundColor': '#cceeff', 'color': '#003366'}; }
-    if (params.value == 'Perjudicado') { return {'backgroundColor': '#fff3cd', 'color': '#856404'}; }
+    // Colores Pastel muy suaves, letra oscura normal (#333)
+    if (params.value == 'Opositor') { 
+        return {'backgroundColor': '#FFEBEE', 'color': '#333333'}; // Rojo muy pastel
+    }
+    if (params.value == 'Cooperante') { 
+        return {'backgroundColor': '#E8F5E9', 'color': '#333333'}; // Verde muy pastel
+    }
+    if (params.value == 'Beneficiario') { 
+        return {'backgroundColor': '#E3F2FD', 'color': '#333333'}; // Azul muy pastel
+    }
+    if (params.value == 'Perjudicado') { 
+        return {'backgroundColor': '#FFFDE7', 'color': '#333333'}; // Amarillo muy pastel
+    }
     return {};
 }
 """)
@@ -105,12 +128,14 @@ gb.configure_column("EXPECTATIVA", width=300)
 gb.configure_column("CONTRIBUCION AL PROYECTO", header_name="Contribución", width=200)
 gb.configure_column("PODER", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
 gb.configure_column("INTERÉS", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
-gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'color': 'gray', 'fontStyle': 'italic'}, width=200)
+
+# ESTRATEGIA: Letra NEGRITA (Bold) y color gris oscuro
+gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'fontWeight': 'bold', 'color': '#444'}, width=220)
 
 gb.configure_selection('single', use_checkbox=False)
 gridOptions = gb.build()
 
-st.caption("💡 Doble clic para editar. Los colores cambian automáticamente.")
+st.caption("💡 Doble clic para editar.")
 
 # 5. Renderizar AgGrid
 grid_response = AgGrid(
@@ -118,19 +143,17 @@ grid_response = AgGrid(
     gridOptions=gridOptions,
     allow_unsafe_jscode=True,
     update_mode=GridUpdateMode.VALUE_CHANGED,
-    height=None, # Dejar que autoHeight controle la altura
+    height=None, 
     fit_columns_on_grid_load=True,
     theme='streamlit',
-    key='aggrid_interesados_final'
+    key='aggrid_interesados_final_pastel'
 )
 
-# Capturamos los datos PERO NO GUARDAMOS AÚN (para no cortar la ejecución)
 df_modificado = pd.DataFrame(grid_response['data'])
 
 st.divider()
 
-# --- MAPA ESTRATÉGICO (CUADRANTES ANALÍTICOS) ---
-# Usamos df_modificado para que el mapa se actualice al instante de editar la tabla
+# --- MAPA ESTRATÉGICO ---
 st.subheader("📊 Mapa de Influencia")
 
 if not df_modificado.empty and 'NOMBRE' in df_modificado.columns:
@@ -160,7 +183,7 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL ---
+# --- ANÁLISIS FINAL (Ahora visible gracias al padding) ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, height=200, 
@@ -168,10 +191,7 @@ analisis_actual = st.text_area(
     placeholder="Escriba aquí el análisis cualitativo y las estrategias de negociación..."
 )
 
-# --- LÓGICA DE GUARDADO (AL FINAL DEL TODO) ---
-# Esto evita que la pantalla se corte. Primero dibujamos todo, luego guardamos.
-
-# 1. Recalcular estrategias
+# --- GUARDADO ---
 def calcular_estrategia(row):
     p, i = str(row.get('PODER', '')).strip(), str(row.get('INTERÉS', '')).strip()
     if p == "Alto" and i == "Alto": return "Involucrar y mantener cerca"
@@ -183,11 +203,9 @@ def calcular_estrategia(row):
 if not df_modificado.empty:
     df_modificado["ESTRATEGIA"] = df_modificado.apply(calcular_estrategia, axis=1)
 
-# 2. Detectar cambios
 hubo_cambio_tabla = not df_modificado.equals(df_actual)
 hubo_cambio_texto = analisis_actual != analisis_txt
 
-# 3. Guardar y Recargar solo si hubo cambios
 if hubo_cambio_tabla or hubo_cambio_texto:
     if hubo_cambio_tabla:
         st.session_state['df_interesados'] = df_modificado
