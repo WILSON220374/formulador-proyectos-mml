@@ -6,7 +6,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS CSS (Ajustados para el nuevo layout) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .ficha-equipo {
@@ -16,13 +16,13 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 15px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 140px; /* Un poco más compacta */
+        height: 140px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 22px !important; /* Ajuste ligero de tamaño */
+        font-size: 22px !important;
         color: #1E3A8A;
         font-weight: bold;
         line-height: 1.1;
@@ -33,7 +33,6 @@ st.markdown("""
         color: #555;
         margin-bottom: 2px;
     }
-    /* Título alineado a la izquierda */
     .titulo-principal {
         font-size: 38px !important; 
         font-weight: 800 !important; 
@@ -44,37 +43,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- LAYOUT DIVIDIDO: IMAGEN IZQUIERDA | GESTIÓN DERECHA ---
-# Usamos columnas con proporción 1 (Img) vs 2 (Contenido)
+# --- LAYOUT: IMAGEN IZQUIERDA | GESTIÓN DERECHA ---
 col_img, col_contenido = st.columns([1, 2], gap="large")
 
-# --- COLUMNA 1: IMAGEN ---
+# --- COLUMNA 1: SOLO IMAGEN (Sin textos extra) ---
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
         st.info("Logo JC Flow")
-    
-    # Un pequeño bloque informativo para aprovechar el espacio vertical
-    st.markdown("---")
-    st.info("""
-    **💡 Roles Sugeridos:**
-    * Director de Proyecto
-    * Formulador Técnico
-    * Analista Financiero
-    * Stakeholder Clave
-    """)
 
-# --- COLUMNA 2: GESTIÓN DE EQUIPO (Toda tu lógica va aquí) ---
+# --- COLUMNA 2: GESTIÓN DE EQUIPO ---
 with col_contenido:
     st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
-    # --- BLOQUE 1: FICHAS VISUALES (Las tarjetas azules) ---
+    # --- BLOQUE 1: FICHAS VISUALES (Tus tarjetas azules) ---
     integrantes_raw = st.session_state.get('integrantes', [])
     integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
     if integrantes_validos:
-        # Usamos 2 columnas dentro del panel derecho para que las tarjetas se vean bien
+        # Usamos 2 columnas internas para organizar las tarjetas
         cols = st.columns(2) 
         for idx, persona in enumerate(integrantes_validos):
             with cols[idx % 2]: 
@@ -98,15 +86,13 @@ with col_contenido:
 
     st.divider()
 
-    # --- BLOQUE 2: EDITOR (Tu lógica original intacta) ---
+    # --- BLOQUE 2: EDITOR (Tu tabla funcional) ---
     st.subheader("⚙️ Agregar o Editar Integrantes")
     
-    # Definimos el orden deseado de las columnas
     columnas_orden = ["Nombre Completo", "Teléfono", "Correo Electrónico"]
     
     if integrantes_validos:
         df_equipo = pd.DataFrame(integrantes_validos)
-        # Aseguramos que existan las columnas para evitar errores
         for col in columnas_orden:
             if col not in df_equipo.columns:
                 df_equipo[col] = ""
@@ -124,7 +110,7 @@ with col_contenido:
     if st.button("💾 GUARDAR CAMBIOS", type="primary", use_container_width=True):
         if edited_df is not None:
             lista_nueva = edited_df.to_dict('records')
-            # Limpieza de filas vacías antes de guardar
+            # Limpiamos filas vacías
             st.session_state['integrantes'] = [
                 r for r in lista_nueva 
                 if r and any(str(v).strip() for v in r.values() if v is not None)
