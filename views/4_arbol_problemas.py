@@ -53,7 +53,7 @@ CONFIG_PROB = {
     "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO (AJUSTADO PARA NODO CENTRAL ANCHO) ---
+# --- MOTOR DE DIBUJO (AJUSTADO CON LÍMITES AMPLIADOS PARA ANCHO HORIZONTAL) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
@@ -61,16 +61,15 @@ def generar_grafo_problemas():
     dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
     import textwrap
-    # Limpiador estándar para causas y efectos (angosto)
+    # Limpiador estándar ampliado a 100 caracteres para que sean rectángulos anchos
     def limpiar_estandar(t): 
-        return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=25))
+        return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=100))
     
-    # 1. PROBLEMA CENTRAL (Configurado para ser ANCHO)
+    # 1. PROBLEMA CENTRAL (Ampliado a 200 caracteres para ocupar todo el ancho)
     pc = datos.get("Problema Principal", [])
     if pc:
         txt_pc = pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]
-        # Usamos ancho 70 para forzar la expansión horizontal del cuadro rojo
-        txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=70))
+        txt_ancho = "\n".join(textwrap.wrap(str(txt_pc).replace('"', "'"), width=200))
         dot.node('PC', txt_ancho, shape='box', style='filled', 
                  fillcolor=CONFIG_PROB["Problema Principal"]["color"], 
                  fontcolor='white', fontname='Arial Bold', margin='0.3,0.1')
@@ -143,7 +142,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN EFECTOS (TABLA RÍGIDA)
+    # 1. SECCIÓN EFECTOS (TABLA RÍGIDA PARA ALINEACIÓN HORIZONTAL)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -157,6 +156,7 @@ else:
             hijos_por_padre.append(h_padre)
             max_hijos = max(max_hijos, len(h_padre))
 
+        # Renderizar filas de hijos de abajo hacia arriba para apilar sobre el padre
         for h_idx in range(max_hijos - 1, -1, -1):
             cols_h = st.columns(len(ef_dir))
             for p_idx, col in enumerate(cols_h):
@@ -167,6 +167,7 @@ else:
                     else:
                         st.empty()
 
+        # Fila final de padres nivelada horizontalmente
         cols_p = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
             with cols_p[i]:
@@ -179,7 +180,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. SECCIÓN CAUSAS
+    # 3. SECCIÓN CAUSAS (ESTRUCTURA ESTÁNDAR)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
