@@ -7,10 +7,10 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL ACTUALIZADO ---
+# --- ESTILO GLOBAL ---
 st.markdown("""
     <style>
-    /* Estilos de Títulos Estándar (Igual que Interesados/Zona) */
+    /* Estilos de Títulos Estándar */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
@@ -43,14 +43,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ESTÁNDAR (TEXTO IZQUIERDA, LOGO DERECHA) ---
+# --- ENCABEZADO ESTÁNDAR ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Identificación del problema central, sus causas raíces y efectos directos.</div>', unsafe_allow_html=True)
     
     # Progreso basado en si hay tarjetas creadas
-    hay_tarjetas = any(st.session_state['arbol_tarjetas'].values())
+    hay_tarjetas = any(st.session_state.get('arbol_tarjetas', {}).values())
     progreso = 1.0 if hay_tarjetas else 0.0
     st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
 
@@ -60,10 +60,7 @@ with col_img:
 
 st.divider()
 
-# =========================================================
-# TODA LA LÓGICA SIGUIENTE SE MANTIENE EXACTAMENTE IGUAL
-# =========================================================
-
+# --- CONFIGURACIÓN DE COLORES ---
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO\nINDIRECTO"},
     "Efectos Directos": {"color": "#2E86C1", "label": "EFECTO\nDIRECTO"},
@@ -77,10 +74,8 @@ def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     if not datos: return None
     dot = graphviz.Digraph(format='png')
-    
     dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
-    
     dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
     
     import textwrap
@@ -156,7 +151,7 @@ with st.sidebar:
         padre_asociado = None
         if "Indirect" in tipo_sel:
             p_key = "Efectos Directos" if "Efecto" in tipo_sel else "Causas Directas"
-            opciones = [it['texto'] for it in st.session_state['arbol_tarjetas'].get(p_key, [])]
+            opciones = [it['texto'] for it in st.session_state.get('arbol_tarjetas', {}).get(p_key, [])]
             if opciones: padre_asociado = st.selectbox("Vincular a:", opciones)
         if st.form_submit_button("Generar") and texto_input:
             nueva = {"texto": texto_input, "id_unico": str(uuid.uuid4())}
@@ -177,32 +172,52 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
+    # FUNCIÓN DE RENDERIZADO AJUSTADA (REVISIÓN DE ORDEN DE CAUSAS)
     def render_seccion_simple(tipo_padre, tipo_hijo):
-        padres = st.session_state['arbol_tarjetas'].get(tipo_padre, [])
-        hijos = st.session_state['arbol_tarjetas'].get(tipo_hijo, [])
+        padres = st.session_state.get('arbol_tarjetas', {}).get(tipo_padre, [])
+        hijos = st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, [])
         if not padres: return
         
         st.write(f"**{tipo_padre} e {tipo_hijo}**")
         hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
         max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
 
-        for h_idx in range(max_h - 1, -1, -1) if "Efecto" in tipo_padre else range(max_h):
-            cols = st.columns(len(padres))
-            for p_idx, col in enumerate(cols):
-                with col:
-                    if h_idx < len(hijos_por_p[p_idx]):
-                        idx_real, h_data = hijos_por_p[p_idx][h_idx]
-                        render_card(tipo_hijo, h_data, idx_real)
-                    else: st.empty()
-
-        cols_p = st.columns(len(padres))
-        for i, p_data in enumerate(padres):
-            with cols_p[i]: render_card(tipo_padre, p_data, i)
+        # ORDEN PARA EFECTOS: Indirectos (hijos) arriba, Directos (padres) abajo
+        if "Efecto" in tipo_padre:
+            for h_idx in range(max_h - 1, -1, -1):
+                cols = st.columns(len(padres))
+                for p_idx, col in enumerate(cols):
+                    with col:
+                        if h_idx < len(hijos_por_p[p_idx]):
+                            idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                            render_card(tipo_hijo, h_data, idx_real)
+                        else: st.empty()
+            
+            cols_p = st.columns(len(padres))
+            for i, p_data in enumerate(padres):
+                with cols_p[i]: render_card(tipo_padre, p_data, i)
+        
+        # ORDEN PARA CAUSAS: Directas (padres) arriba, Indirectas (hijos) abajo
+        else:
+            # Primero las Directas para que estén más cerca del problema central
+            cols_p = st.columns(len(padres))
+            for i, p_data in enumerate(padres):
+                with cols_p[i]: render_card(tipo_padre, p_data, i)
+            
+            # Luego las Indirectas debajo de sus padres respectivos
+            for h_idx in range(max_h):
+                cols = st.columns(len(padres))
+                for p_idx, col in enumerate(cols):
+                    with col:
+                        if h_idx < len(hijos_por_p[p_idx]):
+                            idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                            render_card(tipo_hijo, h_data, idx_real)
+                        else: st.empty()
 
     render_seccion_simple("Efectos Directos", "Efectos Indirectos")
     st.markdown("---")
     st.write("**Problema Principal**")
-    pc_l = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
+    pc_l = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
     if pc_l: render_card("Problema Principal", pc_l[0], 0)
     st.markdown("---")
     render_seccion_simple("Causas Directas", "Causas Indirectas")
