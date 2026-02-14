@@ -1,108 +1,134 @@
 import streamlit as st
-import os # <--- Importante para verificar la existencia del logo
+import os
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Asegurar persistencia y memoria
+# 1. Inicializar
 inicializar_session()
+datos_zona = st.session_state.get('datos_zona', {})
 
-# --- ESTILO MAESTRO UNIFICADO ---
+# --- ESTILOS CSS (Consistente con Diagnóstico) ---
 st.markdown("""
     <style>
-    html, body, .stApp {
-        font-family: 'Source Sans Pro', sans-serif;
-        color: #31333F;
+    .titulo-seccion {
+        font-size: 32px !important;
+        font-weight: 800 !important;
+        color: #4F8BFF;
+        margin-bottom: 5px;
+        line-height: 1.2;
     }
-    .stButton button[kind="primary"] p {
-        color: white !important;
-        font-weight: bold !important;
+    .subtitulo-gris {
+        font-size: 16px !important;
+        color: #666;
+        margin-bottom: 20px;
     }
-    .stButton button {
-        border-color: rgba(49, 51, 63, 0.2) !important;
-        border-radius: 6px;
+    /* Estilo para inputs numéricos y texto */
+    div[data-testid="stNumberInput"], div[data-testid="stTextInput"] {
+        background-color: #fcfdfe;
+        border-radius: 8px;
+    }
+    /* Hack imagen estática */
+    [data-testid="stImage"] img { pointer-events: none; user-select: none; border-radius: 10px; }
+    [data-testid="StyledFullScreenButton"] { display: none !important; }
+    
+    /* Contenedor del problema central (Referencia) */
+    div[data-testid="stAlert"] {
+        padding: 10px;
+        border-radius: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON LOGO (MISMA LÓGICA QUE HOJA 1) ---
-col_titulo, col_logo = st.columns([0.8, 0.2], vertical_alignment="center")
+# --- CABECERA INTEGRADA ---
+col_titulo, col_logo = st.columns([4, 1], gap="medium", vertical_alignment="center")
 
 with col_titulo:
-    st.title("🗺️ 2. Zona de Estudio") # Título en formato grande
+    st.markdown('<div class="titulo-seccion">🗺️ 2. Zona de Estudio</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Delimitación geográfica y demográfica del área de influencia.</div>', unsafe_allow_html=True)
 
 with col_logo:
-    # Ubicación en la parte superior derecha con alta resolución
-    if os.path.exists("unnamed-1.jpg"):
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
-def calcular_altura(texto, min_h=100, en_columna=False):
-    if not texto: return min_h
-    divisor = 40 if en_columna else 85
-    lineas = str(texto).count('\n') + (len(str(texto)) // divisor)
-    return max(min_h, (lineas + 1) * 23)
+st.divider()
 
-if 'datos_zona' not in st.session_state:
-    st.session_state['datos_zona'] = {}
+# --- REFERENCIA: EL PROBLEMA (Para no perder el foco) ---
+problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', 'No definido aún.')
 
-datos = st.session_state['datos_zona']
+with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True):
+    st.info(f"**Problema Identificado:** {problema_actual}")
 
-# --- CONTEXTO: PROBLEMA CENTRAL ---
-problema_fase_1 = st.session_state.get('datos_problema', {}).get('problema_central', "⚠️ No definido en Fase 1.")
-with st.expander("📌 PROBLEMA CENTRAL", expanded=True):
-    st.info(f" {problema_fase_1}")
-
-# --- BARRA DE PROGRESO ---
-campos_totales = 7
-lista_campos = ['pob_total', 'pob_urbana', 'pob_rural', 'ubicacion', 'limites', 'economia', 'vias']
-campos_llenos = sum(1 for campo in lista_campos if datos.get(campo))
-progreso = campos_llenos / campos_totales
-st.progress(progreso, text=f"Progreso de la Fase: {int(progreso * 100)}%")
-
-# --- SECCIONES DE CAPTURA ---
-with st.container(border=True):
-    st.subheader("👥 Población Afectada")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        p_total = st.number_input("Población Total", min_value=0, value=int(datos.get('pob_total', 0)))
-    with col2:
-        p_urbana = st.number_input("Urbana", min_value=0, value=int(datos.get('pob_urbana', 0)))
-    with col3:
-        p_rural = st.number_input("Rural", min_value=0, value=int(datos.get('pob_rural', 0)))
+# --- FORMULARIO DE ZONA ---
+st.subheader("📍 Detalles del Área")
 
 with st.container(border=True):
-    st.subheader("🗺️ Ubicación Geográfica")
-    ubicacion = st.text_input("Localización Específica", value=datos.get('ubicacion', ""))
+    # BLOQUE 1: POBLACIÓN (3 Columnas)
+    st.markdown("##### 👥 Población Afectada")
+    c1, c2, c3 = st.columns(3)
     
-    txt_lim = datos.get('limites', "")
-    limites = st.text_area("Límites Geográficos", value=txt_lim, height=calcular_altura(txt_lim))
+    with c1:
+        pob_total = st.number_input("Población Total", min_value=0, value=int(datos_zona.get('poblacion_total', 0)))
+    with c2:
+        pob_urbana = st.number_input("Urbana", min_value=0, value=int(datos_zona.get('poblacion_urbana', 0)))
+    with c3:
+        pob_rural = st.number_input("Rural", min_value=0, value=int(datos_zona.get('poblacion_rural', 0)))
 
-with st.container(border=True):
-    st.subheader("💰 Economía y Accesibilidad")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        txt_eco = datos.get('economia', "")
-        economia = st.text_area("Principal Actividad Económica", value=txt_eco, height=calcular_altura(txt_eco, en_columna=True))
-    with col_b:
-        txt_vias = datos.get('vias', "")
-        vias = st.text_area("División del territorio", value=txt_vias, height=calcular_altura(txt_vias, en_columna=True))
+    st.markdown("---")
 
-# --- LÓGICA DE GUARDADO AUTOMÁTICO ---
-if (p_total != datos.get('pob_total') or 
-    p_urbana != datos.get('pob_urbana') or 
-    p_rural != datos.get('pob_rural') or 
-    ubicacion != datos.get('ubicacion') or 
-    limites != datos.get('limites') or 
-    economia != datos.get('economia') or 
-    vias != datos.get('vias')):
-    
-    st.session_state['datos_zona'] = {
-        'pob_total': p_total,
-        'pob_urbana': p_urbana,
-        'pob_rural': p_rural,
-        'ubicacion': ubicacion,
-        'limites': limites,
-        'economia': economia,
-        'vias': vias
-    }
+    # BLOQUE 2: UBICACIÓN (2 Columnas)
+    st.markdown("##### 🌍 Localización Geográfica")
+    c4, c5 = st.columns(2)
+    with c4:
+        departamento = st.text_input("Departamento / Estado", value=datos_zona.get('departamento', ''), placeholder="Ej: Boyacá")
+        municipio = st.text_input("Municipio / Ciudad", value=datos_zona.get('municipio', ''), placeholder="Ej: Sogamoso")
+    with c5:
+        vereda = st.text_input("Vereda / Localidad", value=datos_zona.get('vereda', ''), placeholder="Ej: Sector Norte")
+        # Un campo extra por si necesitan coordenadas o detalles específicos
+        coordenadas = st.text_input("Coordenadas (Opcional)", value=datos_zona.get('coordenadas', ''), placeholder="Lat, Long")
+
+    st.markdown("---")
+
+    # BLOQUE 3: DESCRIPCIÓN FÍSICA
+    st.markdown("##### 🛣️ Descripción del Área (Vías, Clima, Topografía)")
+    desc_vias = st.text_area(
+        "Detalles físicos", 
+        value=datos_zona.get('vias', ''),
+        height=120,
+        placeholder="Describa el estado de las vías de acceso, condiciones climáticas relevantes o características del terreno...",
+        label_visibility="collapsed"
+    )
+
+    # Botón de guardar manual para dar feedback visual
+    if st.button("💾 GUARDAR ZONA DE ESTUDIO", type="primary", use_container_width=True):
+        nueva_zona = {
+            "poblacion_total": pob_total,
+            "poblacion_urbana": pob_urbana,
+            "poblacion_rural": pob_rural,
+            "departamento": departamento,
+            "municipio": municipio,
+            "vereda": vereda,
+            "coordenadas": coordenadas,
+            "vias": desc_vias
+        }
+        st.session_state['datos_zona'] = nueva_zona
+        guardar_datos_nube()
+        st.toast("✅ Información de zona actualizada")
+
+# --- GUARDADO AUTOMÁTICO (Respaldo) ---
+# Si cambian valores y no hunden el botón, guardamos igual al detectar cambio
+nueva_zona_auto = {
+    "poblacion_total": pob_total,
+    "poblacion_urbana": pob_urbana,
+    "poblacion_rural": pob_rural,
+    "departamento": departamento,
+    "municipio": municipio,
+    "vereda": vereda,
+    "coordenadas": coordenadas,
+    "vias": desc_vias
+}
+
+if nueva_zona_auto != datos_zona:
+    st.session_state['datos_zona'] = nueva_zona_auto
     guardar_datos_nube()
-    st.rerun()
+    # No hacemos rerun aquí para no cortar la escritura del usuario
