@@ -12,11 +12,13 @@ inicializar_session()
 st.markdown("""
     <style>
     div[data-testid="stTextArea"] textarea {
-        background-color: #fcf8f8 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #ddd !important;
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 13px !important;
-        font-weight: 500 !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        color: #333 !important;
     }
     .main .stButton button {
         border: none !important;
@@ -36,13 +38,13 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- CONFIGURACIÓN DE COLORES (AJUSTADA PARA MEJOR CONTRASTE) ---
+# --- CONFIGURACIÓN DE COLORES SÓLIDOS Y CONTRASTADOS ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#E3F2FD", "label": "EFECTOS INDIRECTOS"}, # Celeste muy claro
-    "Efectos Directos": {"color": "#80BFFF", "label": "EFECTOS DIRECTOS"},   # Azul medio
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA CENTRAL"},
-    "Causas Directas": {"color": "#FFFFBA", "label": "CAUSAS DIRECTAS"},
-    "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}
+    "Efectos Indirectos": {"color": "#9D33D5", "label": "EFECTOS INDIRECTOS"}, # Púrpura Vibrante
+    "Efectos Directos": {"color": "#007BFF", "label": "EFECTOS DIRECTOS"},     # Azul Eléctrico
+    "Problema Principal": {"color": "#FF4B4B", "label": "PROBLEMA CENTRAL"},   # Rojo Intenso (Streamlit)
+    "Causas Directas": {"color": "#FFC107", "label": "CAUSAS DIRECTAS"},      # Amarillo Ámbar
+    "Causas Indirectas": {"color": "#FF851B", "label": "CAUSAS INDIRECTAS"}   # Naranja Sólido
 }
 
 # --- MOTOR DE DIBUJO (GRAPHVIZ) ---
@@ -61,19 +63,19 @@ def generar_grafo_problemas():
     pc = datos.get("Problema Principal", [])
     if pc:
         txt = pc[0].get('texto', pc[0]) if isinstance(pc[0], dict) else pc[0]
-        dot.node('PC', limpiar(txt), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontname='Arial Bold')
+        dot.node('PC', limpiar(txt), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='white', fontname='Arial Bold')
 
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
         txt_ed = ed.get('texto', ed) if isinstance(ed, dict) else ed
         id_ed = f"ED{i}"
-        dot.node(id_ed, limpiar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
+        dot.node(id_ed, limpiar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"], fontcolor='white')
         dot.edge('PC', id_ed)
         for j, ei in enumerate(ef_ind):
             if isinstance(ei, dict) and ei.get('padre') == txt_ed:
                 id_ei = f"EI{i}_{j}"
-                dot.node(id_ei, limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
+                dot.node(id_ei, limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"], fontcolor='white')
                 dot.edge(id_ed, id_ei)
 
     ca_dir = datos.get("Causas Directas", [])
@@ -125,7 +127,8 @@ def render_card(seccion, item, idx):
         st.session_state['arbol_tarjetas'][seccion][idx] = item
 
     id_u = item['id_unico']
-    st.markdown(f'<div style="background-color: {CONFIG_PROB[seccion]["color"]}; height: 8px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
+    # LÍNEA SUPERIOR CON COLOR SÓLIDO
+    st.markdown(f'<div style="background-color: {CONFIG_PROB[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0; border: 1px solid rgba(0,0,0,0.1); border-bottom: none;"></div>', unsafe_allow_html=True)
     nuevo = st.text_area("t", value=item['texto'], key=f"txt_{id_u}", label_visibility="collapsed")
     if st.button("🗑️", key=f"btn_{id_u}"):
         st.session_state['arbol_tarjetas'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
@@ -139,7 +142,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (Unificación Vertical: Crecimiento hacia arriba)
+    # 1. EFECTOS (Unificación Vertical)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -149,10 +152,8 @@ else:
             with cols_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
-                # Renderizar hijos en reversa (más alejado del suelo arriba)
                 for idx_h, h in reversed(hijos):
                     render_card("Efectos Indirectos", h, idx_h)
-                # El padre queda en la base de la columna
                 render_card("Efectos Directos", ed, i)
 
     st.markdown("---")
@@ -162,7 +163,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS (Unificación Vertical: Crecimiento hacia abajo)
+    # 3. CAUSAS (Unificación Vertical)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
