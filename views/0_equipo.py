@@ -39,7 +39,6 @@ st.markdown("""
         text-align: left;
         margin-bottom: 20px;
     }
-    /* Estilo del formulario */
     div[data-testid="stForm"] {
         border: 1px solid #eee;
         padding: 20px;
@@ -47,10 +46,13 @@ st.markdown("""
         background-color: #fafafa;
     }
     
-    /* --- HACK PARA QUITAR BOTÓN FULLSCREEN DE LA IMAGEN --- */
-    button[title="View fullscreen"] {
-        display: none !important;
+    /* --- HACK DEFINITIVO PARA DESACTIVAR EL CLICK EN LA IMAGEN --- */
+    /* Esto hace que la imagen ignore el ratón, evitando que se agrande */
+    [data-testid="stImage"] img {
+        pointer-events: none;
+        user-select: none;
     }
+    /* Ocultamos también el botón por si acaso */
     [data-testid="StyledFullScreenButton"] {
         display: none !important;
     }
@@ -76,7 +78,6 @@ integrantes_raw = st.session_state.get('integrantes', [])
 integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
 if integrantes_validos:
-    # Distribuimos las tarjetas en 3 columnas arriba
     cols = st.columns(3) 
     for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
@@ -105,9 +106,9 @@ st.divider()
 # ---------------------------------------------------------
 col_img, col_form = st.columns([1, 1.5], gap="large")
 
-# --- COLUMNA 1: IMAGEN (Sin botón fullscreen) ---
+# --- COLUMNA 1: IMAGEN (ESTÁTICA, NO CLICKEABLE) ---
 with col_img:
-    st.write("") # Espaciador para alinear visualmente con el título del formulario
+    st.write("") 
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
@@ -126,7 +127,6 @@ with col_form:
             nuevo_email = st.text_input("Correo Electrónico")
             st.write("") 
         
-        # Botón de guardar
         submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
         
         if submitted:
