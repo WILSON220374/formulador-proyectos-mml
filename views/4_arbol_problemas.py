@@ -7,10 +7,9 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Interfaz y Etiquetas de Fila) ---
+# --- ESTILO GLOBAL (Interfaz Limpia) ---
 st.markdown("""
     <style>
-    /* Estética de Tarjetas: Fusión total con color */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -22,24 +21,6 @@ st.markdown("""
         box-shadow: none !important;
         min-height: 100px !important;
     }
-    
-    /* Etiquetas Laterales (Basadas en la imagen) */
-    .etiqueta-fila {
-        color: #000;
-        padding: 15px 5px;
-        border-radius: 5px;
-        text-align: center;
-        font-weight: 800;
-        font-size: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100px; /* Alineado con la altura de la tarjeta */
-        border: 2px solid #333;
-        line-height: 1.1;
-        text-transform: uppercase;
-    }
-
     .main .stButton button {
         border: none !important;
         background: transparent !important;
@@ -61,18 +42,88 @@ with col_logo:
         st.image("unnamed-1.jpg", use_container_width=True)
 
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO INDIRECTO", "bg_etiqueta": "#D2B4DE"},
-    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTO DIRECTO", "bg_etiqueta": "#AED6F1"},
-    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA CENTRAL", "bg_etiqueta": "#E6B0AA"},
-    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSA DIRECTA", "bg_etiqueta": "#F9E79F"},
-    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSA INDIRECTA", "bg_etiqueta": "#F5CBA7"}
+    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTO\nINDIRECTO", "bg_etiqueta": "#D2B4DE"},
+    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTO\nDIRECTO", "bg_etiqueta": "#AED6F1"},
+    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA\nCENTRAL", "bg_etiqueta": "#E6B0AA"},
+    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSA\nDIRECTA", "bg_etiqueta": "#F9E79F"},
+    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSA\nINDIRECTA", "bg_etiqueta": "#F5CBA7"}
 }
 
-# --- FUNCIONES DE APOYO ---
-def render_etiqueta(tipo):
-    conf = CONFIG_PROB[tipo]
-    st.markdown(f'<div class="etiqueta-fila" style="background-color: {conf["bg_etiqueta"]};">{conf["label"]}</div>', unsafe_allow_html=True)
+# --- MOTOR DE DIBUJO (ETIQUETAS INTEGRADAS EN PNG) ---
+def generar_grafo_problemas():
+    datos = st.session_state.get('arbol_tarjetas', {})
+    if not datos: return None
+    dot = graphviz.Digraph(format='png')
+    
+    dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
+    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
+    
+    # Nodos de Contenido
+    dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
+    
+    import textwrap
+    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=w))
 
+    # --- CREACIÓN DE ETIQUETAS LATERALES EN LA GRÁFICA ---
+    def crear_nodo_etiqueta(id_et, tipo):
+        conf = CONFIG_PROB[tipo]
+        dot.node(id_et, conf['label'], fillcolor=conf['bg_etiqueta'], fontcolor='black', fontsize='16', margin='0.3,0.3')
+
+    # Definir nodos de etiquetas para cada nivel
+    etiquetas = ["L_EI", "L_ED", "L_PC", "L_CD", "L_CI"]
+    tipos = ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"]
+    for id_e, tipo in zip(etiquetas, tipos):
+        crear_nodo_etiqueta(id_e, tipo)
+    
+    # Vincular etiquetas verticalmente (invisible) para asegurar el orden izquierdo
+    for i in range(len(etiquetas)-1):
+        dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
+
+    # --- RENDERIZADO DE CONTENIDO POR NIVELES ---
+    # Problema Central
+    pc = datos.get("Problema Principal", [])
+    if pc:
+        dot.node('PC', limpiar(pc[0]['texto'], 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_PC')
+            s.node('PC')
+
+    # Efectos y Causas
+    for tipo, id_et, p_key, edge_dir in [
+        ("Efectos Directos", "L_ED", "PC", "forward"), 
+        ("Causas Directas", "L_CD", "PC", "back")
+    ]:
+        items = datos.get(tipo, [])
+        h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
+        id_et_h = "L_EI" if "Efecto" in tipo else "L_CI"
+        
+        # Agrupar padres con su etiqueta
+        with dot.subgraph() as s_p:
+            s_p.attr(rank='same')
+            s_p.node(id_et)
+            for i, it in enumerate(items):
+                txt = it.get('texto') if isinstance(it, dict) else it
+                node_id = f"{tipo}{i}"
+                s_p.node(node_id, limpiar(txt), fillcolor=CONFIG_PROB[tipo]["color"])
+                if edge_dir == "forward": dot.edge('PC', node_id)
+                else: dot.edge(node_id, 'PC')
+
+        # Agrupar hijos con su etiqueta
+        with dot.subgraph() as s_h:
+            s_h.attr(rank='same')
+            s_h.node(id_et_h)
+            for i, it in enumerate(items):
+                txt_p = it.get('texto') if isinstance(it, dict) else it
+                for j, h in enumerate(datos.get(h_tipo, [])):
+                    if isinstance(h, dict) and h.get('padre') == txt_p:
+                        h_id = f"{h_tipo}{i}_{j}"
+                        s_h.node(h_id, limpiar(h.get('texto')), fillcolor=CONFIG_PROB[h_tipo]["color"])
+                        if edge_dir == "forward": dot.edge(f"{tipo}{i}", h_id)
+                        else: dot.edge(h_id, f"{tipo}{i}")
+    return dot
+
+# --- RENDERIZADO DE TARJETA ---
 def render_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
@@ -81,38 +132,6 @@ def render_card(seccion, item, idx):
     if st.button("🗑️", key=f"btn_{id_u}"):
         st.session_state['arbol_tarjetas'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
     if nuevo != item['texto']: item['texto'] = nuevo; guardar_datos_nube()
-
-# --- MOTOR DE DIBUJO ---
-def generar_grafo_problemas():
-    datos = st.session_state.get('arbol_tarjetas', {})
-    if not datos: return None
-    dot = graphviz.Digraph(format='png')
-    dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
-    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
-    dot.attr('node', fontsize='20', fontcolor='white', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
-    
-    import textwrap
-    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).replace('"', "'"), width=w))
-    
-    pc = datos.get("Problema Principal", [])
-    if pc:
-        dot.node('PC', limpiar(pc[0]['texto'], 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
-
-    for tipo, p_key, edge_dir in [("Efectos Directos", "PC", "forward"), ("Causas Directas", "PC", "back")]:
-        items = datos.get(tipo, [])
-        for i, it in enumerate(items):
-            txt = it.get('texto') if isinstance(it, dict) else it
-            dot.node(f"{tipo}{i}", limpiar(txt), fillcolor=CONFIG_PROB[tipo]["color"])
-            if edge_dir == "forward": dot.edge('PC', f"{tipo}{i}")
-            else: dot.edge(f"{tipo}{i}", 'PC')
-            
-            h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
-            for j, h in enumerate(datos.get(h_tipo, [])):
-                if isinstance(h, dict) and h.get('padre') == txt:
-                    dot.node(f"{h_tipo}{i}_{j}", limpiar(h.get('texto')), fillcolor=CONFIG_PROB[h_tipo]["color"])
-                    if edge_dir == "forward": dot.edge(f"{tipo}{i}", f"{h_tipo}{i}_{j}")
-                    else: dot.edge(f"{h_tipo}{i}_{j}", f"{tipo}{i}")
-    return dot
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -144,44 +163,34 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # --- LÓGICA DE FILAS CON ETIQUETAS ---
-    def render_seccion_con_etiqueta(tipo_padre, tipo_hijo):
+    def render_seccion_simple(tipo_padre, tipo_hijo):
         padres = st.session_state['arbol_tarjetas'].get(tipo_padre, [])
         hijos = st.session_state['arbol_tarjetas'].get(tipo_hijo, [])
         if not padres: return
-
-        # 1. Filas de Hijos (Indirectos)
+        
+        st.write(f"**{tipo_padre} e {tipo_hijo}**")
         hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
         max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
-        
-        ratios = [0.15] + [0.85/len(padres)] * len(padres)
-        
+
+        # Filas de Hijos
         for h_idx in range(max_h - 1, -1, -1) if "Efecto" in tipo_padre else range(max_h):
-            cols = st.columns(ratios)
-            with cols[0]: 
-                if h_idx == (max_h-1 if "Efecto" in tipo_padre else 0): render_etiqueta(tipo_hijo)
-            for p_idx, col in enumerate(cols[1:]):
+            cols = st.columns(len(padres))
+            for p_idx, col in enumerate(cols):
                 with col:
                     if h_idx < len(hijos_por_p[p_idx]):
                         idx_real, h_data = hijos_por_p[p_idx][h_idx]
                         render_card(tipo_hijo, h_data, idx_real)
+                    else: st.empty()
 
-        # 2. Fila de Padres (Directos)
-        cols_p = st.columns(ratios)
-        with cols_p[0]: render_etiqueta(tipo_padre)
+        # Fila de Padres
+        cols_p = st.columns(len(padres))
         for i, p_data in enumerate(padres):
-            with cols_p[i+1]: render_card(tipo_padre, p_data, i)
+            with cols_p[i]: render_card(tipo_padre, p_data, i)
 
-    # RENDERIZADO FINAL DEL PANEL
-    render_seccion_con_etiqueta("Efectos Directos", "Efectos Indirectos")
-    
+    render_seccion_simple("Efectos Directos", "Efectos Indirectos")
     st.markdown("---")
-    # Fila Problema Central
-    cols_pc = st.columns([0.15, 0.85])
-    with cols_pc[0]: render_etiqueta("Problema Principal")
-    with cols_pc[1]: 
-        pc_l = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
-        if pc_l: render_card("Problema Principal", pc_l[0], 0)
-    
+    st.write("**Problema Principal**")
+    pc_l = st.session_state['arbol_tarjetas'].get("Problema Principal", [])
+    if pc_l: render_card("Problema Principal", pc_l[0], 0)
     st.markdown("---")
-    render_seccion_con_etiqueta("Causas Directas", "Causas Indirectas")
+    render_seccion_simple("Causas Directas", "Causas Indirectas")
