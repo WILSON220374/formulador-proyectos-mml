@@ -46,7 +46,8 @@ with col_titulo:
     st.markdown('<div class="titulo-seccion">🗺️ 2. Zona de Estudio</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Delimitación geográfica, límites y contexto económico.</div>', unsafe_allow_html=True)
     
-    # --- CÁLCULO DE PROGRESO (Basado en TUS campos originales) ---
+    # --- CÁLCULO DE PROGRESO ---
+    # Campos que revisamos para ver si están llenos
     campos_clave = ['pob_total', 'ubicacion', 'limites', 'economia', 'vias']
     llenos = sum(1 for c in campos_clave if datos.get(c) and str(datos.get(c)).strip())
     progreso = llenos / len(campos_clave)
@@ -61,11 +62,12 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE AUTO-AJUSTE (Recuperada de tu código) ---
+# --- FUNCIÓN DE AUTO-AJUSTE DE ALTURA ---
 def calcular_altura(texto, min_h=100):
     if not texto: return min_h
-    # Ajuste para detectar párrafos largos
-    lineas = str(texto).count('\n') + (len(str(texto)) // 60)
+    texto_str = str(texto)
+    # Calculamos líneas por 'Enter' y por longitud (ajustado a 60 caracteres por línea aprox)
+    lineas = texto_str.count('\n') + (len(texto_str) // 60)
     return max(min_h, (lineas + 2) * 24)
 
 # --- CONTEXTO: PROBLEMA CENTRAL ---
@@ -73,10 +75,10 @@ problema_actual = st.session_state.get('datos_problema', {}).get('problema_centr
 with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True):
     st.info(f"**Problema Identificado:** {problema_actual}")
 
-# --- FORMULARIO ESTRUCTURADO (Con tus campos originales) ---
+# --- FORMULARIO ESTRUCTURADO ---
 st.subheader("📍 Detalles del Área")
 
-# BLOQUE 1: POBLACIÓN
+# BLOQUE 1: POBLACIÓN (3 Columnas)
 with st.container(border=True):
     st.markdown("##### 👥 Población Afectada")
     c1, c2, c3 = st.columns(3)
@@ -89,11 +91,11 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 2: UBICACIÓN Y LÍMITES (Recuperado)
+# BLOQUE 2: UBICACIÓN Y LÍMITES
 with st.container(border=True):
     st.markdown("##### 🗺️ Ubicación Geográfica")
     
-    # Campo Ubicación (Ancho completo o dividido según prefieras, lo dejaré ancho como importancia)
+    # Campo Ubicación (Una sola línea como pediste)
     val_ubicacion = datos.get('ubicacion', "")
     ubicacion = st.text_input("Localización Específica (Municipio/Vereda)", value=val_ubicacion, placeholder="Ej: Municipio de Sogamoso, Vereda X")
     
@@ -101,17 +103,18 @@ with st.container(border=True):
     
     st.markdown("##### 🚧 Límites Geográficos")
     val_limites = datos.get('limites', "")
+    # APLICAMOS AUTO-AJUSTE AQUÍ
     limites = st.text_area(
         "Norte, Sur, Oriente, Occidente...", 
         value=val_limites, 
         height=calcular_altura(val_limites),
-        placeholder="Defina los límites territoriales...",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        placeholder="Defina los límites territoriales..."
     )
 
 st.write("")
 
-# BLOQUE 3: ECONOMÍA Y VÍAS (Recuperado en 2 columnas)
+# BLOQUE 3: ECONOMÍA Y VÍAS (2 Columnas con Auto-Ajuste)
 with st.container(border=True):
     st.markdown("##### 💰 Contexto Socioeconómico y Físico")
     
@@ -120,6 +123,7 @@ with st.container(border=True):
     with col_a:
         st.markdown("**Principal Actividad Económica**")
         val_eco = datos.get('economia', "")
+        # APLICAMOS AUTO-AJUSTE AQUÍ
         economia = st.text_area(
             "Economia", 
             value=val_eco, 
@@ -131,6 +135,7 @@ with st.container(border=True):
     with col_b:
         st.markdown("**División del Territorio / Vías**")
         val_vias = datos.get('vias', "")
+        # APLICAMOS AUTO-AJUSTE AQUÍ
         vias = st.text_area(
             "Vias", 
             value=val_vias, 
@@ -140,7 +145,6 @@ with st.container(border=True):
         )
 
 # --- GUARDADO AUTOMÁTICO ---
-# Comparamos con los valores actuales en sesión para guardar si algo cambió
 nueva_data = {
     'pob_total': p_total,
     'pob_urbana': p_urbana,
