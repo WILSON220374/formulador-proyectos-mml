@@ -12,23 +12,23 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
-    /* 1. Espacio extra al final para el scroll */
+    /* 1. SOLUCIÓN AL SCROLL: Espacio extra al final */
     .block-container { padding-bottom: 250px !important; }
 
     /* 2. Títulos Generales */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* 3. FORZAR CABECERA AZUL OSCURO EN AG-GRID */
-    .ag-theme-streamlit {
-        --ag-header-background-color: #1E3A8A !important;
-        --ag-header-foreground-color: #FFFFFF !important;
+    /* 3. FORZAR CABECERA AZUL OSCURO Y TEXTO BLANCO */
+    .ag-theme-streamlit .ag-header {
+        background-color: #1E3A8A !important;
     }
-    .ag-header-cell-text {
+    .ag-theme-streamlit .ag-header-cell-text {
+        color: #FFFFFF !important;
         font-weight: 700 !important;
         font-size: 14px !important;
     }
-    .ag-header-icon {
+    .ag-theme-streamlit .ag-header-icon {
         color: #FFFFFF !important;
     }
 
@@ -53,6 +53,7 @@ with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
     
+    # Cálculo seguro del progreso
     tiene_datos = not df_actual.empty and 'NOMBRE' in df_actual.columns and df_actual['NOMBRE'].dropna().any()
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
     st.progress(progreso, text=f"Completitud: {int(progreso * 100)}%")
@@ -80,29 +81,31 @@ if tiene_datos:
 # --- MATRIZ DE DATOS ---
 st.subheader("📝 Matriz de Datos")
 
-# 1. BOTÓN PARA AGREGAR FILAS VACÍAS (Corregido)
+# 1. BOTÓN PARA AGREGAR FILAS VACÍAS
+# Usamos columnas para que el botón no ocupe todo el ancho
 col_btn, _ = st.columns([1, 4])
 with col_btn:
     if st.button("➕ Agregar Nuevo Actor", type="primary", use_container_width=True):
-        # Creamos una fila TOTALMENTE VACÍA
+        # Crear fila vacía con valores por defecto seguros
         new_row = pd.DataFrame([{
             "NOMBRE": "", 
             "GRUPO": "", 
-            "POSICIÓN": "", # Vacío para que el usuario elija
+            "POSICIÓN": "Indiferente", 
             "EXPECTATIVA": "", 
             "CONTRIBUCION AL PROYECTO": "", 
-            "PODER": "", 
-            "INTERÉS": "", 
+            "PODER": "Bajo", 
+            "INTERÉS": "Bajo", 
             "ESTRATEGIA": ""
         }])
-        # Unimos y guardamos inmediatamente
+        # Concatenar y guardar en sesión
         st.session_state['df_interesados'] = pd.concat([df_actual, new_row], ignore_index=True)
-        guardar_datos_nube() # Guardado de seguridad
-        st.rerun() # Recargamos para mostrar la fila vacía
+        guardar_datos_nube() 
+        st.rerun()
 
 # 2. Preparar DataFrame
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
 if df_actual.empty: df_actual = pd.DataFrame(columns=cols_orden)
+# Asegurar columnas
 for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_render = df_actual[cols_orden].copy()
@@ -112,9 +115,10 @@ gb = GridOptionsBuilder.from_dataframe(df_render)
 gb.configure_default_column(editable=True, resizable=True, filterable=True, wrapText=True, autoHeight=True)
 gb.configure_grid_options(domLayout='autoHeight') 
 
-# 4. COLORES PASTEL
+# 4. COLORES PASTEL Y FUENTES
 cell_style_js = JsCode("""
 function(params) {
+    // Colores Pastel Suaves - Letra normal (#333)
     if (params.value == 'Opositor') { return {'backgroundColor': '#FFEBEE', 'color': '#333333'}; }
     if (params.value == 'Cooperante') { return {'backgroundColor': '#E8F5E9', 'color': '#333333'}; }
     if (params.value == 'Beneficiario') { return {'backgroundColor': '#E3F2FD', 'color': '#333333'}; }
@@ -125,11 +129,18 @@ function(params) {
 
 gb.configure_column("NOMBRE", header_name="Actor / Entidad", minWidth=220, pinned="left")
 gb.configure_column("GRUPO", width=120)
-gb.configure_column("POSICIÓN", cellStyle=cell_style_js, cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Opositor', 'Cooperante', 'Beneficiario', 'Perjudicado', 'Indiferente']}, width=130)
+gb.configure_column("POSICIÓN", 
+    cellStyle=cell_style_js, 
+    cellEditor='agSelectCellEditor', 
+    cellEditorParams={'values': ['Opositor', 'Cooperante', 'Beneficiario', 'Perjudicado', 'Indiferente']}, 
+    width=130
+)
 gb.configure_column("EXPECTATIVA", width=300)
 gb.configure_column("CONTRIBUCION AL PROYECTO", header_name="Contribución", width=200)
 gb.configure_column("PODER", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
 gb.configure_column("INTERÉS", cellEditor='agSelectCellEditor', cellEditorParams={'values': ['Alto', 'Bajo']}, width=100)
+
+# ESTRATEGIA: Negrita
 gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'fontWeight': 'bold', 'color': '#444'}, width=220)
 
 gb.configure_selection('single', use_checkbox=False)
@@ -137,7 +148,7 @@ gridOptions = gb.build()
 
 st.caption("💡 Use el botón superior para agregar filas vacías. Doble clic para editar.")
 
-# 5. Renderizar AgGrid
+# 5. Renderizar Tabla
 grid_response = AgGrid(
     df_render,
     gridOptions=gridOptions,
@@ -146,7 +157,7 @@ grid_response = AgGrid(
     height=None, 
     fit_columns_on_grid_load=True,
     theme='streamlit',
-    key='aggrid_interesados_final_v3'
+    key='aggrid_interesados_v_final_clean'
 )
 
 df_modificado = pd.DataFrame(grid_response['data'])
@@ -159,6 +170,7 @@ st.subheader("📊 Mapa de Influencia")
 if not df_modificado.empty and 'NOMBRE' in df_modificado.columns:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     def obtener_lista(p, i):
+        # Filtro seguro
         f = df_modificado[(df_modificado['PODER'] == p) & (df_modificado['INTERÉS'] == i) & (df_modificado['NOMBRE'].notna()) & (df_modificado['NOMBRE'] != "")]
         return [f"{color_map.get(r['POSICIÓN'], '⚪')} **{r['NOMBRE']}**" for _, r in f.iterrows()] or ["*Sin actores*"]
 
@@ -187,10 +199,10 @@ st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, height=200, 
     key="txt_analisis_final_panel", label_visibility="collapsed",
-    placeholder="Escriba aquí el análisis cualitativo y las estrategias de negociación..."
+    placeholder="Escriba aquí el análisis cualitativo..."
 )
 
-# --- GUARDADO ---
+# --- LÓGICA DE GUARDADO ---
 def calcular_estrategia(row):
     p, i = str(row.get('PODER', '')).strip(), str(row.get('INTERÉS', '')).strip()
     if p == "Alto" and i == "Alto": return "Involucrar y mantener cerca"
