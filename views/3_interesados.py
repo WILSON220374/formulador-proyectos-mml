@@ -8,21 +8,41 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS (Diseño Limpio) ---
+# --- ESTILOS CSS (Diseño Limpio + Scrollbars Visibles) ---
 st.markdown("""
     <style>
-    /* Ajuste de scroll */
+    /* Ajuste de scroll de la página completa */
     .block-container { padding-bottom: 150px !important; }
 
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* Contenedor de la Tabla con sombra suave */
+    /* Contenedor de la Tabla */
     div[data-testid="stDataEditor"] {
         background-color: #ffffff;
         border: 1px solid #e0e7ff;
         border-radius: 12px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    }
+
+    /* --- TRUCO PARA FORZAR SCROLLBARS SIEMPRE VISIBLES --- */
+    div[data-testid="stDataEditor"] ::-webkit-scrollbar {
+        -webkit-appearance: none;
+        width: 12px !important;  /* Ancho vertical */
+        height: 12px !important; /* Alto horizontal */
+        display: block !important;
+        background: #f1f1f1;
+    }
+    div[data-testid="stDataEditor"] ::-webkit-scrollbar-thumb {
+        background-color: #c1c1c1; /* Color de la barra */
+        border-radius: 6px;
+        border: 2px solid #f1f1f1; /* Espacio alrededor */
+    }
+    div[data-testid="stDataEditor"] ::-webkit-scrollbar-thumb:hover {
+        background-color: #a8a8a8; /* Color al pasar el mouse */
+    }
+    div[data-testid="stDataEditor"] ::-webkit-scrollbar-corner {
+        background: transparent;
     }
     
     /* Tarjetas de KPI */
@@ -55,15 +75,13 @@ with col_l:
 
 st.divider()
 
-# --- MIGRACIÓN AUTOMÁTICA DE DATOS (Para que se vea bonito lo que ya tienes) ---
-# Esto le pone iconos automáticamente a tus datos viejos
+# --- MIGRACIÓN AUTOMÁTICA DE DATOS ---
 if not df_actual.empty:
     mapeo_iconos = {
         "Opositor": "🔴 Opositor", "Cooperante": "🟢 Cooperante", 
         "Beneficiario": "🔵 Beneficiario", "Perjudicado": "🟣 Perjudicado",
         "Alto": "⚡ Alto", "Bajo": "🔅 Bajo"
     }
-    # Aplicamos el mapeo solo si el texto no tiene ya el icono
     for col in ["POSICIÓN", "PODER", "INTERÉS"]:
         if col in df_actual.columns:
             df_actual[col] = df_actual[col].apply(lambda x: mapeo_iconos.get(str(x).strip(), x) if str(x).strip() in mapeo_iconos else x)
@@ -71,7 +89,6 @@ if not df_actual.empty:
 # --- KPIs ---
 if tiene_datos:
     total = len(df_actual.dropna(subset=["NOMBRE"]))
-    # Buscamos por texto parcial para que funcione con o sin iconos
     opos = len(df_actual[df_actual["POSICIÓN"].astype(str).str.contains("Opositor", case=False, na=False)])
     coop = len(df_actual[df_actual["POSICIÓN"].astype(str).str.contains("Cooperante", case=False, na=False)])
     p_alto = len(df_actual[df_actual["PODER"].astype(str).str.contains("Alto", case=False, na=False)])
@@ -85,7 +102,6 @@ if tiene_datos:
 # --- MATRIZ DE DATOS ---
 st.subheader("📝 Matriz de Datos")
 
-# Definimos opciones visuales (Esto le da el "look" mejorado)
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
 opciones_niv = ["⚡ Alto", "🔅 Bajo"]
 
@@ -107,30 +123,27 @@ for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_actual = df_actual[cols_orden]
 
-# Renderizado Nativo (Con num_rows="dynamic" para agregar filas infinitas)
+# Renderizado
 df_editado = st.data_editor(
     df_actual,
     column_config=config_columnas,
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
-    key="editor_interesados_mejorado"
+    key="editor_interesados_scroll_visible"
 )
 
-# Lógica de cálculo (Actualizada según tu solicitud)
+# Lógica de cálculo (Según tu imagen)
 def calcular_estrategia(row):
-    # Limpiamos los iconos para comparar solo el texto
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     
-    # LÓGICA CORREGIDA (Según tu tabla)
     if p == "Alto" and i == "Bajo": return "INVOLUCRAR - MANTENER SATISFECHOS"
     if p == "Alto" and i == "Alto": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
     if p == "Bajo" and i == "Alto": return "MANTENER INFORMADOS"
     if p == "Bajo" and i == "Bajo": return "MONITOREAR"
     return ""
 
-# Guardado
 if not df_editado.equals(df_actual):
     if not df_editado.empty:
         df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
@@ -143,11 +156,9 @@ st.write("")
 # --- MAPA ESTRATÉGICO ---
 st.subheader("📊 Mapa de Influencia")
 if tiene_datos:
-    # Mapeo simple para los iconos en el mapa
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     
     def obtener_lista(p_key, i_key):
-        # Filtramos buscando el texto clave dentro de la celda (que puede tener iconos)
         f = df_editado[
             (df_editado['PODER'].astype(str).str.contains(p_key)) & 
             (df_editado['INTERÉS'].astype(str).str.contains(i_key)) & 
