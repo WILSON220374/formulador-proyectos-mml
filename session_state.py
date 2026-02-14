@@ -6,49 +6,41 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- INYECCIÓN DE DISEÑO ULTRA-COMPACTO (AJUSTE AGRESIVO) ---
+    # --- INYECCIÓN DE DISEÑO COMPACTO DE SEGURIDAD (Sin Cortes) ---
     st.markdown("""
         <style>
-        /* 1. Eliminamos la cabecera y forzamos altura cero */
+        /* 1. Ocultar la cabecera de Streamlit para liberar espacio */
         header[data-testid="stHeader"] {
-            visibility: hidden;
-            height: 0% !important;
-            padding: 0 !important;
+            display: none !important;
         }
 
-        /* 2. Colapsamos los contenedores raíz de Streamlit */
-        [data-testid="stAppViewContainer"] {
-            padding-top: 0rem !important;
+        /* 2. Reducir el padding superior del contenedor al mínimo (1rem) */
+        /* Esto sube el contenido sin empujarlo fuera de la pantalla */
+        .block-container {
+            padding-top: 1rem !important; 
+            padding-bottom: 0rem !important;
         }
         
-        /* 3. Subimos el bloque principal con margen negativo extremo */
-        .block-container {
-            padding-top: 0rem !important;
-            padding-bottom: 0rem !important;
-            margin-top: -6rem !important; /* Ajuste para subir el logo Tree */
-        }
-
-        /* 4. Quitamos espacio muerto debajo de los títulos (h1) */
+        /* 3. Ajuste de títulos para que no tengan espacio muerto arriba */
         h1 {
             margin-top: 0 !important;
             padding-top: 0 !important;
-            margin-bottom: 0.2rem !important;
+            margin-bottom: 0.5rem !important;
         }
 
-        /* 5. Ajuste específico para el logo de inicio (stImage) */
+        /* 4. Asegurar que la imagen del logo respete el borde superior */
         [data-testid="stImage"] {
-            margin-top: -2rem !important;
-            margin-bottom: 0rem !important;
+            margin-top: 0 !important;
             display: flex;
             justify-content: center;
         }
 
-        /* 6. Ocultar botón de expansión en imágenes */
+        /* 5. Ocultar botón de expansión en imágenes */
         button[title="View fullscreen"] {
             display: none !important;
         }
 
-        /* 7. Unificación de tarjetas de texto */
+        /* 6. Estilo unificado para tarjetas (TextArea) */
         div[data-testid="stTextArea"] textarea {
             background-color: #ffffff !important;
             border: none !important;           
