@@ -1,144 +1,94 @@
 import streamlit as st
-import pandas as pd
-from supabase import create_client
+import os
+from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube
 
-def conectar_db():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+# 1. Configuración de la página
+st.set_page_config(page_title="JC Flow - Formulador MML", layout="wide")
+inicializar_session()
 
-def inicializar_session():
-    # --- INYECCIÓN DE DISEÑO COMPACTO DE SEGURIDAD (Sin Cortes) ---
+# --- PURIFICACIÓN DE RAÍZ ---
+if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
+    st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
+
+# --- LÓGICA DE ACCESO (LOGIN) ---
+if not st.session_state['autenticado']:
     st.markdown("""
         <style>
-        /* 1. Ocultar la cabecera de Streamlit para liberar espacio */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
-
-        /* 2. Reducir el padding superior del contenedor al mínimo (1rem) */
-        /* Esto sube el contenido sin empujarlo fuera de la pantalla */
-        .block-container {
-            padding-top: 1rem !important; 
-            padding-bottom: 0rem !important;
-        }
-        
-        /* 3. Ajuste de títulos para que no tengan espacio muerto arriba */
-        h1 {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
-            margin-bottom: 0.5rem !important;
-        }
-
-        /* 4. Asegurar que la imagen del logo respete el borde superior */
-        [data-testid="stImage"] {
-            margin-top: 0 !important;
-            display: flex;
-            justify-content: center;
-        }
-
-        /* 5. Ocultar botón de expansión en imágenes */
-        button[title="View fullscreen"] {
-            display: none !important;
-        }
-
-        /* 6. Estilo unificado para tarjetas (TextArea) */
-        div[data-testid="stTextArea"] textarea {
-            background-color: #ffffff !important;
-            border: none !important;           
-            border-radius: 0 0 10px 10px !important;
-            text-align: center !important;
-            font-size: 14px !important;
-            font-weight: 700 !important;
-            color: #000 !important;
-        }
+        .titulo-acceso { font-size: 38px !important; font-weight: 800 !important; color: #4F8BFF; text-align: center; margin-bottom: 20px; }
+        .label-mediana { font-size: 22px !important; font-weight: bold; color: #1E3A8A; margin-bottom: 8px !important; margin-top: 15px !important; margin-left: 5px; display: block; }
+        input { font-size: 22px !important; height: 60px !important; text-align: center !important; border-radius: 12px !important; }
+        div.stButton > button { font-size: 26px !important; height: 2.8em !important; font-weight: bold !important; background-color: #4F8BFF !important; border-radius: 15px !important; margin-top: 25px; }
         </style>
     """, unsafe_allow_html=True)
 
-    if 'autenticado' not in st.session_state:
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        if os.path.exists("unnamed.jpg"):
+            st.image("unnamed.jpg", use_container_width=True)
+        else:
+            st.title("🏗️ JC Flow")
+        st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
+            u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
+            st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
+            p = st.text_input("p", type="password", label_visibility="collapsed")
+            if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
+                try:
+                    db = conectar_db()
+                    res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
+                    if res.data:
+                        st.session_state['autenticado'] = True
+                        st.session_state['usuario_id'] = u
+                        cargar_datos_nube(u)
+                        st.rerun()
+                    else:
+                        st.error("Credenciales incorrectas.")
+                except Exception:
+                    st.error("Error de conexión.")
+    st.stop()
+
+# --- SIDEBAR Y NAVEGACIÓN ---
+with st.sidebar:
+    st.header(f"👷 {st.session_state['usuario_id']}")
+    
+    # --- ESCUDO DE FAILSAFE (Línea del error corregida) ---
+    integrantes = st.session_state.get('integrantes', [])
+    if integrantes and isinstance(integrantes, list):
+        for persona in integrantes:
+            try:
+                # Verificamos que 'persona' exista y sea un diccionario antes de pedirle datos
+                if persona and isinstance(persona, dict):
+                    nombre_full = persona.get("Nombre Completo", "").strip()
+                    if nombre_full:
+                        nombre_pila = nombre_full.split()[0].upper()
+                        st.markdown(f"**👤 {nombre_pila}**")
+            except Exception:
+                # Si un integrante está corrupto, lo ignoramos y pasamos al siguiente
+                continue
+    
+    st.divider()
+    if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
+        guardar_datos_nube()
+        st.toast("✅ Avance guardado", icon="🚀")
+    st.divider()
+    if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['autenticado'] = False
-    
-    # --- DATOS DEL EQUIPO ---
-    if 'integrantes' not in st.session_state:
-        st.session_state['integrantes'] = []
-    
-    # --- FASE I: IDENTIFICACIÓN (Páginas 1 y 2) ---
-    if 'datos_problema' not in st.session_state:
-        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
-    if 'datos_zona' not in st.session_state:
-        st.session_state['datos_zona'] = {}
-        
-    # --- FASE II: PARTICIPANTES (Página 3) ---
-    if 'df_interesados' not in st.session_state:
-        st.session_state['df_interesados'] = pd.DataFrame()
-    if 'analisis_participantes' not in st.session_state:
-        st.session_state['analisis_participantes'] = ""
+        st.rerun()
 
-    # --- FASE III: ANÁLISIS (Páginas 4 y 5) ---
-    if 'arbol_tarjetas' not in st.session_state:
-        st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
-    if 'arbol_objetivos' not in st.session_state:
-        st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
-
-    # --- FASE IV: PLANIFICACIÓN Y EVALUACIÓN (Página 6) ---
-    if 'df_evaluacion_alternativas' not in st.session_state:
-        st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
-    if 'df_relaciones_objetivos' not in st.session_state:
-        st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
-    if 'lista_alternativas' not in st.session_state:
-        st.session_state['lista_alternativas'] = []
-    if 'ponderacion_criterios' not in st.session_state:
-        st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
-    if 'df_calificaciones' not in st.session_state:
-        st.session_state['df_calificaciones'] = pd.DataFrame()
-
-    # --- FASE V: ÁRBOLES FINALES PODADOS (Páginas 7 y 8) ---
-    if 'arbol_objetivos_final' not in st.session_state:
-        st.session_state['arbol_objetivos_final'] = {}
-    if 'arbol_problemas_final' not in st.session_state:
-        st.session_state['arbol_problemas_final'] = {}
-
-def cargar_datos_nube(user_id):
-    try:
-        db = conectar_db()
-        res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
-        if res.data and res.data[0]['datos']:
-            d = res.data[0]['datos']
-            st.session_state['integrantes'] = d.get('integrantes', [])
-            st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
-            st.session_state['datos_zona'] = d.get('zona', {})
-            st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
-            st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
-            st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
-            st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
-            st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
-            
-            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
-            if 'rel_obj' in d: st.session_state['df_relaciones_objetivos'] = pd.DataFrame(d['rel_obj'])
-            if 'calificaciones' in d: st.session_state['df_calificaciones'] = pd.DataFrame(d['calificaciones'])
-    except Exception as e:
-        st.error(f"Error al cargar: {e}")
-
-def guardar_datos_nube():
-    try:
-        db = conectar_db()
-        paquete = {
-            "integrantes": st.session_state['integrantes'],
-            "diagnostico": st.session_state['datos_problema'],
-            "zona": st.session_state['datos_zona'],
-            "interesados": st.session_state['df_interesados'].to_dict(),
-            "analisis_txt": st.session_state['analisis_participantes'],
-            "arbol_p": st.session_state['arbol_tarjetas'],
-            "arbol_o": st.session_state['arbol_objetivos'],
-            "alternativas": st.session_state['lista_alternativas'],
-            "eval_alt": st.session_state['df_evaluacion_alternativas'].to_dict(),
-            "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
-            "pesos_eval": st.session_state['ponderacion_criterios'],
-            "calificaciones": st.session_state['df_calificaciones'].to_dict(),
-            "arbol_f": st.session_state['arbol_objetivos_final'],
-            "arbol_p_f": st.session_state['arbol_problemas_final']
-        }
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
-    except Exception as e:
-        st.error(f"Error crítico al guardar: {e}")
+pg = st.navigation({
+    "Configuración": [st.Page("views/0_equipo.py", title="Equipo", icon="👥")],
+    "Fase I: Identificación": [
+        st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
+        st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
+        st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
+    ],
+    "Fase II: Análisis": [
+        st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
+        st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
+        st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
+        st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
+        st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
+    ]
+})
+pg.run()
