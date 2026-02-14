@@ -6,115 +6,102 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- INYECCIÓN DE DISEÑO COMPACTO DE SEGURIDAD (Sin Cortes) ---
+    # --- INYECCIÓN DE DISEÑO ULTRA-COMPACTO ---
     st.markdown("""
         <style>
-        /* 1. Ocultar la cabecera de Streamlit para liberar espacio */
+        /* 1. Eliminar cabecera y reducir espacios del contenedor principal */
         header[data-testid="stHeader"] {
             display: none !important;
         }
-
-        /* 2. Reducir el padding superior del contenedor al mínimo (1rem) */
-        /* Esto sube el contenido sin empujarlo fuera de la pantalla */
         .block-container {
-            padding-top: 1rem !important; 
+            padding-top: 0.5rem !important; 
             padding-bottom: 0rem !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
         }
         
-        /* 3. Ajuste de títulos para que no tengan espacio muerto arriba */
+        /* 2. Compactar Títulos y Subtítulos */
         h1 {
-            margin-top: 0 !important;
+            margin-top: -10px !important;
             padding-top: 0 !important;
             margin-bottom: 0.5rem !important;
+            font-size: 28px !important;
+        }
+        h2, h3 {
+            margin-top: 5px !important;
+            margin-bottom: 5px !important;
+            font-size: 22px !important;
         }
 
-        /* 4. Asegurar que la imagen del logo respete el borde superior */
+        /* 3. Ajuste de imagen (Logo) */
         [data-testid="stImage"] {
             margin-top: 0 !important;
             display: flex;
             justify-content: center;
         }
 
-        /* 5. Ocultar botón de expansión en imágenes */
+        /* 4. Ocultar elementos innecesarios */
         button[title="View fullscreen"] {
             display: none !important;
         }
 
-        /* 6. Estilo unificado para tarjetas (TextArea) */
+        /* 5. Estilo de tarjetas de texto compacto */
         div[data-testid="stTextArea"] textarea {
-            background-color: #ffffff !important;
-            border: none !important;           
-            border-radius: 0 0 10px 10px !important;
-            text-align: center !important;
-            font-size: 14px !important;
-            font-weight: 700 !important;
-            color: #000 !important;
+            font-size: 13px !important;
+            padding: 8px !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    if 'autenticado' not in st.session_state:
-        st.session_state['autenticado'] = False
+    # --- INICIALIZACIÓN DE VARIABLES DE ESTADO ---
+    if 'autenticado' not in st.session_state: st.session_state['autenticado'] = False
+    if 'grupo_id' not in st.session_state: st.session_state['grupo_id'] = ""
+    if 'integrantes' not in st.session_state: st.session_state['integrantes'] = []
     
-    # --- DATOS DEL EQUIPO ---
-    if 'integrantes' not in st.session_state:
-        st.session_state['integrantes'] = []
-    
-    # --- FASE I: IDENTIFICACIÓN (Páginas 1 y 2) ---
     if 'datos_problema' not in st.session_state:
-        st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
+        st.session_state['datos_problema'] = {
+            'problema_central': "", 'sintomas': "", 
+            'causas_inmediatas': "", 'factores_agravantes': ""
+        }
+    
     if 'datos_zona' not in st.session_state:
-        st.session_state['datos_zona'] = {}
-        
-    # --- FASE II: PARTICIPANTES (Página 3) ---
+        st.session_state['datos_zona'] = {
+            'pob_total': 0, 'pob_urbana': 0, 'pob_rural': 0,
+            'ubicacion': "", 'limites': "", 'economia': "", 'vias': ""
+        }
+
     if 'df_interesados' not in st.session_state:
-        st.session_state['df_interesados'] = pd.DataFrame()
-    if 'analisis_participantes' not in st.session_state:
-        st.session_state['analisis_participantes'] = ""
+        st.session_state['df_interesados'] = pd.DataFrame(columns=["#", "NOMBRE", "POSICIÓN", "GRUPO", "EXPECTATIVA", "CONTRIBUCION", "PODER", "INTERÉS", "ESTRATEGIA"])
+    
+    if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
+    if 'arbol_tarjetas' not in st.session_state: st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Central": [], "Causas Directas": [], "Causas Indirectas": []}
+    if 'arbol_objetivos' not in st.session_state: st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
+    if 'lista_alternativas' not in st.session_state: st.session_state['lista_alternativas'] = []
+    if 'df_evaluacion_alternativas' not in st.session_state: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
+    if 'ponderacion_criterios' not in st.session_state: st.session_state['ponderacion_criterios'] = {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25}
+    if 'df_calificaciones' not in st.session_state: st.session_state['df_calificaciones'] = pd.DataFrame()
+    if 'arbol_objetivos_final' not in st.session_state: st.session_state['arbol_objetivos_final'] = {}
+    if 'arbol_problemas_final' not in st.session_state: st.session_state['arbol_problemas_final'] = {}
+    if 'df_relaciones_objetivos' not in st.session_state: st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
 
-    # --- FASE III: ANÁLISIS (Páginas 4 y 5) ---
-    if 'arbol_tarjetas' not in st.session_state:
-        st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
-    if 'arbol_objetivos' not in st.session_state:
-        st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
-
-    # --- FASE IV: PLANIFICACIÓN Y EVALUACIÓN (Página 6) ---
-    if 'df_evaluacion_alternativas' not in st.session_state:
-        st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
-    if 'df_relaciones_objetivos' not in st.session_state:
-        st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
-    if 'lista_alternativas' not in st.session_state:
-        st.session_state['lista_alternativas'] = []
-    if 'ponderacion_criterios' not in st.session_state:
-        st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
-    if 'df_calificaciones' not in st.session_state:
-        st.session_state['df_calificaciones'] = pd.DataFrame()
-
-    # --- FASE V: ÁRBOLES FINALES PODADOS (Páginas 7 y 8) ---
-    if 'arbol_objetivos_final' not in st.session_state:
-        st.session_state['arbol_objetivos_final'] = {}
-    if 'arbol_problemas_final' not in st.session_state:
-        st.session_state['arbol_problemas_final'] = {}
-
-def cargar_datos_nube(user_id):
+def cargar_datos_nube(id_grupo):
     try:
         db = conectar_db()
-        res = db.table("proyectos").select("datos").eq("user_id", user_id).execute()
-        if res.data and res.data[0]['datos']:
-            d = res.data[0]['datos']
+        res = db.table("proyectos").select("*").eq("id_grupo", id_grupo).execute()
+        if res.data:
+            d = res.data[0]
             st.session_state['integrantes'] = d.get('integrantes', [])
-            st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
+            st.session_state['datos_problema'] = d.get('diagnostico', {})
             st.session_state['datos_zona'] = d.get('zona', {})
+            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
-            st.session_state['arbol_tarjetas'] = d.get('arbol_p', st.session_state['arbol_tarjetas'])
-            st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
+            st.session_state['arbol_tarjetas'] = d.get('arbol_p', {})
+            st.session_state['arbol_objetivos'] = d.get('arbol_o', {})
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
+            if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
+            st.session_state['ponderacion_criterios'] = d.get('pesos_eval', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
-            
-            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
             if 'rel_obj' in d: st.session_state['df_relaciones_objetivos'] = pd.DataFrame(d['rel_obj'])
             if 'calificaciones' in d: st.session_state['df_calificaciones'] = pd.DataFrame(d['calificaciones'])
     except Exception as e:
@@ -139,6 +126,6 @@ def guardar_datos_nube():
             "arbol_f": st.session_state['arbol_objetivos_final'],
             "arbol_p_f": st.session_state['arbol_problemas_final']
         }
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
+        db.table("proyectos").upsert({"id_grupo": st.session_state['grupo_id'], **paquete}).execute()
     except Exception as e:
-        st.error(f"Error crítico al guardar: {e}")
+        st.error(f"Error al guardar: {e}")
