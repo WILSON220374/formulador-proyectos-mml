@@ -10,58 +10,51 @@ inicializar_session()
 if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
     st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
 
-# --- LÓGICA DE ACCESO (LOGIN) OPTIMIZADA ---
+# --- LÓGICA DE ACCESO (LOGIN) CON DISEÑO DIVIDIDO (IZQ: FORM / DER: LOGO) ---
 if not st.session_state['autenticado']:
     st.markdown("""
         <style>
-        /* Ajustes para eliminar el scroll vertical */
+        /* Título alineado a la izquierda para combinar con el formulario */
         .titulo-acceso { 
-            font-size: 24px !important; 
+            font-size: 32px !important; 
             font-weight: 800 !important; 
             color: #4F8BFF; 
-            text-align: center; 
-            margin-bottom: 5px; 
+            text-align: left; 
+            margin-bottom: 10px; 
+            margin-top: 20px;
         }
         .label-mediana { 
-            font-size: 14px !important; 
+            font-size: 16px !important; 
             font-weight: bold; 
             color: #1E3A8A; 
-            margin-bottom: 2px !important; 
-            margin-top: 5px !important; 
+            margin-bottom: 5px !important; 
+            margin-top: 10px !important; 
             display: block; 
         }
         input { 
-            font-size: 16px !important; 
-            height: 40px !important; 
-            text-align: center !important; 
-            border-radius: 8px !important; 
+            font-size: 18px !important; 
+            height: 45px !important; 
+            border-radius: 10px !important; 
         }
         div.stButton > button { 
-            font-size: 18px !important; 
-            height: 42px !important; 
+            font-size: 20px !important; 
+            height: 50px !important; 
             font-weight: bold !important; 
             background-color: #4F8BFF !important; 
-            border-radius: 10px !important; 
-            margin-top: 10px; 
-        }
-        /* Reducción de espacios entre elementos del contenedor */
-        [data-testid="stVerticalBlock"] > div {
-            padding-top: 0.1rem !important;
-            padding-bottom: 0.1rem !important;
+            border-radius: 12px !important; 
+            margin-top: 25px; 
         }
         </style>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1.2, 1.6, 1.2])
-    with col2:
-        # Logo con tamaño controlado para no empujar el contenido
-        if os.path.exists("unnamed.jpg"):
-            st.image("unnamed.jpg", width=180) 
-        else:
-            st.title("🏗️ JC Flow")
+    # Creamos dos columnas: Izquierda (Formulario) y Derecha (Imagen Grande)
+    # Ajustamos la proporción (1.2 vs 1.8) para dar más espacio a la imagen si es necesario
+    col_form, col_img = st.columns([1.2, 1.8], gap="large")
+
+    with col_form:
+        st.markdown('<div class="titulo-acceso">Acceso Grupal<br>Posgrado</div>', unsafe_allow_html=True)
         
-        st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
-        
+        # Contenedor del formulario
         with st.container(border=True):
             st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
@@ -72,7 +65,7 @@ if not st.session_state['autenticado']:
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
-                    # Mantenemos tu lógica de validación original
+                    # Mantenemos tu lógica exacta de validación
                     res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
                     if res.data:
                         st.session_state['autenticado'] = True
@@ -83,9 +76,18 @@ if not st.session_state['autenticado']:
                         st.error("Credenciales incorrectas.")
                 except Exception:
                     st.error("Error de conexión.")
+
+    with col_img:
+        # Imagen a la derecha, ocupando todo el ancho disponible para verse grande
+        if os.path.exists("unnamed.jpg"):
+            st.image("unnamed.jpg", use_container_width=True) 
+        else:
+            # Placeholder por si la imagen no carga
+            st.info("Logotipo JC Flow (Cargar imagen 'unnamed.jpg')")
+
     st.stop()
 
-# --- SIDEBAR Y NAVEGACIÓN (Original) ---
+# --- SIDEBAR Y NAVEGACIÓN (Original intacto) ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
