@@ -3,49 +3,47 @@ import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Inicialización de seguridad y datos
+# 1. Inicialización
 inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS (Diseño Limpio + Scrollbars Visibles) ---
+# --- ESTILOS CSS "NUCLEAR" (PARA OBLIGAR AL SCROLL A APARECER) ---
 st.markdown("""
     <style>
-    /* Ajuste de scroll de la página completa */
+    /* 1. Ajuste de padding inferior para que no se corte el final */
     .block-container { padding-bottom: 150px !important; }
 
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    
-    /* Contenedor de la Tabla */
-    div[data-testid="stDataEditor"] {
-        background-color: #ffffff;
-        border: 1px solid #e0e7ff;
-        border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
-    }
-
-    /* --- TRUCO PARA FORZAR SCROLLBARS SIEMPRE VISIBLES --- */
-    div[data-testid="stDataEditor"] ::-webkit-scrollbar {
+    /* 2. FORZAR BARRAS DE SCROLL SIEMPRE VISIBLES (GLOBAL) */
+    /* Esto afecta a toda la app para asegurar que la tabla no se escape */
+    ::-webkit-scrollbar {
         -webkit-appearance: none;
-        width: 12px !important;  /* Ancho vertical */
-        height: 12px !important; /* Alto horizontal */
+        width: 14px !important;  /* Más gruesa verticalmente */
+        height: 14px !important; /* Más gruesa horizontalmente */
         display: block !important;
         background: #f1f1f1;
     }
-    div[data-testid="stDataEditor"] ::-webkit-scrollbar-thumb {
-        background-color: #c1c1c1; /* Color de la barra */
-        border-radius: 6px;
-        border: 2px solid #f1f1f1; /* Espacio alrededor */
-    }
-    div[data-testid="stDataEditor"] ::-webkit-scrollbar-thumb:hover {
-        background-color: #a8a8a8; /* Color al pasar el mouse */
-    }
-    div[data-testid="stDataEditor"] ::-webkit-scrollbar-corner {
-        background: transparent;
-    }
     
-    /* Tarjetas de KPI */
+    ::-webkit-scrollbar-thumb {
+        background-color: #888 !important; /* Color gris oscuro visible */
+        border-radius: 4px;
+        border: 2px solid #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: #555 !important; /* Más oscuro al tocar */
+    }
+
+    /* Compatibilidad con Firefox */
+    * {
+        scrollbar-width: auto !important;
+        scrollbar-color: #888 #f1f1f1 !important;
+    }
+
+    /* 3. Estilos de Títulos y KPIs */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+    
     .kpi-card {
         background: white; padding: 15px; border-radius: 10px;
         border: 1px solid #f1f5f9; text-align: center;
@@ -53,6 +51,12 @@ st.markdown("""
     }
     .kpi-val { font-size: 24px; font-weight: 800; color: #000000; }
     .kpi-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    /* Contenedor de tabla */
+    div[data-testid="stDataEditor"] {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
 
     [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
@@ -75,7 +79,7 @@ with col_l:
 
 st.divider()
 
-# --- MIGRACIÓN AUTOMÁTICA DE DATOS ---
+# --- MIGRACIÓN DE ICONOS ---
 if not df_actual.empty:
     mapeo_iconos = {
         "Opositor": "🔴 Opositor", "Cooperante": "🟢 Cooperante", 
@@ -113,31 +117,31 @@ config_columnas = {
     "CONTRIBUCION AL PROYECTO": st.column_config.TextColumn("💡 Contribución", width="medium"),
     "PODER": st.column_config.SelectboxColumn("⚡ Poder", options=opciones_niv, width="small"),
     "INTERÉS": st.column_config.SelectboxColumn("👁️ Interés", options=opciones_niv, width="small"),
-    "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia Sugerida", disabled=True, width="large")
+    "ESTRATEGIA": st.column_config.TextColumn("🚀 Estrategia Sugerida", disabled=True, width="medium") # Ajustado a medium
 }
 
-# Preparar DataFrame
 cols_orden = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
 if df_actual.empty: df_actual = pd.DataFrame(columns=cols_orden)
 for c in cols_orden:
     if c not in df_actual.columns: df_actual[c] = ""
 df_actual = df_actual[cols_orden]
 
-# Renderizado
 df_editado = st.data_editor(
     df_actual,
     column_config=config_columnas,
     num_rows="dynamic",
-    use_container_width=True,
+    use_container_width=True, # IMPORTANTE: Intenta usar todo el ancho
     hide_index=True,
-    key="editor_interesados_scroll_visible"
+    key="editor_interesados_v_final_scroll"
 )
 
-# Lógica de cálculo (Según tu imagen)
+# --- LÓGICA DE ESTRATEGIA (ACTUALIZADA SEGÚN TU SOLICITUD) ---
 def calcular_estrategia(row):
+    # Limpieza de iconos para comparar texto limpio
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip()
     
+    # Lógica exacta solicitada:
     if p == "Alto" and i == "Bajo": return "INVOLUCRAR - MANTENER SATISFECHOS"
     if p == "Alto" and i == "Alto": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
     if p == "Bajo" and i == "Alto": return "MANTENER INFORMADOS"
@@ -169,9 +173,7 @@ if tiene_datos:
             pos_txt = str(r['POSICIÓN'])
             icono = "⚪"
             for k, v in color_map.items():
-                if k in pos_txt:
-                    icono = v
-                    break
+                if k in pos_txt: icono = v; break
             res.append(f"{icono} **{r['NOMBRE']}**")
         return res or ["*Sin actores*"]
 
