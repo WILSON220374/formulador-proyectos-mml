@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import graphviz
 import copy
 import os
@@ -36,10 +36,10 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- CONFIGURACIÓN DE COLORES ---
+# --- CONFIGURACIÓN DE COLORES (AJUSTADA PARA MEJOR CONTRASTE) ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS INDIRECTOS"},
-    "Efectos Directos": {"color": "#80BFFF", "label": "EFECTOS DIRECTOS"},
+    "Efectos Indirectos": {"color": "#E3F2FD", "label": "EFECTOS INDIRECTOS"}, # Celeste muy claro
+    "Efectos Directos": {"color": "#80BFFF", "label": "EFECTOS DIRECTOS"},   # Azul medio
     "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA CENTRAL"},
     "Causas Directas": {"color": "#FFFFBA", "label": "CAUSAS DIRECTAS"},
     "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}
@@ -149,10 +149,10 @@ else:
             with cols_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
-                # Renderizar hijos en reversa (el más nuevo queda arriba de todo)
+                # Renderizar hijos en reversa (más alejado del suelo arriba)
                 for idx_h, h in reversed(hijos):
                     render_card("Efectos Indirectos", h, idx_h)
-                # El padre queda en la base de la columna (más cerca del problema central)
+                # El padre queda en la base de la columna
                 render_card("Efectos Directos", ed, i)
 
     st.markdown("---")
@@ -170,9 +170,7 @@ else:
         cols_ca = st.columns(len(ca_dir))
         for i, cd in enumerate(ca_dir):
             with cols_ca[i]:
-                # El padre queda arriba (cerca del problema central)
                 render_card("Causas Directas", cd, i)
-                # Los hijos se apilan hacia abajo
                 txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
                 for idx_hc, hc in enumerate(ca_ind):
                     if isinstance(hc, dict) and hc.get('padre') == txt_pc:
