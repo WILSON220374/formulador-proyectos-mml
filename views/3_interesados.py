@@ -15,12 +15,6 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { pointer-events: none; border-radius: 10px; }
-    
-    /* Ajuste para que AgGrid se vea limpio */
-    .ag-theme-streamlit {
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -29,6 +23,7 @@ col_t, col_l = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores con semaforización de riesgos.</div>', unsafe_allow_html=True)
+    
     # Progreso
     tiene_datos = not df_actual.empty and df_actual['NOMBRE'].dropna().any() if 'NOMBRE' in df_actual.columns else False
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
@@ -45,24 +40,22 @@ problema = st.session_state.get('datos_problema', {}).get('problema_central', "N
 with st.expander("📌 Contexto: Problema Central", expanded=False):
     st.info(f"**Problema:** {problema}")
 
-# --- MATRIZ PROFESIONAL (AG-GRID AUTO-EXPANDIBLE) ---
+# --- 1. RENDERIZADO DE LA MATRIZ (AG-GRID) ---
 st.subheader("📝 Matriz de Gestión")
 
-# 1. Preparar datos
+# Preparar datos
 columnas = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "PODER", "INTERÉS", "ESTRATEGIA"]
 if df_actual.empty: df_actual = pd.DataFrame(columns=columnas)
 for c in columnas:
     if c not in df_actual.columns: df_actual[c] = ""
-df_actual = df_actual[columnas]
+df_render = df_actual[columnas].copy()
 
-# 2. Configurar AgGrid
-gb = GridOptionsBuilder.from_dataframe(df_actual)
+# Configurar AgGrid
+gb = GridOptionsBuilder.from_dataframe(df_render)
 gb.configure_default_column(editable=True, resizable=True, filterable=True, wrapText=True, autoHeight=True)
+gb.configure_grid_options(domLayout='autoHeight') # ESTO HACE QUE SE VEA TODA LA TABLA
 
-# ---> CORRECCIÓN CLAVE: Activar Auto-Altura para eliminar el scroll interno <---
-gb.configure_grid_options(domLayout='autoHeight') 
-
-# Colores Condicionales (Tus semáforos)
+# Colores Condicionales
 cell_style_posicion = JsCode("""
 function(params) {
     if (params.value == 'Opositor') { return {'backgroundColor': '#ffcccc', 'color': '#990000', 'fontWeight': 'bold'}; }
@@ -83,22 +76,38 @@ gb.configure_column("ESTRATEGIA", editable=False, cellStyle={'color': 'gray', 'f
 gb.configure_selection('single', use_checkbox=False)
 gridOptions = gb.build()
 
-# 3. Mostrar Tabla
-st.caption("💡 La tabla se expandirá automáticamente para mostrar todos los actores.")
+st.caption("💡 Doble clic para editar. La tabla ajustará su altura automáticamente.")
+
+# Dibujamos la tabla y capturamos la respuesta SIN procesarla todavía
 grid_response = AgGrid(
-    df_actual,
+    df_render,
     gridOptions=gridOptions,
     allow_unsafe_jscode=True,
     update_mode=GridUpdateMode.VALUE_CHANGED,
-    # height=400,  <-- ELIMINAMOS LA ALTURA FIJA
-    fit_columns_on_grid_load=True, # Ajusta las columnas al ancho disponible
+    height=None, # Dejar que autoHeight controle
+    fit_columns_on_grid_load=True, 
     theme='streamlit',
-    key='aggrid_interesados_auto'
+    key='aggrid_interesados_fixed'
 )
 
-# 4. Recuperar y Guardar
-df_modificado = grid_response['data']
+st.divider()
 
+# --- 2. RENDERIZADO DEL ANÁLISIS (AHORA SIEMPRE SE VERÁ) ---
+st.subheader("📝 Análisis de Participantes")
+analisis_actual = st.text_area(
+    "Analisis", value=analisis_txt, height=150, 
+    key="txt_analisis_final", label_visibility="collapsed",
+    placeholder="Escriba aquí el análisis cualitativo..."
+)
+
+# --- 3. LÓGICA DE PROCESAMIENTO Y GUARDADO (AL FINAL) ---
+
+# A) Procesar cambios en la Tabla
+df_modificado = grid_response['data']
+if isinstance(df_modificado, pd.DataFrame): df_new = df_modificado
+else: df_new = pd.DataFrame(df_modificado)
+
+# Recalcular estrategias
 def calcular_estrategia(row):
     p, i = str(row.get('PODER', '')).strip(), str(row.get('INTERÉS', '')).strip()
     if p == "Alto" and i == "Alto": return "Involucrar y mantener cerca"
@@ -107,27 +116,20 @@ def calcular_estrategia(row):
     if p == "Bajo" and i == "Bajo": return "Monitorizar"
     return ""
 
-if isinstance(df_modificado, pd.DataFrame): df_new = df_modificado
-else: df_new = pd.DataFrame(df_modificado)
-
 df_new["ESTRATEGIA"] = df_new.apply(calcular_estrategia, axis=1)
 
-if not df_new.equals(df_actual):
-    st.session_state['df_interesados'] = df_new
-    guardar_datos_nube()
-    st.rerun()
+# Verificar si hubo cambios en la tabla
+tabla_cambio = not df_new.equals(df_actual)
 
-st.divider()
+# B) Verificar si hubo cambios en el Análisis
+analisis_cambio = analisis_actual != analisis_txt
 
-# --- ANÁLISIS FINAL ---
-st.subheader("📝 Análisis de Participantes")
-analisis_actual = st.text_area(
-    "Analisis", value=analisis_txt, height=150, 
-    key="txt_analisis_final", label_visibility="collapsed",
-    placeholder="Escriba aquí el análisis cualitativo..."
-)
-
-if analisis_actual != analisis_txt:
-    st.session_state['analisis_participantes'] = analisis_actual
+# C) Si hay CUALQUIER cambio, guardamos y recargamos
+if tabla_cambio or analisis_cambio:
+    if tabla_cambio:
+        st.session_state['df_interesados'] = df_new
+    if analisis_cambio:
+        st.session_state['analisis_participantes'] = analisis_actual
+    
     guardar_datos_nube()
     st.rerun()
