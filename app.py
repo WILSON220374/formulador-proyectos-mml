@@ -9,7 +9,7 @@ inicializar_session()
 # --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     
-    # CSS AJUSTADO
+    # CSS AJUSTADO: Subimos la posición de las etiquetas
     st.markdown("""
         <style>
         .titulo-acceso {
@@ -19,21 +19,27 @@ if not st.session_state['autenticado']:
             text-align: center;
             margin-bottom: 20px;
         }
+        
+        /* AJUSTE DE POSICIÓN DE ETIQUETAS */
         .label-mediana {
             font-size: 22px !important;
             font-weight: bold;
             color: #1E3A8A;
-            margin-bottom: 8px !important;
-            margin-top: 15px !important;
+            margin-bottom: 8px !important;  /* Crea espacio sobre el recuadro */
+            margin-top: 15px !important;   /* Separa de la sección anterior */
             margin-left: 5px;
             display: block;
         }
+        
+        /* Centrado de texto ingresado */
         input {
             font-size: 22px !important;
             height: 60px !important;
             text-align: center !important;
             border-radius: 12px !important;
         }
+        
+        /* Botón Proporcional */
         div.stButton > button {
             font-size: 26px !important;
             height: 2.8em !important;
@@ -48,6 +54,7 @@ if not st.session_state['autenticado']:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     
     with col2:
+        # Logo JC Flow
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True)
         else:
@@ -56,9 +63,11 @@ if not st.session_state['autenticado']:
         st.markdown('<div class="titulo-acceso">Acceso Grupal - Posgrado</div>', unsafe_allow_html=True)
         
         with st.container(border=True):
+            # Usuario con posición elevada
             st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
             u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
             
+            # Contraseña con posición elevada
             st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
             
@@ -81,10 +90,10 @@ if not st.session_state['autenticado']:
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
-    # FILTRO DE SEGURIDAD CRÍTICO
+    # --- FILTRO DE SEGURIDAD PARA INTEGRANTES ---
     integrantes_raw = st.session_state.get('integrantes', [])
-    # Solo procesamos si el integrante es un diccionario y no es nulo
-    integrantes = [p for p in integrantes_raw if isinstance(p, dict) and p]
+    # Solo procesamos si el integrante es un diccionario y no es None
+    integrantes = [p for p in integrantes_raw if isinstance(p, dict) and p is not None]
     
     if integrantes:
         for persona in integrantes:
