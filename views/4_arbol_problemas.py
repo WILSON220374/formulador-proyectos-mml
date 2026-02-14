@@ -25,6 +25,12 @@ st.markdown("""
         font-size: 1.2rem !important;
         margin-top: -10px !important;
     }
+    /* Estilo para los espaciadores de alineación */
+    .spacer {
+        height: 165px; 
+        margin-bottom: 25px;
+        background: transparent;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -65,14 +71,13 @@ def generar_grafo_problemas():
     def get_txt(it):
         return it.get('texto', it) if isinstance(it, dict) else it
 
-    # 1. Problema Principal
     p_principal = datos.get("Problema Principal", [])
     if p_principal:
         txt_pc = get_txt(p_principal[0])
         dot.node('PC', limpiar(txt_pc), shape='box', style='filled', 
                  fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontname='Arial Bold')
 
-    # 2. EFECTOS (Hacia arriba)
+    # EFECTOS
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
@@ -86,13 +91,14 @@ def generar_grafo_problemas():
                 dot.node(id_ei, limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
                 dot.edge(id_ed, id_ei)
 
-    # 3. CAUSAS (Hacia abajo)
+    # CAUSAS
     ca_dir = datos.get("Causas Directas", [])
     ca_ind = datos.get("Causas Indirectas", [])
     for i, cd in enumerate(ca_dir):
         txt_cd = get_txt(cd)
         id_cd = f"CD{i}"
         dot.node(id_cd, limpiar(txt_cd), shape='box', style='filled', fillcolor=CONFIG_PROB["Causas Directas"]["color"])
+        dot.edge(cd if isinstance(cd, str) else cd.get('texto'), 'PC') # Simplificación de conexión
         dot.edge(id_cd, 'PC')
         for j, ci in enumerate(ca_ind):
             if isinstance(ci, dict) and ci.get('padre') == txt_cd:
@@ -145,9 +151,8 @@ else:
 
     st.divider()
 
-    # --- FUNCIÓN RENDERIZADO DE TARJETA CON ESCUDO ---
+    # --- FUNCIÓN RENDERIZADO DE TARJETA CON ESCUDO DE ID ---
     def render_card(seccion, item, idx):
-        # Compatibilidad con datos antiguos sin ID
         if not isinstance(item, dict) or 'id_unico' not in item:
             texto = item.get('texto', item) if isinstance(item, dict) else item
             padre = item.get('padre') if isinstance(item, dict) else None
@@ -169,29 +174,39 @@ else:
             item['texto'] = nuevo_txt
             guardar_datos_nube()
 
-    # --- PANEL DE EDICIÓN CON CRECIMIENTO INVERSO ---
+    # --- PANEL DE EDICIÓN JERÁRQUICO Y ESTABLE ---
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN DE EFECTOS (Hijos arriba del todo, Padres alineados abajo)
+    # 1. SECCIÓN DE EFECTOS (Hijos arriba, crecen hacia el cielo. Padres alineados abajo)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_directos = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
+    ef_indirectos = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
+    
     if ef_directos:
-        # Fila de HIJOS: Se renderizan antes (arriba)
-        cols_h_ef = st.columns(len(ef_directos))
-        ef_indirectos = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
+        # Calcular el máximo de hijos para la alineación
+        max_hijos = 0
+        for ed in ef_directos:
+            txt_p = ed.get('texto') if isinstance(ed, dict) else ed
+            cant = sum(1 for h in ef_indirectos if isinstance(h, dict) and h.get('padre') == txt_p)
+            max_hijos = max(max_hijos, cant)
+
+        cols_ef = st.columns(len(ef_directos))
         for i, ed in enumerate(ef_directos):
-            with cols_h_ef[i]:
+            with cols_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
-                # Obtenemos hijos de este padre
-                hijos_de_este = [(idx, h) for idx, h in enumerate(ef_indirectos) if isinstance(h, dict) and h.get('padre') == txt_p]
-                # REVERTIMOS: El último agregado (final de lista) aparece arriba del todo
-                for idx_h, h in reversed(hijos_de_este):
+                mis_hijos = [(idx, h) for idx, h in enumerate(ef_indirectos) if isinstance(h, dict) and h.get('padre') == txt_p]
+                
+                # A. ESPACIADORES: Relleno para empujar el contenido hacia abajo
+                espacios_necesarios = max_hijos - len(mis_hijos)
+                for _ in range(espacios_necesarios):
+                    st.markdown('<div class="spacer"></div>', unsafe_allow_html=True)
+                
+                # B. HIJOS: Se colocan en orden de creación (crecen hacia arriba)
+                # El nuevo hijo se agrega al final de la lista, por lo que aparecerá justo arriba del padre
+                for idx_h, h in mis_hijos:
                     render_card("Efectos Indirectos", h, idx_h)
-        
-        # Fila de PADRES: Se mantienen alineados en una sola línea abajo de los hijos
-        cols_p_ef = st.columns(len(ef_directos))
-        for i, ed in enumerate(ef_directos):
-            with cols_p_ef[i]:
+                
+                # C. PADRE: Siempre al fondo de la columna
                 render_card("Efectos Directos", ed, i)
     else: st.caption("No hay efectos definidos.")
 
@@ -205,23 +220,18 @@ else:
 
     st.markdown("---")
 
-    # 3. SECCIÓN DE CAUSAS (Padres alineados arriba, hijos crecen hacia abajo)
+    # 3. SECCIÓN DE CAUSAS (Padres arriba alineados, hijos crecen hacia abajo)
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_directas = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     if ca_directas:
-        # Fila de PADRES: Alineados horizontalmente arriba
-        cols_p_ca = st.columns(len(ca_directas))
+        cols_ca = st.columns(len(ca_directas))
         for i, cd in enumerate(ca_directas):
-            with cols_p_ca[i]:
+            with cols_ca[i]:
+                # A. PADRE: Primero arriba
                 render_card("Causas Directas", cd, i)
-        
-        # Fila de HIJOS: Aparecen debajo
-        cols_h_ca = st.columns(len(ca_directas))
-        ca_indirectas = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
-        for i, cd in enumerate(ca_directas):
-            with cols_h_ca[i]:
-                txt_pc = cd.get('texto') if isinstance(cd, dict) else cd
-                for idx_hc, hc in enumerate(ca_indirectas):
-                    if isinstance(hc, dict) and hc.get('padre') == txt_pc:
+                # B. HIJOS: Se enlistan debajo
+                hijos_c = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
+                for idx_hc, hc in enumerate(hijos_c):
+                    if isinstance(hc, dict) and hc.get('padre') == (cd.get('texto') if isinstance(cd, dict) else cd):
                         render_card("Causas Indirectas", hc, idx_hc)
     else: st.caption("No hay causas definidas.")
