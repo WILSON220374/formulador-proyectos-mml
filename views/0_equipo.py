@@ -6,7 +6,7 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia de datos
 inicializar_session()
 
-# --- ESTILOS PARA FICHAS PEQUEÑAS Y HOMOGÉNEAS ---
+# --- ESTILOS PARA FICHAS ---
 st.markdown("""
     <style>
     .ficha-equipo {
@@ -37,7 +37,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- LOGO Y TÍTULO JC FLOW ---
+# --- LOGO Y TÍTULO ---
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     if os.path.exists("unnamed.jpg"):
@@ -48,21 +48,23 @@ with col2:
 
 st.divider()
 
-# --- BLOQUE 1: FICHAS VISUALES CON FILTRO DE SEGURIDAD ---
-# Filtramos la lista para ignorar nulos antes de intentar dibujarlos
+# --- BLOQUE 1: FICHAS VISUALES CON BLINDAJE ---
 integrantes_raw = st.session_state.get('integrantes', [])
+# Filtro 1: Asegurar que solo procesamos diccionarios válidos
 integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
 if integrantes_validos:
     cols = st.columns(3) 
     for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
-            # Doble verificación para evitar el AttributeError
-            nombre = persona.get("Nombre Completo", "SIN NOMBRE").upper()
-            tel = persona.get("Teléfono", "N/A")
-            email = persona.get("Correo Electrónico", "N/A")
-            
-            if len(nombre) > 2: 
+            try:
+                # Filtro 2: Manejar casos donde el campo sea None o no exista
+                nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
+                nombre = str(nombre_raw).upper() # Forzamos a texto antes de .upper()
+                
+                tel = persona.get("Teléfono") or "N/A"
+                email = persona.get("Correo Electrónico") or "N/A"
+                
                 st.markdown(f"""
                     <div class="ficha-equipo">
                         <div class="nombre-mediano">👤 {nombre}</div>
@@ -70,14 +72,16 @@ if integrantes_validos:
                         <div class="detalle-pequeno">✉️ {email}</div>
                     </div>
                 """, unsafe_allow_html=True)
+            except Exception:
+                # Filtro 3: Si algo falla con esta ficha, simplemente la saltamos
+                continue
 else:
-    st.info("No hay integrantes registrados o los datos están vacíos.")
+    st.info("No hay integrantes registrados.")
 
 st.divider()
 
-# --- BLOQUE 2: EDITOR CON LIMPIEZA AL GUARDAR ---
+# --- BLOQUE 2: EDITOR CON LIMPIEZA PROFUNDA AL GUARDAR ---
 with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
-    # Limpiamos los datos antes de cargarlos en el editor para que no aparezcan filas nulas
     df_equipo = pd.DataFrame(integrantes_validos) if integrantes_validos else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
 
     edited_df = st.data_editor(
@@ -88,10 +92,13 @@ with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
     )
 
     if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
-        # Convertimos a diccionario y eliminamos filas que estén totalmente vacías o sean nulas
+        # Limpieza radical: eliminamos filas nulas, vacías o que solo tengan espacios
         lista_nueva = edited_df.to_dict('records')
-        st.session_state['integrantes'] = [r for r in lista_nueva if any(str(v).strip() for v in r.values() if v is not None)]
+        st.session_state['integrantes'] = [
+            r for r in lista_nueva 
+            if r and any(str(v).strip() for v in r.values() if v is not None)
+        ]
         
         guardar_datos_nube()
-        st.success("¡Equipo actualizado y base de datos limpia!")
+        st.success("¡Base de datos purificada!")
         st.rerun()
