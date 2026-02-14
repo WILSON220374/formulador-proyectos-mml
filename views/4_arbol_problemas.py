@@ -7,20 +7,20 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO DE LA INTERFAZ (Tarjetas fusionadas y alineación fija) ---
+# --- ESTILO DE LA INTERFAZ (Ajuste de bordes para fusión total) ---
 st.markdown("""
     <style>
-    /* Estilo del área de texto (Parte Blanca) */
+    /* Estilo del área de texto (Parte Blanca) - SIN BORDES */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: 2px solid #333 !important; 
-        border-top: none !important;       /* Fusión con la barra superior */
+        border: none !important;           /* ELIMINAMOS EL BORDE RESALTADO */
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 14px !important;
         font-weight: 700 !important;
         color: #000 !important;
-        height: 100px !important; /* ALTURA FIJA PARA COORDINAR CON ESPACIADORES */
+        height: 100px !important;
+        box-shadow: none !important;      /* Aseguramos que no haya sombras de foco */
     }
     
     /* Botón de eliminar */
@@ -34,7 +34,7 @@ st.markdown("""
         z-index: 2;
     }
 
-    /* Espaciador de nivelación exacto (Coincide con la altura de una tarjeta) */
+    /* Espaciador de nivelación exacto */
     .spacer-nivel {
         height: 153px; 
         margin-bottom: 15px;
@@ -51,7 +51,7 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- CONFIGURACIÓN DE COLORES SÓLIDOS ---
+# --- CONFIGURACIÓN DE COLORES SÓLIDOS (APROBADA) ---
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTOS INDIRECTOS"}, # Púrpura
     "Efectos Directos": {"color": "#2E86C1", "label": "EFECTOS DIRECTOS"},     # Azul Real
@@ -101,7 +101,7 @@ def generar_grafo_problemas():
 def render_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
-    # Barra de color SIN borde negro para fusión perfecta
+    # Barra de color superior (Sin bordes para unión fluida)
     st.markdown(f'<div style="background-color: {CONFIG_PROB[seccion]["color"]}; height: 15px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     nuevo = st.text_area("t", value=item['texto'], key=f"txt_{id_u}", label_visibility="collapsed")
     if st.button("🗑️", key=f"btn_{id_u}"):
@@ -141,30 +141,22 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (NIVELACIÓN POR SLOTS FIJOS)
+    # 1. SECCIÓN EFECTOS
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
     
     if ef_dir:
-        # Definimos un cielo de 4 niveles para hijos
         MAX_SLOTS_HIJOS = 4 
         cols_ef = st.columns(len(ef_dir))
-        
         for i, ed in enumerate(ef_dir):
             with cols_ef[i]:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos_padre = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
-                
-                # REGLA DE ORO: Rellenamos con espacios hasta completar el cielo de 4 niveles
                 for _ in range(MAX_SLOTS_HIJOS - len(hijos_padre)):
                     st.markdown('<div class="spacer-nivel"></div>', unsafe_allow_html=True)
-                
-                # Dibujamos hijos (crecen hacia arriba)
                 for idx_h, h in reversed(hijos_padre):
                     render_card("Efectos Indirectos", h, idx_h)
-                
-                # El padre SIEMPRE queda en la base (suelo fijo)
                 render_card("Efectos Directos", ed, i)
 
     st.markdown("---")
