@@ -46,6 +46,14 @@ st.markdown("""
         border-radius: 10px;
         background-color: #fafafa;
     }
+    
+    /* --- HACK PARA QUITAR BOTÓN FULLSCREEN DE LA IMAGEN --- */
+    button[title="View fullscreen"] {
+        display: none !important;
+    }
+    [data-testid="StyledFullScreenButton"] {
+        display: none !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -68,7 +76,7 @@ integrantes_raw = st.session_state.get('integrantes', [])
 integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
 
 if integrantes_validos:
-    # Distribuimos las tarjetas en 3 columnas arriba para aprovechar el ancho
+    # Distribuimos las tarjetas en 3 columnas arriba
     cols = st.columns(3) 
     for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
@@ -97,9 +105,9 @@ st.divider()
 # ---------------------------------------------------------
 col_img, col_form = st.columns([1, 1.5], gap="large")
 
-# --- COLUMNA 1: IMAGEN ---
+# --- COLUMNA 1: IMAGEN (Sin botón fullscreen) ---
 with col_img:
-    st.write("") # Espaciador para bajar un poco la imagen si es necesario
+    st.write("") # Espaciador para alinear visualmente con el título del formulario
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
@@ -116,7 +124,7 @@ with col_form:
             nuevo_tel = st.text_input("Teléfono")
         with c2:
             nuevo_email = st.text_input("Correo Electrónico")
-            st.write("") # Espaciador visual
+            st.write("") 
         
         # Botón de guardar
         submitted = st.form_submit_button("💾 GUARDAR INTEGRANTE", type="primary", use_container_width=True)
