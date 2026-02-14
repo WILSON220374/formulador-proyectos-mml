@@ -7,27 +7,25 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia
 inicializar_session()
 
-# --- ESTILO BLOQUEADO (Fusión total y Alineación Magnética al Suelo) ---
+# --- ESTILO GLOBAL AGRESIVO (Alineación forzada al fondo) ---
 st.markdown("""
     <style>
-    /* Contenedor de columna que empuja todo hacia abajo */
-    [data-testid="column"] > div > div > div > div.stVerticalBlock {
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
+    /* 1. Forzamos a las columnas a ser contenedores Flex que alinean al fondo */
+    [data-testid="column"] {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
+    }
+
+    /* 2. Rompemos el bloqueo interno de Streamlit para permitir el empuje vertical */
+    [data-testid="column"] > div {
         height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-end !important;
     }
 
-    /* Altura mínima del lienzo de efectos para que no colapse */
-    .lienzo-efectos {
-        min-height: 700px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        gap: 10px;
-    }
-
-    /* Tarjetas: Estética aprobada (Sin bordes, fusión total) */
+    /* 3. Estética de las Tarjetas (Fusión total y sin bordes) */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -37,15 +35,16 @@ st.markdown("""
         font-weight: 700 !important;
         color: #000 !important;
         box-shadow: none !important;
+        min-height: 100px !important; /* Altura mínima para uniformidad */
     }
     
+    /* Ajuste del botón eliminar */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
         font-size: 1.3rem !important;
         margin-top: -15px !important;
-        z-index: 2;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -146,7 +145,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. EFECTOS (SOLUCIÓN FLEXBOX: SOLDADOS AL SUELO)
+    # 1. EFECTOS (Contenedores Flex Magnéticos)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -155,20 +154,15 @@ else:
         cols_ef = st.columns(len(ef_dir))
         for i, ed in enumerate(ef_dir):
             with cols_ef[i]:
-                # Abrimos contenedor con alineación al fondo
-                st.markdown('<div class="lienzo-efectos">', unsafe_allow_html=True)
-                
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos_padre = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
                 
-                # Los hijos se apilan por encima
+                # Los hijos se apilan y el Flexbox los empuja hacia abajo
                 for idx_h, h in reversed(hijos_padre):
                     render_card("Efectos Indirectos", h, idx_h)
                 
-                # El padre queda pegado al borde inferior de la columna
+                # El padre SIEMPRE queda soldado al suelo de la columna
                 render_card("Efectos Directos", ed, i)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     # 2. PROBLEMA CENTRAL
@@ -177,7 +171,7 @@ else:
     if pc_list: render_card("Problema Principal", pc_list[0], 0)
 
     st.markdown("---")
-    # 3. CAUSAS (CRECIMIENTO NATURAL HACIA ABAJO)
+    # 3. CAUSAS
     st.write(f"**{CONFIG_PROB['Causas Directas']['label']} e INDIRECTAS**")
     ca_dir = st.session_state['arbol_tarjetas'].get("Causas Directas", [])
     ca_ind = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
