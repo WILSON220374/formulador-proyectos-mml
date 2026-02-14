@@ -7,34 +7,33 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO DE LA INTERFAZ (Tarjetas unificadas y limpias) ---
+# --- ESTILO DE LA INTERFAZ (Tarjetas fusionadas y sólidas) ---
 st.markdown("""
     <style>
-    /* Estilo del área de texto (la parte blanca de la tarjeta) */
+    /* Estilo de la parte blanca de la tarjeta */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: 2px solid #333 !important; /* Borde grueso oscuro en lados y fondo */
-        border-top: none !important;       /* SIN BORDE SUPERIOR para unir con el color */
-        border-radius: 0 0 10px 10px !important; /* Redondeado solo abajo */
+        border: 2px solid #333 !important; 
+        border-top: none !important;       /* Fusión con la barra superior */
+        border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 14px !important;
         font-weight: 700 !important;
         color: #000 !important;
-        padding-top: 5px;
     }
     
-    /* Botón de eliminar */
+    /* Botón de eliminar con posición ajustada */
     .main .stButton button {
         border: none !important;
         background: transparent !important;
         color: #ff4b4b !important;
         font-size: 1.3rem !important;
-        margin-top: -15px !important; /* Ajustado para subir el icono */
+        margin-top: -15px !important;
         position: relative;
         z-index: 2;
     }
 
-    /* Espaciador invisible para nivelación de suelo */
+    /* Espaciador invisible para mantener el 'suelo' nivelado */
     .spacer-nivel {
         height: 195px;
         margin-bottom: 15px;
@@ -51,13 +50,13 @@ with col_logo:
     if os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# --- CONFIGURACIÓN DE COLORES (Paleta Suave/Pastel) ---
+# --- CONFIGURACIÓN DE COLORES SÓLIDOS (RECUPERADA) ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#E1BEE7", "label": "EFECTOS INDIRECTOS"}, # Lila
-    "Efectos Directos": {"color": "#80BFFF", "label": "EFECTOS DIRECTOS"},     # Azul Claro
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA CENTRAL"},   # Rosa
-    "Causas Directas": {"color": "#FFFFBA", "label": "CAUSAS DIRECTAS"},      # Amarillo
-    "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}   # Naranja
+    "Efectos Indirectos": {"color": "#884EA0", "label": "EFECTOS INDIRECTOS"}, # Púrpura Profundo
+    "Efectos Directos": {"color": "#2E86C1", "label": "EFECTOS DIRECTOS"},     # Azul Real
+    "Problema Principal": {"color": "#A93226", "label": "PROBLEMA CENTRAL"},   # Rojo Sangre
+    "Causas Directas": {"color": "#D4AC0D", "label": "CAUSAS DIRECTAS"},      # Oro Sólido
+    "Causas Indirectas": {"color": "#CA6F1E", "label": "CAUSAS INDIRECTAS"}   # Óxido / Naranja Fuerte
 }
 
 # --- MOTOR DE DIBUJO (GRAPHVIZ) ---
@@ -72,18 +71,18 @@ def generar_grafo_problemas():
     
     pc = datos.get("Problema Principal", [])
     if pc:
-        dot.node('PC', limpiar(pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontname='Arial Bold')
+        dot.node('PC', limpiar(pc[0]['texto'] if isinstance(pc[0], dict) else pc[0]), shape='box', style='filled', fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='white', fontname='Arial Bold')
 
     # EFECTOS
     ef_dir = datos.get("Efectos Directos", [])
     ef_ind = datos.get("Efectos Indirectos", [])
     for i, ed in enumerate(ef_dir):
         txt_ed = ed.get('texto', ed) if isinstance(ed, dict) else ed
-        dot.node(f"ED{i}", limpiar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"])
+        dot.node(f"ED{i}", limpiar(txt_ed), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Directos"]["color"], fontcolor='white')
         dot.edge('PC', f"ED{i}")
         for j, ei in enumerate(ef_ind):
             if isinstance(ei, dict) and ei.get('padre') == txt_ed:
-                dot.node(f"EI{i}_{j}", limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"])
+                dot.node(f"EI{i}_{j}", limpiar(ei.get('texto')), shape='box', style='filled', fillcolor=CONFIG_PROB["Efectos Indirectos"]["color"], fontcolor='white')
                 dot.edge(f"ED{i}", f"EI{i}_{j}")
 
     # CAUSAS
@@ -104,8 +103,7 @@ def render_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    # --- CAMBIO CLAVE AQUÍ: Se eliminó el borde negro ---
-    # La barra de color ahora no tiene 'border: 2px solid #333'
+    # Barra de color superior sin borde negro para fusión perfecta
     st.markdown(f'<div style="background-color: {CONFIG_PROB[seccion]["color"]}; height: 15px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     
     nuevo = st.text_area("t", value=item['texto'], key=f"txt_{id_u}", label_visibility="collapsed")
@@ -113,7 +111,7 @@ def render_card(seccion, item, idx):
         st.session_state['arbol_tarjetas'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
     if nuevo != item['texto']: item['texto'] = nuevo; guardar_datos_nube()
 
-# --- SIDEBAR (GESTIÓN) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("➕ Gestión de Fichas")
     tipo_sel = st.selectbox("Seleccione Sección:", list(CONFIG_PROB.keys()))
@@ -147,7 +145,7 @@ else:
     st.divider()
     st.subheader("📋 Panel de Edición")
 
-    # 1. SECCIÓN EFECTOS (CON NIVELACIÓN)
+    # 1. SECCIÓN EFECTOS (CON NIVELACIÓN Y COLORES SÓLIDOS)
     st.write(f"**{CONFIG_PROB['Efectos Directos']['label']} e INDIRECTOS**")
     ef_dir = st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
     ef_ind = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
@@ -166,7 +164,7 @@ else:
                 txt_p = ed.get('texto') if isinstance(ed, dict) else ed
                 hijos_padre = [(idx, h) for idx, h in enumerate(ef_ind) if isinstance(h, dict) and h.get('padre') == txt_p]
                 
-                # Espaciadores para fijar el suelo
+                # Nivelación para que el padre azul quede siempre abajo
                 for _ in range(max_hijos - len(hijos_padre)):
                     st.markdown('<div class="spacer-nivel"></div>', unsafe_allow_html=True)
                 
