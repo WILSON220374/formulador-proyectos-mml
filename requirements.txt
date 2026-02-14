@@ -6,3 +6,4 @@ graphviz
 openpyxl
 matplotlib
 supabase
+streamlit-aggrid
