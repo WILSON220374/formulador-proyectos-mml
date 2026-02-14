@@ -12,24 +12,24 @@ st.markdown("""
     .ficha-equipo {
         background-color: #f0f5ff;
         border-left: 8px solid #4F8BFF;
-        padding: 15px; 
+        padding: 15px;
         border-radius: 12px;
         margin-bottom: 15px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
-        height: 160px; 
+        height: 160px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
     .nombre-mediano {
-        font-size: 26px !important; 
+        font-size: 26px !important;
         color: #1E3A8A;
         font-weight: bold;
         line-height: 1.1;
         margin-bottom: 8px;
     }
     .detalle-pequeno {
-        font-size: 16px !important; 
+        font-size: 16px !important;
         color: #555;
         margin-bottom: 2px;
     }
@@ -48,19 +48,21 @@ with col2:
 
 st.divider()
 
-# --- BLOQUE 1: FICHAS VISUALES ---
-if st.session_state['integrantes']:
+# --- BLOQUE 1: FICHAS VISUALES CON FILTRO DE SEGURIDAD ---
+# Filtramos la lista para ignorar nulos antes de intentar dibujarlos
+integrantes_raw = st.session_state.get('integrantes', [])
+integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
+
+if integrantes_validos:
     cols = st.columns(3) 
-    # Filtramos para asegurar que solo procesamos diccionarios válidos
-    lista_valida = [p for p in st.session_state['integrantes'] if isinstance(p, dict)]
-    
-    for idx, persona in enumerate(lista_valida):
+    for idx, persona in enumerate(integrantes_validos):
         with cols[idx % 3]: 
-            nombre = persona.get("Nombre Completo", "").upper()
+            # Doble verificación para evitar el AttributeError
+            nombre = persona.get("Nombre Completo", "SIN NOMBRE").upper()
             tel = persona.get("Teléfono", "N/A")
             email = persona.get("Correo Electrónico", "N/A")
             
-            if len(nombre.strip()) > 0: 
+            if len(nombre) > 2: 
                 st.markdown(f"""
                     <div class="ficha-equipo">
                         <div class="nombre-mediano">👤 {nombre}</div>
@@ -69,17 +71,14 @@ if st.session_state['integrantes']:
                     </div>
                 """, unsafe_allow_html=True)
 else:
-    st.info("No hay integrantes registrados.")
+    st.info("No hay integrantes registrados o los datos están vacíos.")
 
 st.divider()
 
-# --- BLOQUE 2: EDITOR OCULTO ---
+# --- BLOQUE 2: EDITOR CON LIMPIEZA AL GUARDAR ---
 with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
-    integrantes_actuales = st.session_state.get('integrantes', [])
-    # Limpiamos nulos antes de cargar en el DataFrame para evitar filas fantasma
-    integrantes_limpios = [p for p in integrantes_actuales if isinstance(p, dict) and any(p.values())]
-    
-    df_equipo = pd.DataFrame(integrantes_limpios) if integrantes_limpios else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
+    # Limpiamos los datos antes de cargarlos en el editor para que no aparezcan filas nulas
+    df_equipo = pd.DataFrame(integrantes_validos) if integrantes_validos else pd.DataFrame(columns=["Nombre Completo", "Teléfono", "Correo Electrónico"])
 
     edited_df = st.data_editor(
         df_equipo,
@@ -89,7 +88,10 @@ with st.expander("⚙️ Configuración: Agregar o Editar Integrantes"):
     )
 
     if st.button("💾 ACTUALIZAR EQUIPO", type="primary", use_container_width=True):
-        # Convertimos a diccionario y guardamos
-        st.session_state['integrantes'] = edited_df.to_dict('records')
+        # Convertimos a diccionario y eliminamos filas que estén totalmente vacías o sean nulas
+        lista_nueva = edited_df.to_dict('records')
+        st.session_state['integrantes'] = [r for r in lista_nueva if any(str(v).strip() for v in r.values() if v is not None)]
+        
         guardar_datos_nube()
+        st.success("¡Equipo actualizado y base de datos limpia!")
         st.rerun()
