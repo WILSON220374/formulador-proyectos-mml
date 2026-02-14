@@ -5,7 +5,7 @@ import uuid
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Asegurar persistencia y memoria
+# 1. Persistencia y Memoria
 inicializar_session()
 
 # --- ESTILO GLOBAL (Interfaz Limpia y Tarjetas) ---
@@ -148,22 +148,8 @@ with st.sidebar:
         guardar_datos_nube(); st.rerun()
 
     st.divider()
-    st.header("➕ Nueva Ficha")
-    tipo_sel = st.selectbox("Sección:", list(CONFIG_OBJ.keys()))
-    with st.form("crear_ficha_obj", clear_on_submit=True):
-        texto_in = st.text_area("Descripción:")
-        padre_asoc = None
-        if "Indirecto" in tipo_sel:
-            p_key = "Fines Directos" if "Fin" in tipo_sel else "Medios Directos"
-            opciones = [it['texto'] for it in st.session_state['arbol_objetivos'].get(p_key, [])]
-            if opciones: padre_asoc = st.selectbox("Vincular a:", opciones)
-        
-        if st.form_submit_button("Generar") and texto_in:
-            nueva = {"texto": texto_in.upper(), "id_unico": str(uuid.uuid4())}
-            if padre_asoc: nueva["padre"] = padre_asoc
-            if tipo_sel in ["Objetivo General", "Fin Último"]: st.session_state['arbol_objetivos'][tipo_sel] = [nueva]
-            else: st.session_state['arbol_objetivos'][tipo_sel].append(nueva)
-            guardar_datos_nube(); st.rerun()
+    grafo = generar_grafo_objetivos()
+    if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
 if not hay_datos:
@@ -193,6 +179,7 @@ else:
                         if h_idx < len(hijos_por_p[p_idx]):
                             idx_real, h_data = hijos_por_p[p_idx][h_idx]
                             render_card_obj(tipo_hijo, h_data, idx_real)
+                        else: st.empty()
             cols_p = st.columns(len(padres))
             for i, p_data in enumerate(padres):
                 with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
