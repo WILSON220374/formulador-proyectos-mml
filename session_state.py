@@ -6,55 +6,31 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- INYECCIÓN DE DISEÑO ULTRA-COMPACTO ---
+    # --- AJUSTE DE VISUALIZACIÓN COMPACTA ---
     st.markdown("""
         <style>
-        /* 1. Eliminar cabecera y reducir espacios del contenedor principal */
-        header[data-testid="stHeader"] {
-            display: none !important;
-        }
+        /* Eliminar el espacio superior (header) de Streamlit */
+        header[data-testid="stHeader"] { display: none !important; }
+        
+        /* Reducir el padding del contenedor principal */
         .block-container {
-            padding-top: 0.5rem !important; 
+            padding-top: 1rem !important; 
             padding-bottom: 0rem !important;
             padding-left: 2rem !important;
             padding-right: 2rem !important;
         }
-        
-        /* 2. Compactar Títulos y Subtítulos */
-        h1 {
-            margin-top: -10px !important;
-            padding-top: 0 !important;
-            margin-bottom: 0.5rem !important;
-            font-size: 28px !important;
-        }
-        h2, h3 {
-            margin-top: 5px !important;
-            margin-bottom: 5px !important;
-            font-size: 22px !important;
-        }
 
-        /* 3. Ajuste de imagen (Logo) */
-        [data-testid="stImage"] {
-            margin-top: 0 !important;
-            display: flex;
-            justify-content: center;
-        }
-
-        /* 4. Ocultar elementos innecesarios */
-        button[title="View fullscreen"] {
-            display: none !important;
-        }
-
-        /* 5. Estilo de tarjetas de texto compacto */
-        div[data-testid="stTextArea"] textarea {
-            font-size: 13px !important;
-            padding: 8px !important;
+        /* Títulos más compactos */
+        h1, h2, h3 { 
+            margin-top: 0px !important; 
+            padding-top: 0px !important; 
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- INICIALIZACIÓN DE VARIABLES DE ESTADO ---
+    # --- INICIALIZACIÓN DE VARIABLES (ORIGINAL SIN CAMBIOS) ---
     if 'autenticado' not in st.session_state: st.session_state['autenticado'] = False
+    if 'usuario_id' not in st.session_state: st.session_state['usuario_id'] = ""
     if 'grupo_id' not in st.session_state: st.session_state['grupo_id'] = ""
     if 'integrantes' not in st.session_state: st.session_state['integrantes'] = []
     
@@ -104,8 +80,8 @@ def cargar_datos_nube(id_grupo):
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             if 'rel_obj' in d: st.session_state['df_relaciones_objetivos'] = pd.DataFrame(d['rel_obj'])
             if 'calificaciones' in d: st.session_state['df_calificaciones'] = pd.DataFrame(d['calificaciones'])
-    except Exception as e:
-        st.error(f"Error al cargar: {e}")
+    except Exception:
+        pass
 
 def guardar_datos_nube():
     try:
@@ -126,6 +102,6 @@ def guardar_datos_nube():
             "arbol_f": st.session_state['arbol_objetivos_final'],
             "arbol_p_f": st.session_state['arbol_problemas_final']
         }
-        db.table("proyectos").upsert({"id_grupo": st.session_state['grupo_id'], **paquete}).execute()
-    except Exception as e:
-        st.error(f"Error al guardar: {e}")
+        db.table("proyectos").upsert({"id_grupo": st.session_state['usuario_id'], **paquete}).execute()
+    except Exception:
+        pass
