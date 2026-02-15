@@ -7,6 +7,27 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
+# --- ESTILOS PERSONALIZADOS (BOTÓN AZUL Y LETRA PEQUEÑA) ---
+st.markdown("""
+    <style>
+    /* Estilo para el botón de guardar (Solo icono, azul oscuro) */
+    div.stButton > button:first-child {
+        background-color: #1E3A8A;
+        color: white;
+        border: none;
+        font-size: 20px;
+        padding: 5px 15px;
+        border-radius: 8px;
+    }
+    div.stButton > button:hover {
+        background-color: #153075;
+        color: white;
+    }
+    /* Reducir tamaño de alertas */
+    .small-font { font-size: 0.85rem; }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("⚖️ 6. Análisis de Alternativas")
 st.markdown("---")
 
@@ -15,21 +36,21 @@ obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON AG-GRID + COLORES + NO PARPADEO)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (DISEÑO MEJORADO)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# --- LEYENDA DE COLORES ---
+# --- LEYENDA COMPACTA ---
 st.markdown("""
-    <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: center;">
-        <span style="background-color: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 5px; border: 1px solid #bbf7d0; font-weight: bold;">
-            ✅ SELECCIONADA (Pasa)
+    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.8rem; color: #333;">
+        <span style="background-color: #d1fae5; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px;">
+            ✅ Seleccionada
         </span>
-        <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 5px; border: 1px solid #fecaca; font-weight: bold;">
-            ⛔ DESCARTADA (No cumple criterios)
+        <span style="background-color: #fee2e2; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px;">
+            ⬜ Descartada
         </span>
+        <span style="color: #666; margin-left: 10px;">(Marque las casillas y presione 💾 para guardar)</span>
     </div>
-    <small>ℹ️ Marque las casillas requeridas. Presione <b>"Guardar"</b> al finalizar para actualizar.</small>
 """, unsafe_allow_html=True)
 
 # 1.1 Inicializar DataFrame
@@ -53,7 +74,7 @@ if df_work["ALCANCE"].dtype == 'object':
     df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
 
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN AVANZADA AG-GRID (JAVASCRIPT)
+# CONFIGURACIÓN AG-GRID (COLORES SUAVES + TEXTO NEGRO)
 # -----------------------------------------------------------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
@@ -65,19 +86,18 @@ gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, 
 gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
 gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
-# --- MAGIA JAVASCRIPT: COLOREAR FILAS ---
-# Esta función corre en el navegador. Si Enfoque y Alcance son True, pinta verde. Si no, rojo.
+# --- JAVASCRIPT: COLORES PASTEL + TEXTO NEGRO ---
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
         return {
-            'background-color': '#dcfce7',
-            'color': '#166534'
+            'background-color': '#d1fae5',  // Verde Pastel Suave
+            'color': '#000000'              // Texto Negro Puro
         };
     } else {
         return {
-            'background-color': '#fee2e2',
-            'color': '#991b1b'
+            'background-color': '#fff1f2',  // Rojo Pastel Muy Suave
+            'color': '#000000'              // Texto Negro Puro
         };
     }
 };
@@ -86,31 +106,30 @@ function(params) {
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
-# Renderizar la tabla Ag-Grid
-# IMPORTANTE: update_mode=GridUpdateMode.MANUAL evita el parpadeo.
+# Renderizar Tabla
 grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
-    update_mode=GridUpdateMode.MANUAL, # <--- ESTO EVITA EL PARPADEO
+    update_mode=GridUpdateMode.MANUAL, # Evita parpadeo
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True,
     theme='streamlit',
     height=500,
-    allow_unsafe_jscode=True # Necesario para los colores
+    allow_unsafe_jscode=True
 )
 
-# 1.3 BOTÓN DE GUARDADO (Necesario por el modo MANUAL)
-col_btn, col_info = st.columns([1, 4])
+# 1.3 BOTÓN DE GUARDADO (ICONO AZUL)
+# Usamos columnas para que el botón no ocupe todo el ancho
+col_btn, col_rest = st.columns([1, 10])
 with col_btn:
-    btn_guardar = st.button("💾 Guardar y Actualizar Tabla", type="primary")
+    # El CSS inyectado arriba convertirá este botón en azul oscuro
+    btn_guardar = st.button("💾", help="Guardar Cambios")
 
 if btn_guardar:
     df_editado = pd.DataFrame(grid_response['data'])
-    
     if not df_editado.empty:
         df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
         df_editado["ALCANCE"] = df_editado["ALCANCE"].astype(bool)
-        
         st.session_state['df_evaluacion_alternativas'] = df_editado
         guardar_datos_nube()
         st.rerun()
@@ -149,7 +168,6 @@ if len(objetivos_seleccionados) >= 2:
 
     st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
     
-    # Aquí seguimos usando st.data_editor porque es simple y funcional para dropdowns
     df_rel_editado = st.data_editor(
         st.session_state['df_relaciones_objetivos'],
         column_config={
@@ -224,6 +242,8 @@ if objetivos_seleccionados:
                         config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
 
         btn_disable = conflicto or not config_final or not nombre_alt
+        
+        # Botón normal (Streamlit style)
         if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
             st.session_state['lista_alternativas'].append({
                 "nombre": nombre_alt, 
