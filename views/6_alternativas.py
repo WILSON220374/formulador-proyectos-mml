@@ -72,7 +72,7 @@ with col_img:
 st.divider()
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON SINCRONIZACIÓN AUTOMÁTICA)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
@@ -89,8 +89,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- LÓGICA DE SINCRONIZACIÓN INTELIGENTE ---
-# 1. Obtenemos la estructura actual del Árbol de Objetivos
+# --- SINCRONIZACIÓN INTELIGENTE ---
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
@@ -103,9 +102,7 @@ for obj in obj_especificos:
 
 df_arbol_actual = pd.DataFrame(datos_arbol_actual)
 
-# 2. Sincronizamos con el DataFrame existente (si existe)
 if st.session_state['df_evaluacion_alternativas'].empty:
-    # Si está vacío, creamos desde cero
     if not df_arbol_actual.empty:
         df_sync = df_arbol_actual.copy()
         df_sync["ENFOQUE"] = False
@@ -113,41 +110,30 @@ if st.session_state['df_evaluacion_alternativas'].empty:
         st.session_state['df_evaluacion_alternativas'] = df_sync
         guardar_datos_nube()
 else:
-    # Si ya hay datos, hacemos un MERGE para conservar los checks previos
-    # 'how=left' asegura que solo queden las filas que existen HOY en el árbol
     df_old = st.session_state['df_evaluacion_alternativas']
-    
     if not df_arbol_actual.empty:
         df_sync = pd.merge(df_arbol_actual, df_old, on=["OBJETIVO", "ACTIVIDAD"], how="left")
-        
-        # Las filas nuevas tendrán NaN en Enfoque/Alcance, las llenamos con False
         df_sync["ENFOQUE"] = df_sync["ENFOQUE"].fillna(False).infer_objects(copy=False)
         df_sync["ALCANCE"] = df_sync["ALCANCE"].fillna(False).infer_objects(copy=False)
         
-        # Actualizamos session state solo si hubo cambios
-        # (Esto evita recargas infinitas, pero asegura que veas lo nuevo)
-        # Convertimos a bool para asegurar tipos
         df_sync["ENFOQUE"] = df_sync["ENFOQUE"].astype(bool)
         df_sync["ALCANCE"] = df_sync["ALCANCE"].astype(bool)
         
-        # Truco: Si el tamaño cambió o los datos clave cambiaron, actualizamos
         if len(df_sync) != len(df_old) or not df_sync["OBJETIVO"].equals(df_old["OBJETIVO"]):
              st.session_state['df_evaluacion_alternativas'] = df_sync
              guardar_datos_nube()
-             st.rerun() # Recargamos para mostrar la tabla actualizada
+             st.rerun()
 
-# 3. Preparar Datos para AgGrid
+# --- PREPARACIÓN AG-GRID ---
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
-# -----------------------------------------------------------------------------
-# CONFIGURACIÓN AG-GRID
-# -----------------------------------------------------------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
 gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
 gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
 gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
+# Javascript para colores suaves en las filas
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
@@ -161,9 +147,22 @@ function(params) {
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
+# --- ESTILOS CSS PARA LOS TÍTULOS DE LA TABLA ---
+custom_css = {
+    ".ag-header-cell-text": {
+        "font-size": "15px !important", 
+        "font-weight": "800 !important", 
+        "color": "#1E3A8A !important"
+    },
+    ".ag-header": {
+        "background-color": "#f8f9fa !important"
+    }
+}
+
 grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
+    custom_css=custom_css, # <--- AQUI APLICAMOS LA NEGRITA Y COLOR
     update_mode=GridUpdateMode.MANUAL,
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True,
@@ -196,7 +195,7 @@ df_master = st.session_state['df_evaluacion_alternativas']
 try:
     aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
 except:
-    aprobadas = pd.DataFrame() # Fallback si falla algo
+    aprobadas = pd.DataFrame()
 
 if not aprobadas.empty:
     objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
@@ -245,7 +244,6 @@ st.divider()
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
-# Recalcular aprobadas y objetivos seleccionados para asegurar consistencia
 if not aprobadas.empty:
     objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
     
