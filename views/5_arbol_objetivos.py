@@ -17,10 +17,10 @@ st.markdown("""
     /* Estética de Tarjetas */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: 1px solid #ddd !important; /* Borde sutil para contraste */      
+        border: 1px solid #ddd !important;
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 15px !important; /* Letra más grande en el editor */
+        font-size: 15px !important;
         font-weight: 600 !important;
         color: #000 !important;
         min-height: 100px !important;
@@ -58,14 +58,13 @@ with col_img:
 st.divider()
 
 # --- CONFIGURACIÓN DE COLORES DE ALTO CONTRASTE ---
-# font_color define si el texto es blanco o negro según el fondo
 CONFIG_OBJ = {
-    "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},       # Verde Fuerte
-    "Fines Indirectos": {"color": "#2980B9", "font_color": "white", "label": "FINES\nINDIRECTOS"}, # Azul Oscuro
-    "Fines Directos":   {"color": "#3498DB", "font_color": "white", "label": "FINES\nDIRECTOS"},   # Azul Claro
-    "Objetivo General": {"color": "#C0392B", "font_color": "white", "label": "OBJETIVO\nGENERAL"}, # Rojo/Granate
-    "Medios Directos":  {"color": "#F1C40F", "font_color": "black", "label": "OBJETIVOS\nESPECÍFICOS"}, # Amarillo Oro
-    "Medios Indirectos":{"color": "#E67E22", "font_color": "white", "label": "ACTIVIDADES"}        # Naranja
+    "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},       # Verde Esmeralda
+    "Fines Indirectos": {"color": "#154360", "font_color": "white", "label": "FINES\nINDIRECTOS"}, # Azul Marino Muy Oscuro
+    "Fines Directos":   {"color": "#1F618D", "font_color": "white", "label": "FINES\nDIRECTOS"},   # Azul Oscuro
+    "Objetivo General": {"color": "#C0392B", "font_color": "white", "label": "OBJETIVO\nGENERAL"}, # Rojo Intenso
+    "Medios Directos":  {"color": "#F1C40F", "font_color": "black", "label": "OBJETIVOS\nESPECÍFICOS"}, # Amarillo Oro (Texto Negro)
+    "Medios Indirectos":{"color": "#D35400", "font_color": "white", "label": "ACTIVIDADES"}        # Naranja Ladrillo
 }
 
 # --- PILOTO AUTOMÁTICO DE LIMPIEZA ---
@@ -92,21 +91,20 @@ if hay_datos:
         guardar_datos_nube()
         st.rerun()
 
-# --- MOTOR DE DIBUJO OPTIMIZADO ---
+# --- MOTOR DE DIBUJO ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
     
     dot = graphviz.Digraph(format='png')
-    # Ajustes globales
     dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='40', fontname='Helvetica-Bold', fontcolor='#2c3e50')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.6', ranksep='1.0', splines='ortho')
     
-    # Estilo de Nodos Base: Más grandes y legibles
-    dot.attr('node', fontsize='22', fontname='Helvetica-Bold', style='filled, rounded', shape='box', penwidth='0')
+    # AJUSTE DE MARGEN INTERNO: margin='0.3,0.15' crea espacio alrededor del texto
+    dot.attr('node', fontsize='20', fontname='Helvetica-Bold', style='filled, rounded', shape='box', penwidth='0', margin='0.3,0.15')
     
-    # Ajuste de envoltura de texto: w=40 hace las cajas más altas y menos anchas
-    def limpiar(t, w=40): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
+    # ENVOLTURA DE TEXTO: w=35 fuerza saltos de línea para que el texto no toque los bordes
+    def limpiar(t, w=35): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
     # --- ETIQUETAS LATERALES ---
     etiquetas = ["L_FU", "L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
@@ -114,8 +112,7 @@ def generar_grafo_objetivos():
     
     for id_e, tipo in zip(etiquetas, tipos):
         conf = CONFIG_OBJ[tipo]
-        # Etiqueta lateral: Texto del color de la caja para referencia, pero negrita
-        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='20', fontname='Helvetica-Bold', style='')
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Helvetica-Bold', style='')
 
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
@@ -127,9 +124,9 @@ def generar_grafo_objetivos():
         c = CONFIG_OBJ["Fin Último"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FU')
-            # Nodo central más grande
-            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=60), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.5,0.3')
+            # w=55 para que sea ancho pero no infinito
+            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=55), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='22', margin='0.4,0.2')
 
     # 2. Fines Indirectos
     if datos.get("Fines Indirectos"):
@@ -138,7 +135,8 @@ def generar_grafo_objetivos():
             s.attr(rank='same'); s.node('L_FI')
             for i, item in enumerate(datos["Fines Indirectos"]):
                 s.node(f"FI{i}", limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                if datos.get("Fin Último"): dot.edge(f"FI{i}", "FU", style="invis")
+                # NOTA: NO conectamos FI -> FU aquí para evitar que se desalinee el centro.
+                # La alineación central se garantiza por la estructura del árbol y el enlace OG -> FU
 
     # 3. Fines Directos
     if datos.get("Fines Directos"):
@@ -148,7 +146,7 @@ def generar_grafo_objetivos():
             for i, item in enumerate(datos["Fines Directos"]):
                 node_id = f"FD{i}"
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                # Conexiones
+                # Conexiones a hijos
                 hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
                 for h in hijos:
                     idx_real = datos["Fines Indirectos"].index(h)
@@ -159,10 +157,14 @@ def generar_grafo_objetivos():
         c = CONFIG_OBJ["Objetivo General"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_OG')
-            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=60), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='26', margin='0.5,0.3')
+            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=55), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.4,0.2')
         
-        if datos.get("Fin Último"): dot.edge("OG", "FU", style="invis")
+        # CONEXIÓN CRÍTICA DE ALINEACIÓN: OG -> FU
+        # Usamos weight=10 para forzar que esta línea sea el eje vertical central
+        if datos.get("Fin Último"): 
+            dot.edge("OG", "FU", style="invis", weight="10")
+            
         for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}")
 
     # 5. Medios Directos
@@ -172,7 +174,6 @@ def generar_grafo_objetivos():
             s.attr(rank='same'); s.node('L_MD')
             for i, item in enumerate(datos["Medios Directos"]):
                 node_id = f"MD{i}"
-                # Este suele ser amarillo, aseguramos contraste con font_color negro
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 if datos.get("Objetivo General"): dot.edge(node_id, "OG")
 
@@ -195,7 +196,6 @@ def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    # Barra de color más delgada
     st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     texto_viejo = item['texto']
     nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
