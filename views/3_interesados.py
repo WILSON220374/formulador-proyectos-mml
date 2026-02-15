@@ -53,7 +53,7 @@ st.markdown("""
         font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; opacity: 0.9;
     }
     
-    /* ITEM DE LISTA LIMPIO (Sin tarjeta blanca) */
+    /* ITEM DE LISTA LIMPIO */
     .actor-item {
         font-size: 13px;
         color: #334155;
@@ -113,19 +113,18 @@ gb.configure_column("PODER", headerName="⚡ Poder", editable=True, cellEditor='
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", editable=False, wrapText=True, autoHeight=True, width=200)
 
-# 2. COLORES INTELIGENTES POR ESTRATEGIA (Javascript)
-# Ahora coinciden con los colores de la matriz de abajo
+# 2. COLORES INTELIGENTES POR ESTRATEGIA
 jscode_row_style = JsCode("""
 function(params) {
     var est = params.data.ESTRATEGIA;
     if (est === 'INVOLUCRAR Y ATRAER EFECTIVAMENTE') {
-        return { 'background-color': '#F0FDF4', 'color': 'black' }; // Verde (Gestionar Atentamente)
+        return { 'background-color': '#F0FDF4', 'color': 'black' }; 
     } else if (est === 'INVOLUCRAR - MANTENER SATISFECHOS') {
-        return { 'background-color': '#FEF2F2', 'color': 'black' }; // Rojo (Mantener Satisfechos)
+        return { 'background-color': '#FEF2F2', 'color': 'black' }; 
     } else if (est === 'MANTENER INFORMADOS') {
-        return { 'background-color': '#EFF6FF', 'color': 'black' }; // Azul (Mantener Informados)
+        return { 'background-color': '#EFF6FF', 'color': 'black' }; 
     } else if (est === 'MONITOREAR') {
-        return { 'background-color': '#FEFCE8', 'color': 'black' }; // Amarillo/Beige (Monitorear)
+        return { 'background-color': '#FEFCE8', 'color': 'black' }; 
     }
     return null;
 };
@@ -169,13 +168,12 @@ if btn_guardar:
 st.write("")
 st.divider()
 
-# --- MAPA DE INFLUENCIA (DISEÑO LIMPIO TIPO LISTA) ---
+# --- MAPA DE INFLUENCIA ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
 
-    # 1. FUNCIÓN SIMPLIFICADA (Solo Texto + Icono)
     def get_list_items_html(p_key, i_key):
         filtered = df_mapa[
             (df_mapa['PODER'].astype(str).str.upper().str.contains(p_key)) & 
@@ -197,12 +195,11 @@ if tiene_datos:
             elif "Beneficiario" in pos: icon = "🔵"
             elif "Perjudicado" in pos: icon = "🟣"
             
-            # DISEÑO LIMPIO: Sin tarjeta, solo linea de texto
             html_items += f'<div class="actor-item"><span>{icon}</span> <span>{nombre}</span></div>'
         
         return html_items
 
-    # 2. CONSTRUCCIÓN DE MATRIZ
+    # 2. CONSTRUCCIÓN DE MATRIZ (Título corregido)
     html_matrix = f"""
 <div class="matrix-container">
 <div class="axis-y">PODER</div>
@@ -211,7 +208,7 @@ if tiene_datos:
 {get_list_items_html("ALTO", "BAJO")}
 </div>
 <div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border-top: 4px solid #86efac;">
-<div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
+<div class="q-title" style="color: #166534;">🚀 Involucrar y Atraer Efectivamente</div>
 {get_list_items_html("ALTO", "ALTO")}
 </div>
 <div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2; border-top: 4px solid #fde047;">
