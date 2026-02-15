@@ -1,4 +1,5 @@
 import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import itertools
 from session_state import inicializar_session, guardar_datos_nube
@@ -23,8 +24,6 @@ st.markdown("""
         background-color: #153075;
         color: white;
     }
-    /* Reducir tamaño de alertas */
-    .small-font { font-size: 0.85rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -36,17 +35,17 @@ obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (DISEÑO MEJORADO)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (DISEÑO ULTRA-SUAVE)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# --- LEYENDA COMPACTA ---
+# --- LEYENDA COMPACTA Y SUAVE ---
 st.markdown("""
-    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.8rem; color: #333;">
-        <span style="background-color: #d1fae5; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px;">
+    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.8rem; color: #444;">
+        <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">
             ✅ Seleccionada
         </span>
-        <span style="background-color: #fee2e2; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px;">
+        <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">
             ⬜ Descartada
         </span>
         <span style="color: #666; margin-left: 10px;">(Marque las casillas y presione 💾 para guardar)</span>
@@ -74,7 +73,7 @@ if df_work["ALCANCE"].dtype == 'object':
     df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
 
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN AG-GRID (COLORES SUAVES + TEXTO NEGRO)
+# CONFIGURACIÓN AG-GRID (COLORES ULTRA-SUAVES "OFF-WHITE")
 # -----------------------------------------------------------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
@@ -86,18 +85,18 @@ gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, 
 gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
 gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
-# --- JAVASCRIPT: COLORES PASTEL + TEXTO NEGRO ---
+# --- JAVASCRIPT: COLORES CASI BLANCOS ---
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
         return {
-            'background-color': '#d1fae5',  // Verde Pastel Suave
-            'color': '#000000'              // Texto Negro Puro
+            'background-color': '#F0FDF4',  // Blanco Mentolado (Muy tenue)
+            'color': '#000000'              // Texto Negro
         };
     } else {
         return {
-            'background-color': '#fff1f2',  // Rojo Pastel Muy Suave
-            'color': '#000000'              // Texto Negro Puro
+            'background-color': '#FEF2F2',  // Blanco Rosado (Muy tenue)
+            'color': '#000000'              // Texto Negro
         };
     }
 };
@@ -119,11 +118,9 @@ grid_response = AgGrid(
 )
 
 # 1.3 BOTÓN DE GUARDADO (ICONO AZUL)
-# Usamos columnas para que el botón no ocupe todo el ancho
 col_btn, col_rest = st.columns([1, 10])
 with col_btn:
-    # El CSS inyectado arriba convertirá este botón en azul oscuro
-    btn_guardar = st.button("💾", help="Guardar Cambios")
+    btn_guardar = st.button("💾", help="Guardar Cambios de la Tabla")
 
 if btn_guardar:
     df_editado = pd.DataFrame(grid_response['data'])
@@ -243,7 +240,6 @@ if objetivos_seleccionados:
 
         btn_disable = conflicto or not config_final or not nombre_alt
         
-        # Botón normal (Streamlit style)
         if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
             st.session_state['lista_alternativas'].append({
                 "nombre": nombre_alt, 
