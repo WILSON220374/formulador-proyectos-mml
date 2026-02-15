@@ -8,20 +8,20 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Persistencia y Memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL ---
+# --- ESTILO GLOBAL (Idéntico al Árbol de Problemas) ---
 st.markdown("""
     <style>
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estética de Tarjetas */
+    /* Estética de Tarjetas: Fusión total con color */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: 1px solid #ddd !important;
+        border: none !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
         color: #000 !important;
         min-height: 100px !important;
     }
@@ -57,7 +57,7 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE COLORES ---
+# --- CONFIGURACIÓN DE COLORES (Alto Contraste) ---
 CONFIG_OBJ = {
     "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},
     "Fines Indirectos": {"color": "#154360", "font_color": "white", "label": "FINES\nINDIRECTOS"},
@@ -89,38 +89,44 @@ if hay_datos:
         guardar_datos_nube()
         st.rerun()
 
-# --- MOTOR DE DIBUJO ---
+# --- MOTOR DE DIBUJO (CONFIGURACIÓN IDÉNTICA A PROBLEMAS) ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
     
     dot = graphviz.Digraph(format='png')
-    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='40', fontname='Helvetica-Bold', fontcolor='#2c3e50')
-    dot.attr(dpi='300', rankdir='BT', nodesep='0.6', ranksep='1.0', splines='ortho')
-    dot.attr('node', fontsize='20', fontname='Helvetica-Bold', style='filled, rounded', shape='box', penwidth='0', margin='0.3,0.15')
     
-    def limpiar(t, w=35): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
+    # 1. Configuración Global (COPIA EXACTA DE PROBLEMAS)
+    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
+    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
+    
+    # 2. Configuración de Nodos (COPIA EXACTA DE PROBLEMAS: margin='0.6,0.4', fontsize='20')
+    dot.attr('node', fontsize='20', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
+    
+    # 3. Ancho de Texto (Ampliado a 50 para igualar a Problemas)
+    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
-    # Etiquetas Laterales
+    # --- ETIQUETAS LATERALES ---
     etiquetas = ["L_FU", "L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
     tipos = ["Fin Último", "Fines Indirectos", "Fines Directos", "Objetivo General", "Medios Directos", "Medios Indirectos"]
     
     for id_e, tipo in zip(etiquetas, tipos):
         conf = CONFIG_OBJ[tipo]
-        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Helvetica-Bold', style='')
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold', style='')
 
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
-    # --- NODOS ---
+    # --- ESTRUCTURA DEL ÁRBOL ---
 
-    # 1. Fin Último (Centro Superior)
+    # 1. Fin Último (Copa del Árbol)
     if datos.get("Fin Último"):
         c = CONFIG_OBJ["Fin Último"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FU')
-            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=55), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='22', margin='0.4,0.2')
+            # Margen extra grande para emular al "Problema Central" pero arriba
+            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=80), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], margin='0.8,0.4')
 
     # 2. Fines Indirectos
     if datos.get("Fines Indirectos"):
@@ -129,9 +135,10 @@ def generar_grafo_objetivos():
             s.attr(rank='same'); s.node('L_FI')
             for i, item in enumerate(datos["Fines Indirectos"]):
                 s.node(f"FI{i}", limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                # Flechas hacia el Fin Último (Peso bajo para no deformar)
+                
+                # SOPORTE VISIBLE: Conectar al Fin Último para que no flote
                 if datos.get("Fin Último"): 
-                    dot.edge(f"FI{i}", "FU", weight="1") 
+                    dot.edge(f"FI{i}", "FU", weight="1")
 
     # 3. Fines Directos
     if datos.get("Fines Directos"):
@@ -142,25 +149,29 @@ def generar_grafo_objetivos():
                 node_id = f"FD{i}"
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 
-                # Conexiones a hijos CON ALTO PESO (weight=5) para forzar verticalidad
+                # Conexiones verticales fuertes hacia arriba (weight=5)
                 hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
                 for h in hijos:
                     idx_real = datos["Fines Indirectos"].index(h)
                     dot.edge(node_id, f"FI{idx_real}", weight="5")
 
-    # 4. Objetivo General (Centro)
+    # 4. Objetivo General (Centro de Gravedad)
     if datos.get("Objetivo General"):
         c = CONFIG_OBJ["Objetivo General"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_OG')
-            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=55), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.4,0.2')
+            # Nodo central robusto
+            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=80), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], margin='0.8,0.4')
         
-        # Pilar central invisible
+        # --- EL TRUCO MAESTRO: PILAR INVISIBLE ---
+        # Conexión invisible SUPER FUERTE (weight=20) que alinea OG con FU
+        # Esto hace que actúen como un solo bloque central, ignorando el viento lateral.
         if datos.get("Fin Último"): 
-            dot.edge("OG", "FU", style="invis", weight="10")
+            dot.edge("OG", "FU", style="invis", weight="20")
             
-        for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}", weight="2")
+        for i, item in enumerate(datos.get("Fines Directos", [])): 
+            dot.edge("OG", f"FD{i}", weight="2")
 
     # 5. Medios Directos
     if datos.get("Medios Directos"):
@@ -182,7 +193,7 @@ def generar_grafo_objetivos():
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 for p_idx, padre in enumerate(datos.get("Medios Directos", [])):
                     if item.get('padre') == padre['texto']:
-                        dot.edge(node_id, f"MD{p_idx}", weight="5") # Peso alto para verticalidad
+                        dot.edge(node_id, f"MD{p_idx}", weight="5") # Verticalidad fuerte
                 
     return dot
 
@@ -191,7 +202,7 @@ def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 12px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     texto_viejo = item['texto']
     nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
     
