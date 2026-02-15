@@ -1,15 +1,32 @@
 import streamlit as st
 import pandas as pd
 import itertools
+import os
 from session_state import inicializar_session, guardar_datos_nube
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- ESTILOS PERSONALIZADOS (BOTÓN AZUL Y LETRA PEQUEÑA) ---
+# --- ESTILOS PERSONALIZADOS (HEADER, BOTONES Y TABLA) ---
 st.markdown("""
     <style>
+    /* Estilos del Encabezado (Igual al Árbol de Objetivos) */
+    .titulo-seccion { 
+        font-size: 30px !important; 
+        font-weight: 800 !important; 
+        color: #1E3A8A; 
+        margin-bottom: 5px; 
+    }
+    .subtitulo-gris { 
+        font-size: 16px !important; 
+        color: #666; 
+        margin-bottom: 15px; 
+    }
+    
+    /* Imagen del logo con bordes redondeados */
+    [data-testid="stImage"] img { border-radius: 12px; }
+
     /* Estilo para el botón de guardar (Solo icono, azul oscuro) */
     div.stButton > button:first-child {
         background-color: #1E3A8A;
@@ -26,8 +43,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚖️ 6. Análisis de Alternativas")
-st.markdown("---")
+# --- ENCABEZADO CON LOGO (UNNAMED-1.JPG) ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+
+with col_t:
+    st.markdown('<div class="titulo-seccion">⚖️ 6. Análisis de Alternativas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Evaluación, comparación y selección de las mejores estrategias.</div>', unsafe_allow_html=True)
+
+with col_img:
+    # Prioridad absoluta a unnamed-1.jpg
+    if os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
+    elif os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
 
 # --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
@@ -89,12 +119,12 @@ jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
         return {
-            'background-color': '#F0FDF4',  // Blanco Mentolado (Muy tenue)
+            'background-color': '#F0FDF4',  // Blanco Mentolado
             'color': '#000000'              // Texto Negro
         };
     } else {
         return {
-            'background-color': '#FEF2F2',  // Blanco Rosado (Muy tenue)
+            'background-color': '#FEF2F2',  // Blanco Rosado
             'color': '#000000'              // Texto Negro
         };
     }
