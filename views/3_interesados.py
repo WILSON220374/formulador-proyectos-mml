@@ -190,13 +190,13 @@ if btn_guardar:
 st.write("")
 st.divider()
 
-# --- MAPA DE INFLUENCIA (DISEÑO PROFESIONAL HTML/CSS) ---
+# --- MAPA DE INFLUENCIA (CORREGIDO: SIN ESPACIOS) ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
 
-    # Función auxiliar para generar HTML de chips
+    # 1. FUNCIÓN CORREGIDA (Sin sangría en el string de retorno)
     def get_chips_html(p_key, i_key):
         filtered = df_mapa[
             (df_mapa['PODER'].astype(str).str.upper().str.contains(p_key)) & 
@@ -212,54 +212,45 @@ if tiene_datos:
             pos = str(r['POSICIÓN'])
             nombre = r['NOMBRE']
             
-            # Color del borde según posición
-            border_color = "#cbd5e1" # Gris default
+            # Color del borde
+            border_color = "#cbd5e1"
             icon = "⚪"
-            if "Opositor" in pos: border_color = "#ef4444"; icon = "🔴" # Rojo
-            elif "Cooperante" in pos: border_color = "#22c55e"; icon = "🟢" # Verde
-            elif "Beneficiario" in pos: border_color = "#3b82f6"; icon = "🔵" # Azul
-            elif "Perjudicado" in pos: border_color = "#a855f7"; icon = "🟣" # Morado
+            if "Opositor" in pos: border_color = "#ef4444"; icon = "🔴"
+            elif "Cooperante" in pos: border_color = "#22c55e"; icon = "🟢"
+            elif "Beneficiario" in pos: border_color = "#3b82f6"; icon = "🔵"
+            elif "Perjudicado" in pos: border_color = "#a855f7"; icon = "🟣"
             
-            html_chips += f"""
-            <div class="actor-chip" style="border-left-color: {border_color};">
-                <span>{icon}</span>
-                <span>{nombre}</span>
-            </div>
-            """
+            # AQUÍ ESTABA EL ERROR: Eliminamos espacios al inicio de las líneas HTML
+            html_chips += f'<div class="actor-chip" style="border-left-color: {border_color};"><span>{icon}</span><span>{nombre}</span></div>'
+        
         return html_chips
 
-    # Construcción de la Matriz HTML (SIN SANGRÍA)
+    # 2. CONSTRUCCIÓN DE MATRIZ (Todo pegado a la izquierda para evitar lectura como código)
     html_matrix = f"""
 <div class="matrix-container">
 <div class="axis-y">PODER</div>
-
 <div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2;">
-    <div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
-    {get_chips_html("ALTO", "BAJO")}
+<div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
+{get_chips_html("ALTO", "BAJO")}
 </div>
-
 <div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border: 2px solid #bbf7d0;">
-    <div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
-    {get_chips_html("ALTO", "ALTO")}
+<div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
+{get_chips_html("ALTO", "ALTO")}
 </div>
-
 <div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2;">
-    <div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
-    {get_chips_html("BAJO", "BAJO")}
+<div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
+{get_chips_html("BAJO", "BAJO")}
 </div>
-
 <div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3;">
-    <div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
-    {get_chips_html("BAJO", "ALTO")}
+<div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
+{get_chips_html("BAJO", "ALTO")}
 </div>
-
 <div class="axis-x">INTERÉS</div>
 </div>
 """
     
     st.markdown(html_matrix, unsafe_allow_html=True)
     
-    # Leyenda pequeña
     st.markdown("""
     <div style="margin-top: 10px; display: flex; gap: 15px; font-size: 11px; color: #666; justify-content: center;">
         <span>🔴 Opositor</span>
