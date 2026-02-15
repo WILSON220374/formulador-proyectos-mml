@@ -11,7 +11,7 @@ inicializar_session()
 # --- ESTILOS PERSONALIZADOS (HEADER, BOTONES Y TABLA) ---
 st.markdown("""
     <style>
-    /* Estilos del Encabezado (Idéntico a las otras páginas) */
+    /* Estilos del Encabezado */
     .titulo-seccion { 
         font-size: 30px !important; 
         font-weight: 800 !important; 
@@ -21,7 +21,7 @@ st.markdown("""
     .subtitulo-gris { 
         font-size: 16px !important; 
         color: #666; 
-        margin-bottom: 15px; 
+        margin-bottom: 10px; 
     }
     
     /* Imagen del logo con bordes redondeados */
@@ -43,21 +43,42 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ESTÁNDAR (Igual al resto de la app) ---
+# --- CÁLCULO DEL PROGRESO ---
+# Calculamos qué tan avanzado va el usuario para pintar la barra azul
+progreso_val = 0.0
+# Paso 1: Si ya hay datos en la tabla de evaluación
+if not st.session_state['df_evaluacion_alternativas'].empty:
+    progreso_val += 0.33
+# Paso 2: Si ya hay alternativas creadas
+if st.session_state.get('lista_alternativas'):
+    progreso_val += 0.33
+# Paso 3: Si ya hay calificaciones hechas
+if not st.session_state.get('df_calificaciones', pd.DataFrame()).empty:
+    # Verificamos si hay al menos un valor diferente a 1 (significa que ya trabajó)
+    if st.session_state['df_calificaciones'].sum().sum() > (len(st.session_state['df_calificaciones']) * 4):
+        progreso_val += 0.34
+
+# Aseguramos que no pase de 1.0
+progreso_val = min(progreso_val, 1.0)
+
+# --- ENCABEZADO CON BARRA DE PROGRESO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 
 with col_t:
     st.markdown('<div class="titulo-seccion">⚖️ 6. Análisis de Alternativas</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Evaluación, comparación y selección de las mejores estrategias.</div>', unsafe_allow_html=True)
+    
+    # BARRA DE PROGRESO (Aquí está lo que faltaba)
+    st.caption(f"Nivel de Completitud: {int(progreso_val * 100)}%")
+    st.progress(progreso_val)
 
 with col_img:
-    # Lógica estándar: busca primero la imagen principal, luego la de respaldo
+    # Lógica de imagen inteligente
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     elif os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
 
-# LÍNEA DIVISORIA (La que faltaba)
 st.divider()
 
 # --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
