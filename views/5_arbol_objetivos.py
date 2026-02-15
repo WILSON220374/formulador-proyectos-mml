@@ -108,15 +108,50 @@ def generar_grafo_objetivos():
                 
     return dot
 
-# --- RENDERIZADO DE TARJETA ---
+# --- RENDERIZADO DE TARJETA CON LÓGICA DE ACTUALIZACIÓN ---
 def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
+    
+    # Barra de color
     st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
-    nuevo = st.text_area("t", value=item['texto'], key=f"obj_txt_{id_u}", label_visibility="collapsed")
+    
+    # 1. Capturar el texto original ANTES de que el usuario lo toque
+    texto_original = item['texto']
+    
+    # Widget de edición
+    nuevo_texto = st.text_area("t", value=texto_original, key=f"obj_txt_{id_u}", label_visibility="collapsed")
+    
+    # Botón de borrado
     if st.button("🗑️", key=f"obj_btn_{id_u}"):
-        st.session_state['arbol_objetivos'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
-    if nuevo != item['texto']: item['texto'] = nuevo; guardar_datos_nube()
+        st.session_state['arbol_objetivos'][seccion].pop(idx)
+        guardar_datos_nube()
+        st.rerun()
+    
+    # LÓGICA DE ACTUALIZACIÓN EN CASCADA
+    # Si el texto cambió, actualizamos el padre y a todos sus hijos huérfanos
+    if nuevo_texto != texto_original:
+        # Actualizamos el nodo actual
+        item['texto'] = nuevo_texto
+        
+        # Mapa de relaciones Padre -> Hijo
+        relaciones = {
+            "Fines Directos": "Fines Indirectos",
+            "Medios Directos": "Medios Indirectos"
+        }
+        
+        # Si estamos editando un padre, buscar sus hijos y actualizarles la referencia
+        if seccion in relaciones:
+            seccion_hijos = relaciones[seccion]
+            lista_hijos = st.session_state['arbol_objetivos'].get(seccion_hijos, [])
+            
+            for hijo in lista_hijos:
+                # Si el hijo apuntaba al nombre viejo, ahora apunta al nuevo
+                if isinstance(hijo, dict) and hijo.get("padre") == texto_original:
+                    hijo["padre"] = nuevo_texto
+        
+        guardar_datos_nube()
+        st.rerun()
 
 # --- SIDEBAR: HERRAMIENTAS ---
 with st.sidebar:
@@ -196,6 +231,7 @@ else:
                         if h_idx < len(hijos_por_p[p_idx]):
                             idx_real, h_data = hijos_por_p[p_idx][h_idx]
                             render_card_obj(tipo_hijo, h_data, idx_real)
+                        else: st.empty()
 
     # 1. Fines
     pc_fu = st.session_state['arbol_objetivos'].get("Fin Último", [])
