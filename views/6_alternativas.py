@@ -11,7 +11,7 @@ inicializar_session()
 # --- ESTILOS PERSONALIZADOS (HEADER, BOTONES Y TABLA) ---
 st.markdown("""
     <style>
-    /* Estilos del Encabezado (Igual al Árbol de Objetivos) */
+    /* Estilos del Encabezado (Idéntico a las otras páginas) */
     .titulo-seccion { 
         font-size: 30px !important; 
         font-weight: 800 !important; 
@@ -43,7 +43,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON LOGO (UNNAMED-1.JPG) ---
+# --- ENCABEZADO ESTÁNDAR (Igual al resto de la app) ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 
 with col_t:
@@ -51,12 +51,13 @@ with col_t:
     st.markdown('<div class="subtitulo-gris">Evaluación, comparación y selección de las mejores estrategias.</div>', unsafe_allow_html=True)
 
 with col_img:
-    # Prioridad absoluta a unnamed-1.jpg
-    if os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
-    elif os.path.exists("unnamed.jpg"):
+    # Lógica estándar: busca primero la imagen principal, luego la de respaldo
+    if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
 
+# LÍNEA DIVISORIA (La que faltaba)
 st.divider()
 
 # --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
