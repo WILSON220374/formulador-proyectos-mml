@@ -15,14 +15,21 @@ obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON AG-GRID)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON AG-GRID + COLORES + NO PARPADEO)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
+
+# --- LEYENDA DE COLORES ---
 st.markdown("""
-    <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
-        <small>ℹ️ <b>Instrucciones:</b> Marque las casillas si la actividad cumple. 
-        El texto ahora se ajusta automáticamente para facilitar la lectura.</small>
+    <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: center;">
+        <span style="background-color: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 5px; border: 1px solid #bbf7d0; font-weight: bold;">
+            ✅ SELECCIONADA (Pasa)
+        </span>
+        <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 5px; border: 1px solid #fecaca; font-weight: bold;">
+            ⛔ DESCARTADA (No cumple criterios)
+        </span>
     </div>
+    <small>ℹ️ Marque las casillas requeridas. Presione <b>"Guardar"</b> al finalizar para actualizar.</small>
 """, unsafe_allow_html=True)
 
 # 1.1 Inicializar DataFrame
@@ -39,56 +46,71 @@ if st.session_state['df_evaluacion_alternativas'].empty:
 # 1.2 Preparar Datos
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
-# Asegurar booleanos para los checkboxes
+# Asegurar booleanos
 if df_work["ENFOQUE"].dtype == 'object':
     df_work["ENFOQUE"] = df_work["ENFOQUE"].apply(lambda x: True if x == "SI" else False)
 if df_work["ALCANCE"].dtype == 'object':
     df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
 
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN DE AG-GRID (LA MAGIA DEL TEXTO)
+# CONFIGURACIÓN AVANZADA AG-GRID (JAVASCRIPT)
 # -----------------------------------------------------------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
-# Configurar columnas de Texto (Objetivo y Actividad) para que se AJUSTEN
+# Configurar columnas de Texto (Ajuste automático)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
 gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
 
-# Configurar columnas Checkbox (Editables)
+# Configurar columnas Checkbox
 gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
 gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
-# Opciones generales de la tabla
-gb.configure_grid_options(domLayout='autoHeight') # La tabla crece con el contenido
+# --- MAGIA JAVASCRIPT: COLOREAR FILAS ---
+# Esta función corre en el navegador. Si Enfoque y Alcance son True, pinta verde. Si no, rojo.
+jscode_row_style = JsCode("""
+function(params) {
+    if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
+        return {
+            'background-color': '#dcfce7',
+            'color': '#166534'
+        };
+    } else {
+        return {
+            'background-color': '#fee2e2',
+            'color': '#991b1b'
+        };
+    }
+};
+""")
+
+gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
 # Renderizar la tabla Ag-Grid
+# IMPORTANTE: update_mode=GridUpdateMode.MANUAL evita el parpadeo.
 grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
-    update_mode=GridUpdateMode.MODEL_CHANGED, # Actualizar cuando cambie un dato
+    update_mode=GridUpdateMode.MANUAL, # <--- ESTO EVITA EL PARPADEO
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True,
-    theme='streamlit', # Tema visual integrado
+    theme='streamlit',
     height=500,
-    allow_unsafe_jscode=True
+    allow_unsafe_jscode=True # Necesario para los colores
 )
 
-# 1.3 Obtener datos editados y Guardar
-df_editado = pd.DataFrame(grid_response['data'])
+# 1.3 BOTÓN DE GUARDADO (Necesario por el modo MANUAL)
+col_btn, col_info = st.columns([1, 4])
+with col_btn:
+    btn_guardar = st.button("💾 Guardar y Actualizar Tabla", type="primary")
 
-# Comparar y guardar si hubo cambios (evita bucles infinitos)
-# Nota: AgGrid devuelve a veces tipos distintos, forzamos la comparación simple
-if not df_editado.empty:
-    # Aseguramos que las columnas clave sean booleanas antes de comparar
-    df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
-    df_editado["ALCANCE"] = df_editado["ALCANCE"].astype(bool)
+if btn_guardar:
+    df_editado = pd.DataFrame(grid_response['data'])
     
-    # Creamos una firma simple para comparar cambios
-    firma_nueva = df_editado[["ENFOQUE", "ALCANCE"]].values.tobytes()
-    firma_vieja = st.session_state['df_evaluacion_alternativas'][["ENFOQUE", "ALCANCE"]].values.tobytes()
-    
-    if firma_nueva != firma_vieja:
+    if not df_editado.empty:
+        df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
+        df_editado["ALCANCE"] = df_editado["ALCANCE"].astype(bool)
+        
         st.session_state['df_evaluacion_alternativas'] = df_editado
         guardar_datos_nube()
         st.rerun()
@@ -101,7 +123,6 @@ st.divider()
 st.subheader("🔄 2. Análisis de Relaciones")
 
 df_master = st.session_state['df_evaluacion_alternativas']
-# Filtro robusto
 try:
     aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
 except:
@@ -128,6 +149,7 @@ if len(objetivos_seleccionados) >= 2:
 
     st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
     
+    # Aquí seguimos usando st.data_editor porque es simple y funcional para dropdowns
     df_rel_editado = st.data_editor(
         st.session_state['df_relaciones_objetivos'],
         column_config={
@@ -142,7 +164,7 @@ if len(objetivos_seleccionados) >= 2:
         st.session_state['df_relaciones_objetivos'] = df_rel_editado
         guardar_datos_nube(); st.rerun()
 else:
-    st.warning("Necesita aprobar actividades de al menos 2 objetivos diferentes en el paso 1 para analizar relaciones.")
+    st.warning("⚠️ Necesita aprobar actividades de al menos 2 objetivos diferentes en el paso 1 (casillas verdes) para habilitar esta sección.")
 
 st.divider()
 
