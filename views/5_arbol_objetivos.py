@@ -8,13 +8,13 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Persistencia y Memoria
 inicializar_session()
 
-# --- ESTILO GLOBAL (Interfaz Limpia y Tarjetas) ---
+# --- ESTILO GLOBAL ---
 st.markdown("""
     <style>
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estética de Tarjetas: Fusión total con color */
+    /* Estética de Tarjetas */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: none !important;           
@@ -41,7 +41,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ESTÁNDAR ---
+# --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 5. Árbol de Objetivos</div>', unsafe_allow_html=True)
@@ -57,17 +57,18 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE COLORES Y NIVELES ---
+# --- CONFIGURACIÓN DE NIVELES Y ETIQUETAS ---
+# Aquí definimos los colores y los nombres que aparecerán a la izquierda
 CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "label": "FIN ÚLTIMO"},
-    "Fines Indirectos": {"color": "#B3D9FF", "label": "FIN INDIRECTO"},
-    "Fines Directos": {"color": "#80BFFF", "label": "FIN DIRECTO"},
-    "Objetivo General": {"color": "#FFB3BA", "label": "OBJETIVO GENERAL"},
-    "Medios Directos": {"color": "#FFFFBA", "label": "MEDIO DIRECTO"},
-    "Medios Indirectos": {"color": "#FFDFBA", "label": "MEDIO INDIRECTO"}
+    "Fin Último": {"color": "#C1E1C1", "label": "FIN\nÚLTIMO"},
+    "Fines Indirectos": {"color": "#B3D9FF", "label": "FINES\nINDIRECTOS"},
+    "Fines Directos": {"color": "#80BFFF", "label": "FINES\nDIRECTOS"},
+    "Objetivo General": {"color": "#FFB3BA", "label": "OBJETIVO\nGENERAL"},
+    "Medios Directos": {"color": "#FFFFBA", "label": "OBJETIVOS\nESPECÍFICOS"}, # Renombrado visualmente
+    "Medios Indirectos": {"color": "#FFDFBA", "label": "ACTIVIDADES"} # Renombrado visualmente
 }
 
-# --- MOTOR DE DIBUJO (GRAPHVIZ) ---
+# --- MOTOR DE DIBUJO (GRAPHVIZ) CON ETIQUETAS LATERALES ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -79,86 +80,133 @@ def generar_grafo_objetivos():
     
     def limpiar(t, w=45): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
-    # Nodos Centrales
-    if datos.get("Fin Último"):
-        dot.node("FU", limpiar(datos["Fin Último"][0]['texto']), fillcolor=CONFIG_OBJ["Fin Último"]["color"])
-    if datos.get("Objetivo General"):
-        dot.node("OG", limpiar(datos["Objetivo General"][0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"])
-        if datos.get("Fin Último"): dot.edge("OG", "FU", style="invis")
+    # 1. CREACIÓN DE ETIQUETAS LATERALES (Izquierda)
+    # Orden de Arriba hacia Abajo para crear los enlaces invisibles correctamente
+    etiquetas = ["L_FU", "L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
+    tipos = ["Fin Último", "Fines Indirectos", "Fines Directos", "Objetivo General", "Medios Directos", "Medios Indirectos"]
+    
+    # Crear nodos de etiqueta (texto sin caja)
+    for id_e, tipo in zip(etiquetas, tipos):
+        conf = CONFIG_OBJ[tipo]
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold', style='')
 
-    # Ramas: Fines y Medios
-    for p_sec, h_sec, p_id_base, h_id_base, edge_dir in [
-        ("Fines Directos", "Fines Indirectos", "FD", "FI", "forward"),
-        ("Medios Directos", "Medios Indirectos", "MD", "MI", "back")
-    ]:
-        padres = datos.get(p_sec, [])
-        for i, p in enumerate(padres):
-            p_node = f"{p_id_base}{i}"
-            dot.node(p_node, limpiar(p['texto']), fillcolor=CONFIG_OBJ[p_sec]["color"])
-            if datos.get("Objetivo General"):
-                if edge_dir == "forward": dot.edge("OG", p_node)
-                else: dot.edge(p_node, "OG")
-            
-            hijos = [h for h in datos.get(h_sec, []) if h.get('padre') == p['texto']]
-            for j, h in enumerate(hijos):
-                h_node = f"{h_id_base}{i}_{j}"
-                dot.node(h_node, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_sec]["color"])
-                if edge_dir == "forward": dot.edge(p_node, h_node)
-                else: dot.edge(h_node, p_node)
+    # Enlazar etiquetas verticalmente (invisible) para mantener el orden
+    for i in range(len(etiquetas)-1):
+        dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
+
+    # 2. NODOS Y ALINEACIÓN POR NIVELES
+    
+    # Nivel: Fin Último (Top)
+    if datos.get("Fin Último"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_FU')
+            s.node("FU", limpiar(datos["Fin Último"][0]['texto']), fillcolor=CONFIG_OBJ["Fin Último"]["color"])
+
+    # Nivel: Fines Indirectos
+    if datos.get("Fines Indirectos"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_FI')
+            for i, item in enumerate(datos["Fines Indirectos"]):
+                s.node(f"FI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"])
+                # Conexión hacia Fin Último (si existe)
+                if datos.get("Fin Último"): dot.edge(f"FI{i}", "FU", style="invis") # Solo visual, la logica real va abajo
+
+    # Nivel: Fines Directos
+    if datos.get("Fines Directos"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_FD')
+            for i, item in enumerate(datos["Fines Directos"]):
+                node_id = f"FD{i}"
+                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"])
                 
+                # Conexión hacia Fines Indirectos (Hijos de este nivel)
+                hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
+                for j, h in enumerate(hijos):
+                    # Buscamos el ID del hijo basado en su índice en la lista original
+                    idx_hijo = datos["Fines Indirectos"].index(h)
+                    dot.edge(node_id, f"FI{idx_hijo}")
+
+    # Nivel: Objetivo General (Centro)
+    if datos.get("Objetivo General"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_OG')
+            s.node("OG", limpiar(datos["Objetivo General"][0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"])
+        
+        # Conexiones desde OG hacia arriba
+        if datos.get("Fin Último"): dot.edge("OG", "FU", style="invis") # Eje central
+        # Conectar OG a Fines Directos
+        for i, item in enumerate(datos.get("Fines Directos", [])):
+            dot.edge("OG", f"FD{i}")
+
+    # Nivel: Medios Directos (Objetivos Específicos)
+    if datos.get("Medios Directos"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_MD')
+            for i, item in enumerate(datos["Medios Directos"]):
+                node_id = f"MD{i}"
+                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"])
+                if datos.get("Objetivo General"): dot.edge(node_id, "OG")
+
+    # Nivel: Medios Indirectos (Actividades) - Bottom
+    if datos.get("Medios Indirectos"):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            s.node('L_MI')
+            for i, item in enumerate(datos["Medios Indirectos"]):
+                node_id = f"MI{i}"
+                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"])
+                
+                # Buscar padre en Medios Directos
+                for p_idx, padre in enumerate(datos.get("Medios Directos", [])):
+                    if item.get('padre') == padre['texto']:
+                        dot.edge(node_id, f"MD{p_idx}")
+
     return dot
 
-# --- RENDERIZADO DE TARJETA CON LÓGICA DE ACTUALIZACIÓN ---
+# --- RENDERIZADO DE TARJETA CON LÓGICA ANTI-HUÉRFANOS ---
 def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    # Barra de color
     st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     
-    # 1. Capturar el texto original ANTES de que el usuario lo toque
-    texto_original = item['texto']
+    texto_viejo = item['texto']
+    nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
     
-    # Widget de edición
-    nuevo_texto = st.text_area("t", value=texto_original, key=f"obj_txt_{id_u}", label_visibility="collapsed")
-    
-    # Botón de borrado
     if st.button("🗑️", key=f"obj_btn_{id_u}"):
         st.session_state['arbol_objetivos'][seccion].pop(idx)
         guardar_datos_nube()
         st.rerun()
     
-    # LÓGICA DE ACTUALIZACIÓN EN CASCADA
-    # Si el texto cambió, actualizamos el padre y a todos sus hijos huérfanos
-    if nuevo_texto != texto_original:
-        # Actualizamos el nodo actual
-        item['texto'] = nuevo_texto
+    if nuevo_texto != texto_viejo:
+        item['texto'] = nuevo_texto.upper()
         
-        # Mapa de relaciones Padre -> Hijo
         relaciones = {
             "Fines Directos": "Fines Indirectos",
             "Medios Directos": "Medios Indirectos"
         }
         
-        # Si estamos editando un padre, buscar sus hijos y actualizarles la referencia
         if seccion in relaciones:
-            seccion_hijos = relaciones[seccion]
-            lista_hijos = st.session_state['arbol_objetivos'].get(seccion_hijos, [])
-            
-            for hijo in lista_hijos:
-                # Si el hijo apuntaba al nombre viejo, ahora apunta al nuevo
-                if isinstance(hijo, dict) and hijo.get("padre") == texto_original:
-                    hijo["padre"] = nuevo_texto
+            seccion_hija = relaciones[seccion]
+            for hijo in st.session_state['arbol_objetivos'][seccion_hija]:
+                if isinstance(hijo, dict) and hijo.get("padre") == texto_viejo:
+                    hijo["padre"] = nuevo_texto.upper()
         
         guardar_datos_nube()
         st.rerun()
 
-# --- SIDEBAR: HERRAMIENTAS ---
+# --- SIDEBAR: SOLO IMPORTACIÓN ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     
     if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True, type="primary"):
         problemas = st.session_state.get('arbol_tarjetas', {})
+        # Mapeo Inteligente
         mapeo = {
             "Efectos Indirectos": "Fines Indirectos", 
             "Efectos Directos": "Fines Directos", 
@@ -166,6 +214,7 @@ with st.sidebar:
             "Causas Directas": "Medios Directos", 
             "Causas Indirectas": "Medios Indirectos"
         }
+        # Reset
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
         
         for p_sec, o_sec in mapeo.items():
@@ -177,11 +226,12 @@ with st.sidebar:
                 }
                 st.session_state['arbol_objetivos'][o_sec].append(nueva)
         
+        # Fin último default
         if not st.session_state['arbol_objetivos']["Fin Último"]:
             st.session_state['arbol_objetivos']["Fin Último"] = [{"texto": "MEJORAR LA CALIDAD DE VIDA", "id_unico": str(uuid.uuid4())}]
         
         guardar_datos_nube(); st.rerun()
-
+    
     st.divider()
     grafo = generar_grafo_objetivos()
     if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
