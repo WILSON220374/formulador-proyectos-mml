@@ -44,36 +44,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CÁLCULO DEL PROGRESO ---
-# Calculamos qué tan avanzado va el usuario para pintar la barra azul
 progreso_val = 0.0
-# Paso 1: Si ya hay datos en la tabla de evaluación
 if not st.session_state['df_evaluacion_alternativas'].empty:
     progreso_val += 0.33
-# Paso 2: Si ya hay alternativas creadas
 if st.session_state.get('lista_alternativas'):
     progreso_val += 0.33
-# Paso 3: Si ya hay calificaciones hechas
 if not st.session_state.get('df_calificaciones', pd.DataFrame()).empty:
-    # Verificamos si hay al menos un valor diferente a 1 (significa que ya trabajó)
     if st.session_state['df_calificaciones'].sum().sum() > (len(st.session_state['df_calificaciones']) * 4):
         progreso_val += 0.34
-
-# Aseguramos que no pase de 1.0
 progreso_val = min(progreso_val, 1.0)
 
-# --- ENCABEZADO CON BARRA DE PROGRESO ---
+# --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 
 with col_t:
     st.markdown('<div class="titulo-seccion">⚖️ 6. Análisis de Alternativas</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Evaluación, comparación y selección de las mejores estrategias.</div>', unsafe_allow_html=True)
-    
-    # BARRA DE PROGRESO (Aquí está lo que faltaba)
     st.caption(f"Nivel de Completitud: {int(progreso_val * 100)}%")
     st.progress(progreso_val)
 
 with col_img:
-    # Lógica de imagen inteligente
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     elif os.path.exists("unnamed-1.jpg"):
@@ -81,16 +71,12 @@ with col_img:
 
 st.divider()
 
-# --- CONTEXTO: DATOS DEL ÁRBOL DE OBJETIVOS ---
-obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
-actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
-
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (DISEÑO ULTRA-SUAVE)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON SINCRONIZACIÓN AUTOMÁTICA)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# --- LEYENDA COMPACTA Y SUAVE ---
+# --- LEYENDA COMPACTA ---
 st.markdown("""
     <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.8rem; color: #444;">
         <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">
@@ -103,52 +89,71 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 1.1 Inicializar DataFrame
-if st.session_state['df_evaluacion_alternativas'].empty:
-    datos_nuevos = []
-    for obj in obj_especificos:
-        o_txt = obj["texto"] if isinstance(obj, dict) else obj
-        hijas = [h["texto"] for h in actividades if isinstance(h, dict) and h.get("padre") == o_txt]
-        for a_txt in hijas:
-            datos_nuevos.append({"OBJETIVO": o_txt, "ACTIVIDAD": a_txt, "ENFOQUE": False, "ALCANCE": False})
-    st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(datos_nuevos)
-    guardar_datos_nube()
+# --- LÓGICA DE SINCRONIZACIÓN INTELIGENTE ---
+# 1. Obtenemos la estructura actual del Árbol de Objetivos
+obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
+actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
-# 1.2 Preparar Datos
+datos_arbol_actual = []
+for obj in obj_especificos:
+    o_txt = obj["texto"] if isinstance(obj, dict) else obj
+    hijas = [h["texto"] for h in actividades if isinstance(h, dict) and h.get("padre") == o_txt]
+    for a_txt in hijas:
+        datos_arbol_actual.append({"OBJETIVO": o_txt, "ACTIVIDAD": a_txt})
+
+df_arbol_actual = pd.DataFrame(datos_arbol_actual)
+
+# 2. Sincronizamos con el DataFrame existente (si existe)
+if st.session_state['df_evaluacion_alternativas'].empty:
+    # Si está vacío, creamos desde cero
+    if not df_arbol_actual.empty:
+        df_sync = df_arbol_actual.copy()
+        df_sync["ENFOQUE"] = False
+        df_sync["ALCANCE"] = False
+        st.session_state['df_evaluacion_alternativas'] = df_sync
+        guardar_datos_nube()
+else:
+    # Si ya hay datos, hacemos un MERGE para conservar los checks previos
+    # 'how=left' asegura que solo queden las filas que existen HOY en el árbol
+    df_old = st.session_state['df_evaluacion_alternativas']
+    
+    if not df_arbol_actual.empty:
+        df_sync = pd.merge(df_arbol_actual, df_old, on=["OBJETIVO", "ACTIVIDAD"], how="left")
+        
+        # Las filas nuevas tendrán NaN en Enfoque/Alcance, las llenamos con False
+        df_sync["ENFOQUE"] = df_sync["ENFOQUE"].fillna(False).infer_objects(copy=False)
+        df_sync["ALCANCE"] = df_sync["ALCANCE"].fillna(False).infer_objects(copy=False)
+        
+        # Actualizamos session state solo si hubo cambios
+        # (Esto evita recargas infinitas, pero asegura que veas lo nuevo)
+        # Convertimos a bool para asegurar tipos
+        df_sync["ENFOQUE"] = df_sync["ENFOQUE"].astype(bool)
+        df_sync["ALCANCE"] = df_sync["ALCANCE"].astype(bool)
+        
+        # Truco: Si el tamaño cambió o los datos clave cambiaron, actualizamos
+        if len(df_sync) != len(df_old) or not df_sync["OBJETIVO"].equals(df_old["OBJETIVO"]):
+             st.session_state['df_evaluacion_alternativas'] = df_sync
+             guardar_datos_nube()
+             st.rerun() # Recargamos para mostrar la tabla actualizada
+
+# 3. Preparar Datos para AgGrid
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
-# Asegurar booleanos
-if df_work["ENFOQUE"].dtype == 'object':
-    df_work["ENFOQUE"] = df_work["ENFOQUE"].apply(lambda x: True if x == "SI" else False)
-if df_work["ALCANCE"].dtype == 'object':
-    df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
-
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN AG-GRID (COLORES ULTRA-SUAVES "OFF-WHITE")
+# CONFIGURACIÓN AG-GRID
 # -----------------------------------------------------------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
-
-# Configurar columnas de Texto (Ajuste automático)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
 gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
-
-# Configurar columnas Checkbox
 gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
 gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
-# --- JAVASCRIPT: COLORES CASI BLANCOS ---
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
-        return {
-            'background-color': '#F0FDF4',  // Blanco Mentolado
-            'color': '#000000'              // Texto Negro
-        };
+        return { 'background-color': '#F0FDF4', 'color': '#000000' };
     } else {
-        return {
-            'background-color': '#FEF2F2',  // Blanco Rosado
-            'color': '#000000'              // Texto Negro
-        };
+        return { 'background-color': '#FEF2F2', 'color': '#000000' };
     }
 };
 """)
@@ -156,11 +161,10 @@ function(params) {
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
-# Renderizar Tabla
 grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
-    update_mode=GridUpdateMode.MANUAL, # Evita parpadeo
+    update_mode=GridUpdateMode.MANUAL,
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True,
     theme='streamlit',
@@ -168,7 +172,6 @@ grid_response = AgGrid(
     allow_unsafe_jscode=True
 )
 
-# 1.3 BOTÓN DE GUARDADO (ICONO AZUL)
 col_btn, col_rest = st.columns([1, 10])
 with col_btn:
     btn_guardar = st.button("💾", help="Guardar Cambios de la Tabla")
@@ -193,44 +196,47 @@ df_master = st.session_state['df_evaluacion_alternativas']
 try:
     aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
 except:
-    aprobadas = df_master[(df_master["ENFOQUE"] == "SI") & (df_master["ALCANCE"] == "SI")]
+    aprobadas = pd.DataFrame() # Fallback si falla algo
 
-objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
+if not aprobadas.empty:
+    objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
 
-if len(objetivos_seleccionados) >= 2:
-    pares_actuales = list(itertools.combinations(objetivos_seleccionados, 2))
-    df_existente = st.session_state['df_relaciones_objetivos']
-    
-    nuevas_filas = []
-    for o_a, o_b in pares_actuales:
-        existe = False
-        if not df_existente.empty:
-            existe = not df_existente[((df_existente["OBJETIVO A"] == o_a) & (df_existente["OBJETIVO B"] == o_b)) |
-                                      ((df_existente["OBJETIVO A"] == o_b) & (df_existente["OBJETIVO B"] == o_a))].empty
-        if not existe:
-            nuevas_filas.append({"OBJETIVO A": o_a, "OBJETIVO B": o_b, "RELACIÓN": "Por definir"})
+    if len(objetivos_seleccionados) >= 2:
+        pares_actuales = list(itertools.combinations(objetivos_seleccionados, 2))
+        df_existente = st.session_state['df_relaciones_objetivos']
+        
+        nuevas_filas = []
+        for o_a, o_b in pares_actuales:
+            existe = False
+            if not df_existente.empty:
+                existe = not df_existente[((df_existente["OBJETIVO A"] == o_a) & (df_existente["OBJETIVO B"] == o_b)) |
+                                          ((df_existente["OBJETIVO A"] == o_b) & (df_existente["OBJETIVO B"] == o_a))].empty
+            if not existe:
+                nuevas_filas.append({"OBJETIVO A": o_a, "OBJETIVO B": o_b, "RELACIÓN": "Por definir"})
 
-    if nuevas_filas:
-        st.session_state['df_relaciones_objetivos'] = pd.concat([df_existente, pd.DataFrame(nuevas_filas)], ignore_index=True)
-        guardar_datos_nube()
+        if nuevas_filas:
+            st.session_state['df_relaciones_objetivos'] = pd.concat([df_existente, pd.DataFrame(nuevas_filas)], ignore_index=True)
+            guardar_datos_nube()
 
-    st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
-    
-    df_rel_editado = st.data_editor(
-        st.session_state['df_relaciones_objetivos'],
-        column_config={
-            "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True, width="medium"),
-            "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True, width="medium"),
-            "RELACIÓN": st.column_config.SelectboxColumn("Tipo de Relación", options=["Por definir", "Complementario", "Excluyente"], required=True)
-        },
-        hide_index=True, use_container_width=True, key="tabla_rel_v9"
-    )
+        st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
+        
+        df_rel_editado = st.data_editor(
+            st.session_state['df_relaciones_objetivos'],
+            column_config={
+                "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True, width="medium"),
+                "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True, width="medium"),
+                "RELACIÓN": st.column_config.SelectboxColumn("Tipo de Relación", options=["Por definir", "Complementario", "Excluyente"], required=True)
+            },
+            hide_index=True, use_container_width=True, key="tabla_rel_v9"
+        )
 
-    if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
-        st.session_state['df_relaciones_objetivos'] = df_rel_editado
-        guardar_datos_nube(); st.rerun()
+        if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
+            st.session_state['df_relaciones_objetivos'] = df_rel_editado
+            guardar_datos_nube(); st.rerun()
+    else:
+        st.warning("⚠️ Necesita aprobar actividades de al menos 2 objetivos diferentes para habilitar esta sección.")
 else:
-    st.warning("⚠️ Necesita aprobar actividades de al menos 2 objetivos diferentes en el paso 1 (casillas verdes) para habilitar esta sección.")
+    st.info("No hay actividades seleccionadas (Casillas Verdes) en la tabla anterior.")
 
 st.divider()
 
@@ -239,65 +245,69 @@ st.divider()
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
-if objetivos_seleccionados:
-    with st.container(border=True):
-        st.markdown("#### 🆕 Crear Nueva Alternativa")
-        
-        c_nombre, c_desc = st.columns([1, 2])
-        with c_nombre:
-            nombre_alt = st.text_input("Nombre:", placeholder="Ej: Alternativa Tecnológica A")
-        with c_desc:
-            desc_alt = st.text_area("Descripción Corta:", placeholder="Resumen de la alternativa...", height=68)
+# Recalcular aprobadas y objetivos seleccionados para asegurar consistencia
+if not aprobadas.empty:
+    objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
+    
+    if objetivos_seleccionados:
+        with st.container(border=True):
+            st.markdown("#### 🆕 Crear Nueva Alternativa")
+            
+            c_nombre, c_desc = st.columns([1, 2])
+            with c_nombre:
+                nombre_alt = st.text_input("Nombre:", placeholder="Ej: Alternativa Tecnológica A")
+            with c_desc:
+                desc_alt = st.text_area("Descripción Corta:", placeholder="Resumen de la alternativa...", height=68)
 
-        st.markdown("**Seleccione los Objetivos a incluir:**")
-        objs_en_paquete = []
-        
-        cols_obj = st.columns(2)
-        for i, obj_opcion in enumerate(objetivos_seleccionados):
-            with cols_obj[i % 2]:
-                if st.checkbox(f"🎯 {obj_opcion}", key=f"paq_obj_{i}"):
-                    objs_en_paquete.append(obj_opcion)
+            st.markdown("**Seleccione los Objetivos a incluir:**")
+            objs_en_paquete = []
+            
+            cols_obj = st.columns(2)
+            for i, obj_opcion in enumerate(objetivos_seleccionados):
+                with cols_obj[i % 2]:
+                    if st.checkbox(f"🎯 {obj_opcion}", key=f"paq_obj_{i}"):
+                        objs_en_paquete.append(obj_opcion)
 
-        # Validación
-        conflicto = False
-        msg_conflicto = ""
-        if len(objs_en_paquete) > 1:
-            for o_a, o_b in itertools.combinations(objs_en_paquete, 2):
-                rel = st.session_state['df_relaciones_objetivos'][
-                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_a) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_b)) |
-                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
-                ]
-                if not rel.empty and rel.iloc[0]["RELACIÓN"] == "Excluyente":
-                    conflicto = True
-                    msg_conflicto = f"Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."
+            # Validación
+            conflicto = False
+            msg_conflicto = ""
+            if len(objs_en_paquete) > 1:
+                for o_a, o_b in itertools.combinations(objs_en_paquete, 2):
+                    rel = st.session_state['df_relaciones_objetivos'][
+                        ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_a) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_b)) |
+                        ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
+                    ]
+                    if not rel.empty and rel.iloc[0]["RELACIÓN"] == "Excluyente":
+                        conflicto = True
+                        msg_conflicto = f"Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."
 
-        if conflicto:
-            st.error(f"❌ {msg_conflicto}")
-        
-        # Configuración Actividades
-        config_final = []
-        if objs_en_paquete and not conflicto:
-            st.markdown("---")
-            st.markdown("**Seleccione las actividades:**")
-            for obj_p in objs_en_paquete:
-                with st.expander(f"📌 {obj_p}", expanded=True):
-                    acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
-                    sel_del_obj = []
-                    for act in acts_aprob:
-                        if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
-                            sel_del_obj.append(act)
-                    if sel_del_obj:
-                        config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
+            if conflicto:
+                st.error(f"❌ {msg_conflicto}")
+            
+            # Configuración Actividades
+            config_final = []
+            if objs_en_paquete and not conflicto:
+                st.markdown("---")
+                st.markdown("**Seleccione las actividades:**")
+                for obj_p in objs_en_paquete:
+                    with st.expander(f"📌 {obj_p}", expanded=True):
+                        acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
+                        sel_del_obj = []
+                        for act in acts_aprob:
+                            if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
+                                sel_del_obj.append(act)
+                        if sel_del_obj:
+                            config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
 
-        btn_disable = conflicto or not config_final or not nombre_alt
-        
-        if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
-            st.session_state['lista_alternativas'].append({
-                "nombre": nombre_alt, 
-                "descripcion": desc_alt,
-                "configuracion": config_final
-            })
-            guardar_datos_nube(); st.rerun()
+            btn_disable = conflicto or not config_final or not nombre_alt
+            
+            if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
+                st.session_state['lista_alternativas'].append({
+                    "nombre": nombre_alt, 
+                    "descripcion": desc_alt,
+                    "configuracion": config_final
+                })
+                guardar_datos_nube(); st.rerun()
 
 st.divider()
 
