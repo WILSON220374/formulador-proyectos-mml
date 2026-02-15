@@ -57,7 +57,7 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE COLORES DE ALTO CONTRASTE ---
+# --- CONFIGURACIÓN DE COLORES ---
 CONFIG_OBJ = {
     "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},
     "Fines Indirectos": {"color": "#154360", "font_color": "white", "label": "FINES\nINDIRECTOS"},
@@ -122,17 +122,16 @@ def generar_grafo_objetivos():
             s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=55), 
                    fillcolor=c["color"], fontcolor=c["font_color"], fontsize='22', margin='0.4,0.2')
 
-    # 2. Fines Indirectos (Conectados VISIBLEMENTE al Fin Último)
+    # 2. Fines Indirectos
     if datos.get("Fines Indirectos"):
         c = CONFIG_OBJ["Fines Indirectos"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FI')
             for i, item in enumerate(datos["Fines Indirectos"]):
                 s.node(f"FI{i}", limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                
-                # ¡AQUÍ ESTÁ EL CAMBIO! Flecha visible hacia el Fin Último
+                # Flechas hacia el Fin Último (Peso bajo para no deformar)
                 if datos.get("Fin Último"): 
-                    dot.edge(f"FI{i}", "FU") 
+                    dot.edge(f"FI{i}", "FU", weight="1") 
 
     # 3. Fines Directos
     if datos.get("Fines Directos"):
@@ -142,10 +141,12 @@ def generar_grafo_objetivos():
             for i, item in enumerate(datos["Fines Directos"]):
                 node_id = f"FD{i}"
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
+                
+                # Conexiones a hijos CON ALTO PESO (weight=5) para forzar verticalidad
                 hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
                 for h in hijos:
                     idx_real = datos["Fines Indirectos"].index(h)
-                    dot.edge(node_id, f"FI{idx_real}")
+                    dot.edge(node_id, f"FI{idx_real}", weight="5")
 
     # 4. Objetivo General (Centro)
     if datos.get("Objetivo General"):
@@ -155,11 +156,11 @@ def generar_grafo_objetivos():
             s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=55), 
                    fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.4,0.2')
         
-        # PILAR CENTRAL INVISIBLE: Mantiene el Fin Último centrado aunque tenga flechas laterales
+        # Pilar central invisible
         if datos.get("Fin Último"): 
             dot.edge("OG", "FU", style="invis", weight="10")
             
-        for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}")
+        for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}", weight="2")
 
     # 5. Medios Directos
     if datos.get("Medios Directos"):
@@ -169,7 +170,7 @@ def generar_grafo_objetivos():
             for i, item in enumerate(datos["Medios Directos"]):
                 node_id = f"MD{i}"
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                if datos.get("Objetivo General"): dot.edge(node_id, "OG")
+                if datos.get("Objetivo General"): dot.edge(node_id, "OG", weight="2")
 
     # 6. Medios Indirectos
     if datos.get("Medios Indirectos"):
@@ -181,7 +182,7 @@ def generar_grafo_objetivos():
                 s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 for p_idx, padre in enumerate(datos.get("Medios Directos", [])):
                     if item.get('padre') == padre['texto']:
-                        dot.edge(node_id, f"MD{p_idx}")
+                        dot.edge(node_id, f"MD{p_idx}", weight="5") # Peso alto para verticalidad
                 
     return dot
 
