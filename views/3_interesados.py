@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
@@ -44,13 +44,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CABECERA (Igual al resto de la app) ---
+# --- CABECERA ---
 col_t, col_l = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">👥 3. Análisis de Interesados</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Matriz de actores clave y mapeo de influencias estratégicas.</div>', unsafe_allow_html=True)
     
-    # Cálculo de progreso simple
+    # Cálculo de progreso
     tiene_datos = False
     if isinstance(df_actual, pd.DataFrame) and not df_actual.empty and 'NOMBRE' in df_actual.columns:
         tiene_datos = df_actual['NOMBRE'].dropna().any()
@@ -72,43 +72,41 @@ columnas_validas = [
 if df_actual.empty: 
     df_clean = pd.DataFrame(columns=columnas_validas)
 else:
-    # Aseguramos columnas y limpiamos
     for col in columnas_validas:
         if col not in df_actual.columns:
             df_actual[col] = ""
     df_clean = df_actual[columnas_validas].copy()
-    # Limpiamos índices fantasmas
     df_clean = df_clean.reset_index(drop=True)
 
-# Opciones para las listas desplegables
+# Opciones listas desplegables
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
 opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
 # --- CONFIGURACIÓN AG-GRID ---
 gb = GridOptionsBuilder.from_dataframe(df_clean)
 
-# 1. Configuración de Columnas
-gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True)
-gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True)
+# 1. Configuración de Columnas (Texto Ajustado + Auto Altura)
+gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True, wrapText=True, autoHeight=True)
+gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True, wrapText=True, autoHeight=True)
 
-# Dropdowns (Selectores)
+# Selectores
 gb.configure_column("POSICIÓN", headerName="🚩 Posición", editable=True, 
                     cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_pos}, width=140)
 
-# Texto Largo (Ajuste automático)
+# Textos largos
 gb.configure_column("EXPECTATIVA", headerName="🎯 Expectativa", editable=True, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("CONTRIBUCION AL PROYECTO", headerName="💡 Contribución", editable=True, wrapText=True, autoHeight=True, width=250)
 
-# Dropdowns Niveles
+# Niveles
 gb.configure_column("PODER", headerName="⚡ Poder", editable=True, 
                     cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, 
                     cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 
-# Estrategia (No editable, se calcula sola)
+# Estrategia calculada
 gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", editable=False, wrapText=True, autoHeight=True, width=200)
 
-# 2. Javascript para Colores Suaves (Según Posición)
+# 2. COLORES INTELIGENTES (Javascript)
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.POSICIÓN === '🔴 Opositor') {
@@ -146,12 +144,12 @@ grid_response = AgGrid(
     allow_unsafe_jscode=True
 )
 
-# --- BOTÓN DE GUARDADO Y LÓGICA ---
+# --- BOTÓN DE GUARDADO ---
 col_btn, col_rest = st.columns([1, 10])
 with col_btn:
     btn_guardar = st.button("💾", help="Guardar Cambios de la Tabla")
 
-# Función de cálculo de estrategia
+# Función de cálculo
 def calcular_estrategia(row):
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
     i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
@@ -165,11 +163,8 @@ def calcular_estrategia(row):
 if btn_guardar:
     df_editado = pd.DataFrame(grid_response['data'])
     
-    # Si se agregó una fila vacía por error al final, la limpiamos si no tiene nombre
     if not df_editado.empty:
-        # Calcular Estrategia Automáticamente antes de guardar
         df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia, axis=1)
-        
         st.session_state['df_interesados'] = df_editado
         guardar_datos_nube()
         st.rerun()
@@ -181,13 +176,11 @@ st.subheader("📊 Mapa de Influencia")
 if tiene_datos:
     color_map = {"Opositor": "🔴", "Beneficiario": "🟢", "Cooperante": "🔵", "Perjudicado": "🟣"}
     
-    # Usamos el DF guardado en session_state para el mapa (lo más reciente guardado)
     df_mapa = st.session_state.get('df_interesados', df_clean)
 
     def obtener_lista(p_key, i_key):
         if df_mapa.empty: return ["*Sin datos*"]
         
-        # Filtramos buscando el texto clave
         f = df_mapa[
             (df_mapa['PODER'].astype(str).str.upper().str.contains(p_key)) & 
             (df_mapa['INTERÉS'].astype(str).str.upper().str.contains(i_key)) & 
