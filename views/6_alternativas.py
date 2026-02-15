@@ -19,45 +19,44 @@ actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
-        <small>ℹ️ <b>Instrucciones:</b> Marque las casillas de <b>Enfoque</b> y <b>Alcance</b> si la actividad cumple. 
+        <small>ℹ️ <b>Instrucciones:</b> Marque las casillas si la actividad cumple. 
         Solo las actividades con ambos "Checks" (✅) pasarán a la siguiente fase.</small>
     </div>
 """, unsafe_allow_html=True)
 
-# 1.1 Inicializar DataFrame si está vacío o sincronizar con nuevos datos del árbol
+# 1.1 Inicializar DataFrame
 if st.session_state['df_evaluacion_alternativas'].empty:
     datos_nuevos = []
     for obj in obj_especificos:
         o_txt = obj["texto"] if isinstance(obj, dict) else obj
         hijas = [h["texto"] for h in actividades if isinstance(h, dict) and h.get("padre") == o_txt]
         for a_txt in hijas:
-            # Por defecto NO cumplen (False)
             datos_nuevos.append({"OBJETIVO": o_txt, "ACTIVIDAD": a_txt, "ENFOQUE": False, "ALCANCE": False})
     st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(datos_nuevos)
     guardar_datos_nube()
 
-# 1.2 Preparar Datos para el Editor (Convertir SI/NO a True/False si vienen de versiones viejas)
+# 1.2 Preparar Datos
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
-# Compatibilidad: Si los datos vienen como "SI"/"NO", los convertimos a booleanos para los checkboxes
+# Compatibilidad con versiones anteriores (SI/NO -> True/False)
 if df_work["ENFOQUE"].dtype == 'object':
     df_work["ENFOQUE"] = df_work["ENFOQUE"].apply(lambda x: True if x == "SI" else False)
 if df_work["ALCANCE"].dtype == 'object':
     df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
 
-# 1.3 Agregar Columna Visual de Estado (Solo lectura)
+# 1.3 Agregar Columna Visual de Estado
 def get_estado(row):
-    return "✅ Pasa" if row["ENFOQUE"] and row["ALCANCE"] else "❌ Descartada"
+    return "✅" if row["ENFOQUE"] and row["ALCANCE"] else "❌"
 
 df_work["ESTADO"] = df_work.apply(get_estado, axis=1)
 
-# 1.4 Renderizar la Tabla Interactiva (Data Editor)
+# 1.4 Renderizar la Tabla Interactiva con TÍTULOS NUEVOS
 column_config = {
-    "OBJETIVO": st.column_config.TextColumn("🎯 Objetivo Específico", width="medium", disabled=True),
+    "OBJETIVO": st.column_config.TextColumn("🎯 Objetivo Específico", width="large", disabled=True),
     "ACTIVIDAD": st.column_config.TextColumn("🛠️ Actividad", width="large", disabled=True),
-    "ENFOQUE": st.column_config.CheckboxColumn("¿Cumple Enfoque?", help="¿Esta actividad aporta directamente al objetivo?"),
-    "ALCANCE": st.column_config.CheckboxColumn("¿Cumple Alcance?", help="¿Está dentro de nuestras capacidades y recursos?"),
-    "ESTADO": st.column_config.TextColumn("Resultado", width="small", disabled=True)
+    "ENFOQUE": st.column_config.CheckboxColumn("¿Tiene el enfoque?", help="¿Aporta al objetivo?"),
+    "ALCANCE": st.column_config.CheckboxColumn("¿Está al alcance?", help="¿Es viable?"),
+    "ESTADO": st.column_config.TextColumn("Res.", width="small", disabled=True)
 }
 
 df_editado = st.data_editor(
@@ -65,16 +64,11 @@ df_editado = st.data_editor(
     column_config=column_config,
     use_container_width=True,
     hide_index=True,
-    key="editor_evaluacion_v2"
+    key="editor_evaluacion_v3"
 )
 
-# 1.5 Guardar Cambios (Detectar diferencias)
-# Quitamos la columna visual 'ESTADO' antes de guardar para no ensuciar la base de datos
+# 1.5 Guardar Cambios
 df_a_guardar = df_editado.drop(columns=["ESTADO"])
-
-# Convertimos de nuevo a SI/NO para mantener compatibilidad con el resto del sistema si es necesario, 
-# OJO: Para simplificar, actualizamos el session_state directamente con los booleanos. 
-# Ajustaremos los pasos siguientes para leer booleanos.
 if not df_a_guardar.equals(st.session_state['df_evaluacion_alternativas']):
     st.session_state['df_evaluacion_alternativas'] = df_a_guardar
     guardar_datos_nube()
@@ -83,17 +77,15 @@ if not df_a_guardar.equals(st.session_state['df_evaluacion_alternativas']):
 st.divider()
 
 # ==============================================================================
-# 2. ANÁLISIS DE RELACIONES (COMPLEMENTARIAS / EXCLUYENTES)
+# 2. ANÁLISIS DE RELACIONES
 # ==============================================================================
 st.subheader("🔄 2. Análisis de Relaciones")
 
-# Filtrar aprobadas (Ahora usando booleanos)
 df_master = st.session_state['df_evaluacion_alternativas']
-# Manejo robusto: puede ser booleano o string "SI" dependiendo del historial
+# Filtro robusto (soporta booleanos o strings antiguos)
 try:
     aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
 except:
-    # Fallback si quedaron como strings
     aprobadas = df_master[(df_master["ENFOQUE"] == "SI") & (df_master["ALCANCE"] == "SI")]
 
 objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
@@ -115,13 +107,13 @@ if len(objetivos_seleccionados) >= 2:
         st.session_state['df_relaciones_objetivos'] = pd.concat([df_existente, pd.DataFrame(nuevas_filas)], ignore_index=True)
         guardar_datos_nube()
 
-    st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si debe elegir uno sobre el otro (Excluyentes).")
+    st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
     
     df_rel_editado = st.data_editor(
         st.session_state['df_relaciones_objetivos'],
         column_config={
-            "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True),
-            "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True),
+            "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True, width="medium"),
+            "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True, width="medium"),
             "RELACIÓN": st.column_config.SelectboxColumn("Tipo de Relación", options=["Por definir", "Complementario", "Excluyente"], required=True)
         },
         hide_index=True, use_container_width=True, key="tabla_rel_v9"
@@ -136,7 +128,7 @@ else:
 st.divider()
 
 # ==============================================================================
-# 3. CONSTRUCTOR DE ALTERNATIVAS (PAQUETES)
+# 3. CONSTRUCTOR DE ALTERNATIVAS
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
@@ -146,21 +138,20 @@ if objetivos_seleccionados:
         
         c_nombre, c_desc = st.columns([1, 2])
         with c_nombre:
-            nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa Tecnológica A")
+            nombre_alt = st.text_input("Nombre:", placeholder="Ej: Alternativa Tecnológica A")
         with c_desc:
-            desc_alt = st.text_area("Descripción Corta:", placeholder="Breve resumen de qué trata esta alternativa...", height=68)
+            desc_alt = st.text_area("Descripción Corta:", placeholder="Resumen de la alternativa...", height=68)
 
         st.markdown("**Seleccione los Objetivos a incluir:**")
         objs_en_paquete = []
         
-        # Selección de Objetivos
         cols_obj = st.columns(2)
         for i, obj_opcion in enumerate(objetivos_seleccionados):
             with cols_obj[i % 2]:
                 if st.checkbox(f"🎯 {obj_opcion}", key=f"paq_obj_{i}"):
                     objs_en_paquete.append(obj_opcion)
 
-        # Validación de Conflictos
+        # Validación
         conflicto = False
         msg_conflicto = ""
         if len(objs_en_paquete) > 1:
@@ -176,15 +167,13 @@ if objetivos_seleccionados:
         if conflicto:
             st.error(f"❌ {msg_conflicto}")
         
-        # Configuración de Actividades
+        # Configuración Actividades
         config_final = []
         if objs_en_paquete and not conflicto:
             st.markdown("---")
-            st.markdown("**Seleccione las actividades específicas para esta alternativa:**")
-            
+            st.markdown("**Seleccione las actividades:**")
             for obj_p in objs_en_paquete:
                 with st.expander(f"📌 {obj_p}", expanded=True):
-                    # Filtrar actividades aprobadas para este objetivo
                     acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
                     sel_del_obj = []
                     for act in acts_aprob:
@@ -193,7 +182,6 @@ if objetivos_seleccionados:
                     if sel_del_obj:
                         config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
 
-        # Botón de Guardar
         btn_disable = conflicto or not config_final or not nombre_alt
         if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
             st.session_state['lista_alternativas'].append({
@@ -206,13 +194,12 @@ if objetivos_seleccionados:
 st.divider()
 
 # ==============================================================================
-# 4. VISUALIZACIÓN DE ALTERNATIVAS CONSOLIDADAS
+# 4. VISUALIZACIÓN
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
     st.subheader("📋 4. Alternativas Consolidadas")
     
     colores = ["blue", "green", "orange", "red", "violet"]
-    
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
         color = colores[idx % len(colores)]
         nombre = alt.get('nombre', 'Sin nombre').upper()
@@ -241,7 +228,6 @@ alts = st.session_state.get('lista_alternativas', [])
 if not alts:
     st.info("👆 Configure y guarde al menos una alternativa arriba para iniciar la evaluación.")
 else:
-    # 5.1 Configuración de Pesos
     with st.expander("⚙️ Configurar Criterios y Pesos", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         p = st.session_state.get('ponderacion_criterios', {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0})
@@ -255,25 +241,20 @@ else:
         if suma == 100:
             st.session_state['ponderacion_criterios'] = {"COSTO": pc, "FACILIDAD": pf, "BENEFICIOS": pb, "TIEMPO": pt}
         else:
-            st.warning(f"⚠️ La suma de pesos es {suma}%. Debe ajustar para que sume 100%.")
+            st.warning(f"⚠️ Suma actual: {suma}%. Debe ser 100%.")
 
-    # 5.2 Matriz de Calificación
-    st.markdown("##### 🏆 Matriz de Decisión")
-    st.caption("Califique cada alternativa de 1 (Peor) a 5 (Mejor) o según su escala.")
-    
+    st.markdown("##### 🏆 Matriz de Decisión (Escala 1-5)")
     nombres_alts = [a['nombre'] for a in alts]
     criterios = ["COSTO", "FACILIDAD", "BENEFICIOS", "TIEMPO"]
     
-    # Sincronizar índice
     if st.session_state['df_calificaciones'].empty or len(st.session_state['df_calificaciones']) != len(nombres_alts):
         st.session_state['df_calificaciones'] = pd.DataFrame(1, index=nombres_alts, columns=criterios)
     else:
-        # Asegurar que los índices coincidan con los nombres actuales (por si se borró alguna)
         st.session_state['df_calificaciones'].index = nombres_alts
 
     df_scores = st.data_editor(
         st.session_state['df_calificaciones'],
-        column_config={c: st.column_config.NumberColumn(min_value=0, max_value=10, step=1) for c in criterios},
+        column_config={c: st.column_config.NumberColumn(min_value=0, max_value=5, step=1) for c in criterios},
         use_container_width=True, key="ed_scores_final"
     )
 
@@ -281,9 +262,7 @@ else:
         st.session_state['df_calificaciones'] = df_scores
         guardar_datos_nube(); st.rerun()
 
-    # 5.3 Resultados
-    st.markdown("### 🥇 Resultados Finales")
-    
+    st.markdown("### 🥇 Resultados")
     res_finales = []
     pesos = st.session_state['ponderacion_criterios']
     
@@ -300,21 +279,16 @@ else:
 
         df_final = pd.DataFrame(res_finales).sort_values(by="PUNTAJE FINAL", ascending=False)
         
-        # Mostrar tabla bonita
         st.dataframe(
             df_final, 
             column_config={
                 "PUNTAJE FINAL": st.column_config.ProgressColumn(
-                    "Puntaje Ponderado", 
-                    format="%.2f", 
-                    min_value=0, 
-                    max_value=10 # Asumiendo escala 10, ajustar si es diferente
+                    "Puntaje Ponderado", format="%.2f", min_value=0, max_value=5
                 )
             },
-            use_container_width=True, 
-            hide_index=True
+            use_container_width=True, hide_index=True
         )
 
         if not df_final.empty:
             ganadora = df_final.iloc[0]
-            st.success(f"🎉 La mejor opción es: **{ganadora['Alternativa']}** con {ganadora['PUNTAJE FINAL']} puntos.")
+            st.success(f"🎉 Ganadora: **{ganadora['Alternativa']}** ({ganadora['PUNTAJE FINAL']} pts).")
