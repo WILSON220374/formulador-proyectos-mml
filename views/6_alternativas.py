@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import itertools
 from session_state import inicializar_session, guardar_datos_nube
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 
 # 1. Carga de datos y persistencia
 inicializar_session()
@@ -14,13 +15,13 @@ obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (TABLA INTERACTIVA)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (CON AG-GRID)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
         <small>ℹ️ <b>Instrucciones:</b> Marque las casillas si la actividad cumple. 
-        Solo las actividades con ambos "Checks" (✅) pasarán a la siguiente fase.</small>
+        El texto ahora se ajusta automáticamente para facilitar la lectura.</small>
     </div>
 """, unsafe_allow_html=True)
 
@@ -38,41 +39,59 @@ if st.session_state['df_evaluacion_alternativas'].empty:
 # 1.2 Preparar Datos
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
-# Compatibilidad con versiones anteriores (SI/NO -> True/False)
+# Asegurar booleanos para los checkboxes
 if df_work["ENFOQUE"].dtype == 'object':
     df_work["ENFOQUE"] = df_work["ENFOQUE"].apply(lambda x: True if x == "SI" else False)
 if df_work["ALCANCE"].dtype == 'object':
     df_work["ALCANCE"] = df_work["ALCANCE"].apply(lambda x: True if x == "SI" else False)
 
-# 1.3 Agregar Columna Visual de Estado
-def get_estado(row):
-    return "✅" if row["ENFOQUE"] and row["ALCANCE"] else "❌"
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE AG-GRID (LA MAGIA DEL TEXTO)
+# -----------------------------------------------------------------------------
+gb = GridOptionsBuilder.from_dataframe(df_work)
 
-df_work["ESTADO"] = df_work.apply(get_estado, axis=1)
+# Configurar columnas de Texto (Objetivo y Actividad) para que se AJUSTEN
+gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
+gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
 
-# 1.4 Renderizar la Tabla Interactiva con TÍTULOS NUEVOS
-column_config = {
-    "OBJETIVO": st.column_config.TextColumn("🎯 Objetivo Específico", width="large", disabled=True),
-    "ACTIVIDAD": st.column_config.TextColumn("🛠️ Actividad", width="large", disabled=True),
-    "ENFOQUE": st.column_config.CheckboxColumn("¿Tiene el enfoque?", help="¿Aporta al objetivo?"),
-    "ALCANCE": st.column_config.CheckboxColumn("¿Está al alcance?", help="¿Es viable?"),
-    "ESTADO": st.column_config.TextColumn("Res.", width="small", disabled=True)
-}
+# Configurar columnas Checkbox (Editables)
+gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
+gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
 
-df_editado = st.data_editor(
+# Opciones generales de la tabla
+gb.configure_grid_options(domLayout='autoHeight') # La tabla crece con el contenido
+gridOptions = gb.build()
+
+# Renderizar la tabla Ag-Grid
+grid_response = AgGrid(
     df_work,
-    column_config=column_config,
-    use_container_width=True,
-    hide_index=True,
-    key="editor_evaluacion_v3"
+    gridOptions=gridOptions,
+    update_mode=GridUpdateMode.MODEL_CHANGED, # Actualizar cuando cambie un dato
+    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+    fit_columns_on_grid_load=True,
+    theme='streamlit', # Tema visual integrado
+    height=500,
+    allow_unsafe_jscode=True
 )
 
-# 1.5 Guardar Cambios
-df_a_guardar = df_editado.drop(columns=["ESTADO"])
-if not df_a_guardar.equals(st.session_state['df_evaluacion_alternativas']):
-    st.session_state['df_evaluacion_alternativas'] = df_a_guardar
-    guardar_datos_nube()
-    st.rerun()
+# 1.3 Obtener datos editados y Guardar
+df_editado = pd.DataFrame(grid_response['data'])
+
+# Comparar y guardar si hubo cambios (evita bucles infinitos)
+# Nota: AgGrid devuelve a veces tipos distintos, forzamos la comparación simple
+if not df_editado.empty:
+    # Aseguramos que las columnas clave sean booleanas antes de comparar
+    df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
+    df_editado["ALCANCE"] = df_editado["ALCANCE"].astype(bool)
+    
+    # Creamos una firma simple para comparar cambios
+    firma_nueva = df_editado[["ENFOQUE", "ALCANCE"]].values.tobytes()
+    firma_vieja = st.session_state['df_evaluacion_alternativas'][["ENFOQUE", "ALCANCE"]].values.tobytes()
+    
+    if firma_nueva != firma_vieja:
+        st.session_state['df_evaluacion_alternativas'] = df_editado
+        guardar_datos_nube()
+        st.rerun()
 
 st.divider()
 
@@ -82,7 +101,7 @@ st.divider()
 st.subheader("🔄 2. Análisis de Relaciones")
 
 df_master = st.session_state['df_evaluacion_alternativas']
-# Filtro robusto (soporta booleanos o strings antiguos)
+# Filtro robusto
 try:
     aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
 except:
