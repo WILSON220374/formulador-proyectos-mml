@@ -228,34 +228,34 @@ if tiene_datos:
             """
         return html_chips
 
-    # Construcción de la Matriz HTML
+    # Construcción de la Matriz HTML (SIN SANGRÍA)
     html_matrix = f"""
-    <div class="matrix-container">
-        <div class="axis-y">PODER</div>
-        
-        <div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2;">
-            <div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
-            {get_chips_html("ALTO", "BAJO")}
-        </div>
-        
-        <div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border: 2px solid #bbf7d0;">
-            <div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
-            {get_chips_html("ALTO", "ALTO")}
-        </div>
-        
-        <div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2;">
-            <div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
-            {get_chips_html("BAJO", "BAJO")}
-        </div>
-        
-        <div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3;">
-            <div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
-            {get_chips_html("BAJO", "ALTO")}
-        </div>
-        
-        <div class="axis-x">INTERÉS</div>
-    </div>
-    """
+<div class="matrix-container">
+<div class="axis-y">PODER</div>
+
+<div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2;">
+    <div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
+    {get_chips_html("ALTO", "BAJO")}
+</div>
+
+<div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border: 2px solid #bbf7d0;">
+    <div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
+    {get_chips_html("ALTO", "ALTO")}
+</div>
+
+<div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2;">
+    <div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
+    {get_chips_html("BAJO", "BAJO")}
+</div>
+
+<div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3;">
+    <div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
+    {get_chips_html("BAJO", "ALTO")}
+</div>
+
+<div class="axis-x">INTERÉS</div>
+</div>
+"""
     
     st.markdown(html_matrix, unsafe_allow_html=True)
     
