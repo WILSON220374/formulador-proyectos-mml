@@ -17,11 +17,11 @@ st.markdown("""
     /* Estética de Tarjetas */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: 1px solid #ddd !important;
+        border: none !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
         color: #000 !important;
         min-height: 100px !important;
     }
@@ -57,14 +57,14 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE COLORES DE ALTO CONTRASTE ---
+# --- CONFIGURACIÓN IDÉNTICA AL ÁRBOL DE PROBLEMAS (Colores Adaptados) ---
 CONFIG_OBJ = {
-    "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},       # Verde Esmeralda
-    "Fines Indirectos": {"color": "#154360", "font_color": "white", "label": "FINES\nINDIRECTOS"}, # Azul Marino Muy Oscuro
-    "Fines Directos":   {"color": "#1F618D", "font_color": "white", "label": "FINES\nDIRECTOS"},   # Azul Oscuro
-    "Objetivo General": {"color": "#C0392B", "font_color": "white", "label": "OBJETIVO\nGENERAL"}, # Rojo Intenso
-    "Medios Directos":  {"color": "#F1C40F", "font_color": "black", "label": "OBJETIVOS\nESPECÍFICOS"}, # Amarillo Oro (Texto Negro)
-    "Medios Indirectos":{"color": "#D35400", "font_color": "white", "label": "ACTIVIDADES"}        # Naranja Ladrillo
+    "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},
+    "Fines Indirectos": {"color": "#154360", "font_color": "white", "label": "FINES\nINDIRECTOS"}, # Azul oscuro
+    "Fines Directos":   {"color": "#2980B9", "font_color": "white", "label": "FINES\nDIRECTOS"},   # Azul medio
+    "Objetivo General": {"color": "#C0392B", "font_color": "white", "label": "OBJETIVO\nGENERAL"},
+    "Medios Directos":  {"color": "#F1C40F", "font_color": "black", "label": "OBJETIVOS\nESPECÍFICOS"}, # Amarillo / Letra Negra
+    "Medios Indirectos":{"color": "#E67E22", "font_color": "white", "label": "ACTIVIDADES"}
 }
 
 # --- PILOTO AUTOMÁTICO DE LIMPIEZA ---
@@ -72,14 +72,12 @@ if hay_datos:
     datos = st.session_state['arbol_objetivos']
     cambios_realizados = False
     
-    # 1. Limpiar Fines Indirectos
     padres_validos_fi = [p['texto'] for p in datos.get("Fines Directos", [])]
     fines_indirectos_limpios = [h for h in datos.get("Fines Indirectos", []) if h.get('padre') in padres_validos_fi]
     if len(datos.get("Fines Indirectos", [])) != len(fines_indirectos_limpios):
         datos["Fines Indirectos"] = fines_indirectos_limpios
         cambios_realizados = True
 
-    # 2. Limpiar Medios Indirectos
     padres_validos_mi = [p['texto'] for p in datos.get("Medios Directos", [])]
     medios_indirectos_limpios = [h for h in datos.get("Medios Indirectos", []) if h.get('padre') in padres_validos_mi]
     if len(datos.get("Medios Indirectos", [])) != len(medios_indirectos_limpios):
@@ -91,104 +89,121 @@ if hay_datos:
         guardar_datos_nube()
         st.rerun()
 
-# --- MOTOR DE DIBUJO ---
+# --- MOTOR DE DIBUJO (COPIA EXACTA DE LA CONFIGURACIÓN DE PROBLEMAS) ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
     
     dot = graphviz.Digraph(format='png')
-    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='40', fontname='Helvetica-Bold', fontcolor='#2c3e50')
-    dot.attr(dpi='300', rankdir='BT', nodesep='0.6', ranksep='1.0', splines='ortho')
     
-    # AJUSTE DE MARGEN INTERNO: margin='0.3,0.15' crea espacio alrededor del texto
-    dot.attr('node', fontsize='20', fontname='Helvetica-Bold', style='filled, rounded', shape='box', penwidth='0', margin='0.3,0.15')
+    # 1. Configuración Global IDÉNTICA a Problemas
+    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
+    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
     
-    # ENVOLTURA DE TEXTO: w=35 fuerza saltos de línea para que el texto no toque los bordes
-    def limpiar(t, w=35): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
+    # 2. Configuración de Nodos IDÉNTICA a Problemas (Márgenes amplios, Arial Bold 20)
+    dot.attr('node', fontsize='20', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
+    
+    # Limpieza de texto (ancho 50, igual que problemas)
+    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
-    # --- ETIQUETAS LATERALES ---
+    # 3. Etiquetas Laterales
     etiquetas = ["L_FU", "L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
     tipos = ["Fin Último", "Fines Indirectos", "Fines Directos", "Objetivo General", "Medios Directos", "Medios Indirectos"]
     
     for id_e, tipo in zip(etiquetas, tipos):
         conf = CONFIG_OBJ[tipo]
-        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Helvetica-Bold', style='')
+        # Estilo de etiqueta idéntico al de problemas
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold', style='')
 
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
-    # --- NODOS PRINCIPALES ---
+    # 4. Construcción del Grafo
     
-    # 1. Fin Último
+    # --- NIVEL SUPERIOR: FIN ÚLTIMO (Tratado como una "cabeza" similar a un Efecto superior) ---
     if datos.get("Fin Último"):
         c = CONFIG_OBJ["Fin Último"]
         with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_FU')
-            # w=55 para que sea ancho pero no infinito
-            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=55), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='22', margin='0.4,0.2')
+            s.attr(rank='same')
+            s.node('L_FU')
+            # Ancho de 100 caracteres para que domine la parte superior (igual que Problema Central)
+            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=100), 
+                   fillcolor=c["color"], fontcolor=c["font_color"])
 
-    # 2. Fines Indirectos
-    if datos.get("Fines Indirectos"):
-        c = CONFIG_OBJ["Fines Indirectos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_FI')
-            for i, item in enumerate(datos["Fines Indirectos"]):
-                s.node(f"FI{i}", limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                # NOTA: NO conectamos FI -> FU aquí para evitar que se desalinee el centro.
-                # La alineación central se garantiza por la estructura del árbol y el enlace OG -> FU
+    # --- RAMA DE FINES (Hacia Arriba) ---
+    for tipo, id_et, p_key, edge_dir in [("Fines Directos", "L_FD", "OG", "forward")]:
+        items = datos.get(tipo, [])
+        h_tipo = "Fines Indirectos"
+        id_et_h = "L_FI"
+        c_p = CONFIG_OBJ[tipo]
+        c_h = CONFIG_OBJ[h_tipo]
 
-    # 3. Fines Directos
-    if datos.get("Fines Directos"):
-        c = CONFIG_OBJ["Fines Directos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_FD')
-            for i, item in enumerate(datos["Fines Directos"]):
-                node_id = f"FD{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                # Conexiones a hijos
-                hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
-                for h in hijos:
-                    idx_real = datos["Fines Indirectos"].index(h)
-                    dot.edge(node_id, f"FI{idx_real}")
+        # Nivel Directo
+        with dot.subgraph() as s_p:
+            s_p.attr(rank='same'); s_p.node(id_et)
+            for i, it in enumerate(items):
+                node_id = f"{tipo}{i}"
+                s_p.node(node_id, limpiar(it['texto']), fillcolor=c_p["color"], fontcolor=c_p["font_color"])
+                if datos.get("Objetivo General"): dot.edge("OG", node_id) # OG -> Fin Directo
 
-    # 4. Objetivo General
+        # Nivel Indirecto (Hijos)
+        with dot.subgraph() as s_h:
+            s_h.attr(rank='same'); s_h.node(id_et_h)
+            for i, it in enumerate(items): # Recorremos los padres para agrupar visualmente
+                txt_p = it['texto']
+                # Buscamos los hijos de este padre
+                hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == txt_p]
+                for j, h in enumerate(hijos):
+                    # ID único basado en indices para evitar colisiones
+                    h_idx_real = datos[h_tipo].index(h) 
+                    h_id = f"{h_tipo}{h_idx_real}"
+                    s_h.node(h_id, limpiar(h['texto']), fillcolor=c_h["color"], fontcolor=c_h["font_color"])
+                    dot.edge(f"{tipo}{i}", h_id) # Fin Directo -> Fin Indirecto
+                    
+                    # Conexión al Fin Último (Invisible pero estructural para centrar)
+                    if datos.get("Fin Último"): dot.edge(h_id, "FU", style="invis")
+
+    # --- NODO CENTRAL: OBJETIVO GENERAL ---
     if datos.get("Objetivo General"):
         c = CONFIG_OBJ["Objetivo General"]
         with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_OG')
-            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=55), 
-                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.4,0.2')
+            s.attr(rank='same')
+            s.node('L_OG')
+            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=100), 
+                   fillcolor=c["color"], fontcolor=c["font_color"])
         
-        # CONEXIÓN CRÍTICA DE ALINEACIÓN: OG -> FU
-        # Usamos weight=10 para forzar que esta línea sea el eje vertical central
+        # Conexión Central Directa para Alineación: OG -> Fin Último
         if datos.get("Fin Último"): 
             dot.edge("OG", "FU", style="invis", weight="10")
-            
-        for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}")
 
-    # 5. Medios Directos
-    if datos.get("Medios Directos"):
-        c = CONFIG_OBJ["Medios Directos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_MD')
-            for i, item in enumerate(datos["Medios Directos"]):
-                node_id = f"MD{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                if datos.get("Objetivo General"): dot.edge(node_id, "OG")
+    # --- RAMA DE MEDIOS (Hacia Abajo) ---
+    for tipo, id_et, p_key, edge_dir in [("Medios Directos", "L_MD", "OG", "back")]:
+        items = datos.get(tipo, [])
+        h_tipo = "Medios Indirectos"
+        id_et_h = "L_MI"
+        c_p = CONFIG_OBJ[tipo]
+        c_h = CONFIG_OBJ[h_tipo]
 
-    # 6. Medios Indirectos
-    if datos.get("Medios Indirectos"):
-        c = CONFIG_OBJ["Medios Indirectos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_MI')
-            for i, item in enumerate(datos["Medios Indirectos"]):
-                node_id = f"MI{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
-                for p_idx, padre in enumerate(datos.get("Medios Directos", [])):
-                    if item.get('padre') == padre['texto']:
-                        dot.edge(node_id, f"MD{p_idx}")
-                
+        # Nivel Directo
+        with dot.subgraph() as s_p:
+            s_p.attr(rank='same'); s_p.node(id_et)
+            for i, it in enumerate(items):
+                node_id = f"{tipo}{i}"
+                s_p.node(node_id, limpiar(it['texto']), fillcolor=c_p["color"], fontcolor=c_p["font_color"])
+                if datos.get("Objetivo General"): dot.edge(node_id, "OG") # Medio Directo -> OG
+
+        # Nivel Indirecto (Hijos)
+        with dot.subgraph() as s_h:
+            s_h.attr(rank='same'); s_h.node(id_et_h)
+            for i, it in enumerate(items):
+                txt_p = it['texto']
+                hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == txt_p]
+                for j, h in enumerate(hijos):
+                    h_idx_real = datos[h_tipo].index(h)
+                    h_id = f"{h_tipo}{h_idx_real}"
+                    s_h.node(h_id, limpiar(h['texto']), fillcolor=c_h["color"], fontcolor=c_h["font_color"])
+                    dot.edge(h_id, f"{tipo}{i}") # Medio Indirecto -> Medio Directo
+
     return dot
 
 # --- RENDERIZADO DE TARJETA ---
@@ -196,7 +211,7 @@ def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 12px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     texto_viejo = item['texto']
     nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
     
