@@ -22,7 +22,7 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #153075; color: white; }
     
-    /* MATRIZ DE INTERESADOS (CSS GRID AVANZADO) */
+    /* MATRIZ DE INTERESADOS (GRID) */
     .matrix-container {
         display: grid;
         grid-template-columns: 40px 1fr 1fr;
@@ -31,66 +31,37 @@ st.markdown("""
         font-family: sans-serif;
     }
     
-    /* Etiquetas de Ejes */
     .axis-y {
-        grid-row: 1 / 3;
-        grid-column: 1;
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-        text-align: center;
-        font-weight: 900;
-        color: #94a3b8;
-        letter-spacing: 2px;
-        font-size: 14px;
-        border-right: 2px solid #e2e8f0;
-        padding-left: 10px;
+        grid-row: 1 / 3; grid-column: 1; writing-mode: vertical-rl; transform: rotate(180deg);
+        text-align: center; font-weight: 900; color: #94a3b8; letter-spacing: 2px; font-size: 14px;
+        border-right: 2px solid #e2e8f0; padding-left: 10px;
     }
     .axis-x {
-        grid-row: 3;
-        grid-column: 2 / 4;
-        text-align: center;
-        font-weight: 900;
-        color: #94a3b8;
-        letter-spacing: 2px;
-        font-size: 14px;
-        border-top: 2px solid #e2e8f0;
-        padding-top: 10px;
+        grid-row: 3; grid-column: 2 / 4; text-align: center; font-weight: 900; color: #94a3b8;
+        letter-spacing: 2px; font-size: 14px; border-top: 2px solid #e2e8f0; padding-top: 10px;
     }
     
-    /* Cuadrantes (Tarjetas Grandes) */
+    /* Cuadrantes */
     .quadrant-box {
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        height: 100%;
-        min-height: 220px;
+        border-radius: 12px; padding: 15px;
+        display: flex; flex-direction: column; gap: 4px; /* Menos espacio entre items */
+        height: 100%; min-height: 220px;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.02); /* Sombra interna muy suave */
     }
     
-    /* Títulos de Cuadrantes */
     .q-title {
-        font-size: 13px;
-        font-weight: 800;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-        opacity: 0.8;
+        font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; opacity: 0.9;
     }
     
-    /* Chips de Actores */
-    .actor-chip {
-        background: white;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 600;
+    /* ITEM DE LISTA LIMPIO (Sin tarjeta blanca) */
+    .actor-item {
+        font-size: 13px;
         color: #334155;
-        border-left: 4px solid #cbd5e1; /* Default border */
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
+        padding: 2px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.05); /* Línea separadora muy sutil */
     }
     </style>
 """, unsafe_allow_html=True)
@@ -142,12 +113,20 @@ gb.configure_column("PODER", headerName="⚡ Poder", editable=True, cellEditor='
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", editable=False, wrapText=True, autoHeight=True, width=200)
 
+# 2. COLORES INTELIGENTES POR ESTRATEGIA (Javascript)
+# Ahora coinciden con los colores de la matriz de abajo
 jscode_row_style = JsCode("""
 function(params) {
-    if (params.data.POSICIÓN === '🔴 Opositor') return { 'background-color': '#FEF2F2', 'color': 'black' };
-    if (params.data.POSICIÓN === '🟢 Cooperante') return { 'background-color': '#F0FDF4', 'color': 'black' };
-    if (params.data.POSICIÓN === '🔵 Beneficiario') return { 'background-color': '#EFF6FF', 'color': 'black' };
-    if (params.data.POSICIÓN === '🟣 Perjudicado') return { 'background-color': '#FAF5FF', 'color': 'black' };
+    var est = params.data.ESTRATEGIA;
+    if (est === 'INVOLUCRAR Y ATRAER EFECTIVAMENTE') {
+        return { 'background-color': '#F0FDF4', 'color': 'black' }; // Verde (Gestionar Atentamente)
+    } else if (est === 'INVOLUCRAR - MANTENER SATISFECHOS') {
+        return { 'background-color': '#FEF2F2', 'color': 'black' }; // Rojo (Mantener Satisfechos)
+    } else if (est === 'MANTENER INFORMADOS') {
+        return { 'background-color': '#EFF6FF', 'color': 'black' }; // Azul (Mantener Informados)
+    } else if (est === 'MONITOREAR') {
+        return { 'background-color': '#FEFCE8', 'color': 'black' }; // Amarillo/Beige (Monitorear)
+    }
     return null;
 };
 """)
@@ -190,14 +169,14 @@ if btn_guardar:
 st.write("")
 st.divider()
 
-# --- MAPA DE INFLUENCIA (CORREGIDO: SIN ESPACIOS) ---
+# --- MAPA DE INFLUENCIA (DISEÑO LIMPIO TIPO LISTA) ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
 
-    # 1. FUNCIÓN CORREGIDA (Sin sangría en el string de retorno)
-    def get_chips_html(p_key, i_key):
+    # 1. FUNCIÓN SIMPLIFICADA (Solo Texto + Icono)
+    def get_list_items_html(p_key, i_key):
         filtered = df_mapa[
             (df_mapa['PODER'].astype(str).str.upper().str.contains(p_key)) & 
             (df_mapa['INTERÉS'].astype(str).str.upper().str.contains(i_key)) & 
@@ -207,43 +186,41 @@ if tiene_datos:
         if filtered.empty:
             return '<div style="font-size:11px; color:#aaa; font-style:italic;">Sin actores</div>'
             
-        html_chips = ""
+        html_items = ""
         for _, r in filtered.iterrows():
             pos = str(r['POSICIÓN'])
             nombre = r['NOMBRE']
             
-            # Color del borde
-            border_color = "#cbd5e1"
             icon = "⚪"
-            if "Opositor" in pos: border_color = "#ef4444"; icon = "🔴"
-            elif "Cooperante" in pos: border_color = "#22c55e"; icon = "🟢"
-            elif "Beneficiario" in pos: border_color = "#3b82f6"; icon = "🔵"
-            elif "Perjudicado" in pos: border_color = "#a855f7"; icon = "🟣"
+            if "Opositor" in pos: icon = "🔴"
+            elif "Cooperante" in pos: icon = "🟢"
+            elif "Beneficiario" in pos: icon = "🔵"
+            elif "Perjudicado" in pos: icon = "🟣"
             
-            # AQUÍ ESTABA EL ERROR: Eliminamos espacios al inicio de las líneas HTML
-            html_chips += f'<div class="actor-chip" style="border-left-color: {border_color};"><span>{icon}</span><span>{nombre}</span></div>'
+            # DISEÑO LIMPIO: Sin tarjeta, solo linea de texto
+            html_items += f'<div class="actor-item"><span>{icon}</span> <span>{nombre}</span></div>'
         
-        return html_chips
+        return html_items
 
-    # 2. CONSTRUCCIÓN DE MATRIZ (Todo pegado a la izquierda para evitar lectura como código)
+    # 2. CONSTRUCCIÓN DE MATRIZ
     html_matrix = f"""
 <div class="matrix-container">
 <div class="axis-y">PODER</div>
-<div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2;">
+<div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2; border-top: 4px solid #fecaca;">
 <div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
-{get_chips_html("ALTO", "BAJO")}
+{get_list_items_html("ALTO", "BAJO")}
 </div>
-<div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border: 2px solid #bbf7d0;">
+<div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border-top: 4px solid #86efac;">
 <div class="q-title" style="color: #166534;">🚀 Gestionar Atentamente</div>
-{get_chips_html("ALTO", "ALTO")}
+{get_list_items_html("ALTO", "ALTO")}
 </div>
-<div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2;">
+<div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2; border-top: 4px solid #fde047;">
 <div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
-{get_chips_html("BAJO", "BAJO")}
+{get_list_items_html("BAJO", "BAJO")}
 </div>
-<div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3;">
+<div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3; border-top: 4px solid #bfdbfe;">
 <div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
-{get_chips_html("BAJO", "ALTO")}
+{get_list_items_html("BAJO", "ALTO")}
 </div>
 <div class="axis-x">INTERÉS</div>
 </div>
