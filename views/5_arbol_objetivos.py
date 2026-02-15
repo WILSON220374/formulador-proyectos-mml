@@ -17,11 +17,11 @@ st.markdown("""
     /* Estética de Tarjetas */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: none !important;           
+        border: 1px solid #ddd !important; /* Borde sutil para contraste */      
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
+        font-size: 15px !important; /* Letra más grande en el editor */
+        font-weight: 600 !important;
         color: #000 !important;
         min-height: 100px !important;
     }
@@ -57,14 +57,15 @@ with col_img:
 
 st.divider()
 
-# --- CONFIGURACIÓN DE NIVELES ---
+# --- CONFIGURACIÓN DE COLORES DE ALTO CONTRASTE ---
+# font_color define si el texto es blanco o negro según el fondo
 CONFIG_OBJ = {
-    "Fin Último": {"color": "#C1E1C1", "label": "FIN\nÚLTIMO"},
-    "Fines Indirectos": {"color": "#B3D9FF", "label": "FINES\nINDIRECTOS"},
-    "Fines Directos": {"color": "#80BFFF", "label": "FINES\nDIRECTOS"},
-    "Objetivo General": {"color": "#FFB3BA", "label": "OBJETIVO\nGENERAL"},
-    "Medios Directos": {"color": "#FFFFBA", "label": "OBJETIVOS\nESPECÍFICOS"}, 
-    "Medios Indirectos": {"color": "#FFDFBA", "label": "ACTIVIDADES"} 
+    "Fin Último":       {"color": "#27AE60", "font_color": "white", "label": "FIN\nÚLTIMO"},       # Verde Fuerte
+    "Fines Indirectos": {"color": "#2980B9", "font_color": "white", "label": "FINES\nINDIRECTOS"}, # Azul Oscuro
+    "Fines Directos":   {"color": "#3498DB", "font_color": "white", "label": "FINES\nDIRECTOS"},   # Azul Claro
+    "Objetivo General": {"color": "#C0392B", "font_color": "white", "label": "OBJETIVO\nGENERAL"}, # Rojo/Granate
+    "Medios Directos":  {"color": "#F1C40F", "font_color": "black", "label": "OBJETIVOS\nESPECÍFICOS"}, # Amarillo Oro
+    "Medios Indirectos":{"color": "#E67E22", "font_color": "white", "label": "ACTIVIDADES"}        # Naranja
 }
 
 # --- PILOTO AUTOMÁTICO DE LIMPIEZA ---
@@ -91,92 +92,98 @@ if hay_datos:
         guardar_datos_nube()
         st.rerun()
 
-# --- MOTOR DE DIBUJO (VISUALIZACIÓN IDÉNTICA A PROBLEMAS) ---
+# --- MOTOR DE DIBUJO OPTIMIZADO ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
     
     dot = graphviz.Digraph(format='png')
-    # Ajustes idénticos al de problemas: font 35 para título, DPI 300, Ortho
-    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
-    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
+    # Ajustes globales
+    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='40', fontname='Helvetica-Bold', fontcolor='#2c3e50')
+    dot.attr(dpi='300', rankdir='BT', nodesep='0.6', ranksep='1.0', splines='ortho')
     
-    # Ajuste CLAVE: fontsize 20 (igual que problemas) y márgenes amplios
-    dot.attr('node', fontsize='20', fontcolor='#31333F', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
+    # Estilo de Nodos Base: Más grandes y legibles
+    dot.attr('node', fontsize='22', fontname='Helvetica-Bold', style='filled, rounded', shape='box', penwidth='0')
     
-    # Función limpiar con ancho por defecto de 50 (igual que problemas)
-    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
+    # Ajuste de envoltura de texto: w=40 hace las cajas más altas y menos anchas
+    def limpiar(t, w=40): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
 
-    # Etiquetas Laterales (Izquierda)
+    # --- ETIQUETAS LATERALES ---
     etiquetas = ["L_FU", "L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
     tipos = ["Fin Último", "Fines Indirectos", "Fines Directos", "Objetivo General", "Medios Directos", "Medios Indirectos"]
     
     for id_e, tipo in zip(etiquetas, tipos):
         conf = CONFIG_OBJ[tipo]
-        # Etiquetas estilo "Plaintext" alineadas
-        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold', style='')
+        # Etiqueta lateral: Texto del color de la caja para referencia, pero negrita
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='20', fontname='Helvetica-Bold', style='')
 
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
     # --- NODOS PRINCIPALES ---
     
-    # 1. Fin Último (Estilo "Pancarta" Ancho, igual que Problema Central)
+    # 1. Fin Último
     if datos.get("Fin Último"):
+        c = CONFIG_OBJ["Fin Último"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FU')
-            # Usamos w=90 y margin mayor para que destaque arriba
-            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=90), 
-                   fillcolor=CONFIG_OBJ["Fin Último"]["color"], margin='0.8,0.4')
+            # Nodo central más grande
+            s.node("FU", limpiar(datos["Fin Último"][0]['texto'], w=60), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='24', margin='0.5,0.3')
 
     # 2. Fines Indirectos
     if datos.get("Fines Indirectos"):
+        c = CONFIG_OBJ["Fines Indirectos"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FI')
             for i, item in enumerate(datos["Fines Indirectos"]):
-                s.node(f"FI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"])
+                s.node(f"FI{i}", limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 if datos.get("Fin Último"): dot.edge(f"FI{i}", "FU", style="invis")
 
     # 3. Fines Directos
     if datos.get("Fines Directos"):
+        c = CONFIG_OBJ["Fines Directos"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_FD')
             for i, item in enumerate(datos["Fines Directos"]):
                 node_id = f"FD{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"])
+                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 # Conexiones
                 hijos = [h for idx, h in enumerate(datos.get("Fines Indirectos", [])) if h.get('padre') == item['texto']]
                 for h in hijos:
                     idx_real = datos["Fines Indirectos"].index(h)
                     dot.edge(node_id, f"FI{idx_real}")
 
-    # 4. Objetivo General (Estilo "Pancarta" Ancho, igual que Problema Central)
+    # 4. Objetivo General
     if datos.get("Objetivo General"):
+        c = CONFIG_OBJ["Objetivo General"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_OG')
-            # Usamos w=90 y margin mayor para que sea el centro de gravedad
-            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=90), 
-                   fillcolor=CONFIG_OBJ["Objetivo General"]["color"], margin='0.8,0.4')
+            s.node("OG", limpiar(datos["Objetivo General"][0]['texto'], w=60), 
+                   fillcolor=c["color"], fontcolor=c["font_color"], fontsize='26', margin='0.5,0.3')
         
         if datos.get("Fin Último"): dot.edge("OG", "FU", style="invis")
         for i, item in enumerate(datos.get("Fines Directos", [])): dot.edge("OG", f"FD{i}")
 
-    # 5. Medios Directos (Objetivos Específicos)
+    # 5. Medios Directos
     if datos.get("Medios Directos"):
+        c = CONFIG_OBJ["Medios Directos"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_MD')
             for i, item in enumerate(datos["Medios Directos"]):
                 node_id = f"MD{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"])
+                # Este suele ser amarillo, aseguramos contraste con font_color negro
+                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 if datos.get("Objetivo General"): dot.edge(node_id, "OG")
 
-    # 6. Medios Indirectos (Actividades)
+    # 6. Medios Indirectos
     if datos.get("Medios Indirectos"):
+        c = CONFIG_OBJ["Medios Indirectos"]
         with dot.subgraph() as s:
             s.attr(rank='same'); s.node('L_MI')
             for i, item in enumerate(datos["Medios Indirectos"]):
                 node_id = f"MI{i}"
-                s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"])
+                s.node(node_id, limpiar(item['texto']), fillcolor=c["color"], fontcolor=c["font_color"])
                 for p_idx, padre in enumerate(datos.get("Medios Directos", [])):
                     if item.get('padre') == padre['texto']:
                         dot.edge(node_id, f"MD{p_idx}")
@@ -188,7 +195,8 @@ def render_card_obj(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
     
-    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 10px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
+    # Barra de color más delgada
+    st.markdown(f'<div style="background-color: {CONFIG_OBJ[seccion]["color"]}; height: 8px; border-radius: 10px 10px 0 0; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
     texto_viejo = item['texto']
     nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
     
@@ -257,7 +265,7 @@ else:
         hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
         max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
 
-        # Fines: Hijos (Indirectos) Arriba
+        # Fines: Hijos Arriba
         if "Fin" in tipo_padre:
             for h_idx in range(max_h - 1, -1, -1):
                 cols = st.columns(len(padres))
@@ -271,7 +279,7 @@ else:
             for i, p_data in enumerate(padres):
                 with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
         
-        # Medios: Hijos (Indirectos) Abajo
+        # Medios: Hijos Abajo
         else:
             cols_p = st.columns(len(padres))
             for i, p_data in enumerate(padres):
