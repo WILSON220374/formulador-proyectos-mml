@@ -16,7 +16,6 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Panel de Referencia Estratégica */
     .resumen-estrategico {
         background-color: #f0f7ff;
         border-left: 5px solid #1E3A8A;
@@ -26,7 +25,6 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -89,6 +87,26 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
+# --- LÓGICA DE BÚSQUEDA ROBUSTA (Solo en Hoja 7) ---
+# Intentamos encontrar los datos de la alternativa ganadora en diferentes posibles ubicaciones
+alt_ganadora = st.session_state.get('alternativa_seleccionada', {})
+if not alt_ganadora:
+    # Si no está en el casillero principal, buscamos en los resultados de la matriz
+    matriz = st.session_state.get('matriz_alternativas', [])
+    if matriz:
+        # Buscamos la fila que tenga el puntaje más alto (la seleccionada)
+        try:
+            # Ordenamos por puntaje y tomamos la primera
+            matriz_ordenada = sorted(matriz, key=lambda x: x.get('total', 0), reverse=True)
+            alt_ganadora = matriz_ordenada[0]
+        except:
+            alt_ganadora = {}
+
+# Extraer textos con nombres de variables alternativos para mayor seguridad
+obj_ref = alt_ganadora.get('objetivo', alt_ganadora.get('texto', 'PENDIENTE DE SELECCIÓN')).upper()
+res_ref = alt_ganadora.get('resumen', alt_ganadora.get('descripcion', 'No se encontró resumen.'))
+act_ref = alt_ganadora.get('actividades_texto', alt_ganadora.get('actividades', 'No se encontraron actividades.'))
+
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_final():
     datos = st.session_state.get('arbol_objetivos_final', {})
@@ -116,6 +134,8 @@ def generar_grafo_final():
         s.attr(rank='same'); s.node("L_OG")
         if obj_gen: s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
+    # ... Resto de la lógica de dibujo jerárquico se mantiene igual ...
+    # (Fines Directos, Indirectos y Medios con la misma estructura profesional)
     f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same'); s.node("L_FD")
@@ -181,15 +201,8 @@ with tab1:
 with tab2:
     if not hay_datos: st.info("💡 Importe sus datos para realizar la poda.")
     else:
-        # --- BLOQUE DE REFERENCIA ESTRATÉGICA SINCRONIZADA ---
+        # --- BLOQUE DE REFERENCIA ESTRATÉGICA CON AUTODETECCIÓN ---
         st.subheader("📌 Referencia: Estrategia Seleccionada")
-        alt_ganadora = st.session_state.get('alternativa_seleccionada', {})
-        
-        # Lógica para asegurar que traiga datos o muestre un aviso útil
-        obj_ref = alt_ganadora.get('objetivo', 'PENDIENTE DE SELECCIÓN EN PASO ANTERIOR').upper()
-        res_ref = alt_ganadora.get('resumen', 'No se encontró resumen.')
-        act_ref = alt_ganadora.get('actividades_texto', 'No se encontraron actividades vinculadas.')
-
         st.markdown(f"""
         <div class="resumen-estrategico">
             <h4 style="margin-top:0; color:#1E3A8A;">🎯 OBJETIVO GENERAL:</h4>
@@ -215,6 +228,7 @@ with tab2:
             h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
             max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
 
+            # Lógica de filas (Espejo de Hoja 5)
             if "Fin" in tipo_padre:
                 for h_idx in range(max_h - 1, -1, -1):
                     cols = st.columns(len(padres_con_idx))
