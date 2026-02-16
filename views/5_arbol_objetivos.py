@@ -79,7 +79,7 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO CORREGIDO (SIN DUPLICADOS) ---
+# --- MOTOR DE DIBUJO ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -93,19 +93,14 @@ def generar_grafo_objetivos():
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
     MAPA_LLAVES = {
-        "MI": "Medios Indirectos",
-        "MD": "Medios Directos",
-        "OG": "Objetivo General",
-        "FD": "Fines Directos",
-        "FI": "Fines Indirectos"
+        "MI": "Medios Indirectos", "MD": "Medios Directos", "OG": "Objetivo General", "FD": "Fines Directos", "FI": "Fines Indirectos"
     }
 
-    # Definir solo etiquetas de la izquierda
+    # Etiquetas de la izquierda
     for niv, full_key in MAPA_LLAVES.items():
         conf = CONFIG_OBJ[full_key]
         dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
 
-    # Enlace invisible para mantener la columna vertical de guías
     niv_list = ["MI", "MD", "OG", "FD", "FI"]
     for i in range(len(niv_list)-1):
         dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
@@ -121,8 +116,7 @@ def generar_grafo_objetivos():
     # 2. FINES
     f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node("L_FD")
+        s.attr(rank='same'); s.node("L_FD")
         for i, item in enumerate(f_dir):
             node_id = f"FD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
@@ -130,8 +124,7 @@ def generar_grafo_objetivos():
 
     f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node("L_FI")
+        s.attr(rank='same'); s.node("L_FI")
         for i, item in enumerate(f_ind):
             node_id = f"FI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
@@ -142,8 +135,7 @@ def generar_grafo_objetivos():
     # 3. MEDIOS
     m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node("L_MD")
+        s.attr(rank='same'); s.node("L_MD")
         for i, item in enumerate(m_dir):
             node_id = f"MD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
@@ -151,8 +143,7 @@ def generar_grafo_objetivos():
 
     m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node("L_MI")
+        s.attr(rank='same'); s.node("L_MI")
         for i, item in enumerate(m_ind):
             node_id = f"MI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
@@ -196,6 +187,12 @@ with st.sidebar:
                     nueva = {"texto": it.get('texto', '').upper(), "id_unico": str(uuid.uuid4()), "padre": it.get('padre', "").upper()}
                     st.session_state['arbol_objetivos'][o_sec].append(nueva)
         guardar_datos_nube(); st.rerun()
+
+    # --- BOTÓN DE DESCARGA REINTEGRADO ---
+    st.divider()
+    grafo = generar_grafo_objetivos()
+    if grafo: 
+        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
 tab1, tab2 = st.tabs(["🌳 Visualización", "📝 Edición"])
