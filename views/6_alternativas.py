@@ -86,7 +86,7 @@ else:
              st.session_state['df_evaluacion_alternativas'] = df_sync
              guardar_datos_nube()
 
-# Configuración Ag-Grid Paso 1
+# Ag-Grid Paso 1
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 gb = GridOptionsBuilder.from_dataframe(df_work)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
@@ -143,20 +143,18 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     actividades_seleccionadas = aprobadas["ACTIVIDAD"].unique().tolist()
     
     if len(actividades_seleccionadas) >= 2:
-        # 1. Asegurar existencia del DataFrame de relaciones
         if 'df_relaciones_actividades' not in st.session_state:
             st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
         
         df_rel_acts = st.session_state['df_relaciones_actividades'].copy()
         
-        # --- LÓGICA DE AUTOLIMPIEZA ---
-        # Solo mantenemos relaciones donde AMBAS actividades estén en la lista de aprobadas
+        # --- AUTOLIMPIEZA ---
         df_rel_acts = df_rel_acts[
             (df_rel_acts["ACTIVIDAD A"].isin(actividades_seleccionadas)) & 
             (df_rel_acts["ACTIVIDAD B"].isin(actividades_seleccionadas))
         ]
         
-        # --- LÓGICA DE AGREGAR PARES NUEVOS ---
+        # --- AGREGAR PARES ---
         pares_actuales = list(itertools.combinations(actividades_seleccionadas, 2))
         nuevas_filas = []
         for a_a, a_b in pares_actuales:
@@ -170,7 +168,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
         if nuevas_filas:
             df_rel_acts = pd.concat([df_rel_acts, pd.DataFrame(nuevas_filas)], ignore_index=True)
 
-        # Si hubo limpieza o adición, guardamos y refrescamos
         if not df_rel_acts.equals(st.session_state['df_relaciones_actividades']):
             st.session_state['df_relaciones_actividades'] = df_rel_acts
             guardar_datos_nube()
@@ -178,7 +175,7 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
 
         st.info("Defina las relaciones técnicas entre actividades.")
 
-        # --- CONFIGURACIÓN AG-GRID LIMPIA ---
+        # --- FILTRO ESTRICTO COLUMNAS ---
         columnas_finales = ["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"]
         df_final_rel = df_rel_acts[columnas_finales].copy()
 
@@ -217,7 +214,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                 
     else:
         st.warning("⚠️ Seleccione al menos 2 actividades válidas arriba.")
-        # Limpiar si ya no hay suficientes actividades
         if not st.session_state.get('df_relaciones_actividades', pd.DataFrame()).empty:
             st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
             guardar_datos_nube()
@@ -248,7 +244,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                     if st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}"):
                         actividades_elegidas.append({"OBJETIVO": obj, "ACTIVIDAD": act})
 
-        # Validación de Conflictos
         conflicto = False
         msg_conf = ""
         if len(actividades_elegidas) > 1:
@@ -279,16 +274,20 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. VISUALIZACIÓN
+# 4. VISUALIZACIÓN (LIMPIEZA DE ASTERISCOS)
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
     st.subheader("📋 4. Alternativas Consolidadas")
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        with st.expander(f"**{idx+1}. {alt['nombre'].upper()}**"):
+        # Título limpio sin asteriscos
+        nombre_limpio = f"{idx+1}. {alt['nombre'].upper()}"
+        with st.expander(nombre_limpio):
             st.caption(alt.get('descripcion', ''))
             for item in alt['configuracion']:
-                st.markdown(f"**🎯 {item['objetivo']}**")
-                for a in item['actividades']: st.markdown(f"&nbsp;&nbsp;🔹 {a}")
+                # Formato de negrilla corregido para objetivos
+                st.markdown(f"**🎯 {item['objetivo'].strip()}**")
+                for a in item['actividades']: 
+                    st.markdown(f"&nbsp;&nbsp;🔹 {a.strip()}")
             if st.button(f"🗑️ Eliminar", key=f"del_alt_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx)
                 guardar_datos_nube(); st.rerun()
