@@ -214,7 +214,7 @@ else:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CONSTRUCTOR DE ALTERNATIVAS
+# 3. CONSTRUCTOR DE ALTERNATIVAS (AJUSTE: LIMPIEZA AUTOMÁTICA)
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
@@ -223,8 +223,11 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     
     with st.container(border=True):
         c_nombre, c_desc = st.columns([1, 2])
-        with c_nombre: nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Estrategia A")
-        with c_desc: desc_alt = st.text_area("Descripción corta:", height=68)
+        # Agregamos llaves (key) para controlar el estado de los inputs
+        with c_nombre: 
+            nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Estrategia A", key="input_nombre_alt")
+        with c_desc: 
+            desc_alt = st.text_area("Descripción corta:", height=68, key="input_desc_alt")
 
         st.write("###### Seleccione las actividades:")
         actividades_elegidas = []
@@ -232,7 +235,9 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             acts_del_obj = aprobadas[aprobadas["OBJETIVO"] == obj]["ACTIVIDAD"].tolist()
             with st.expander(f"🎯 {obj}", expanded=True):
                 for act in acts_del_obj:
-                    if st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}"):
+                    # Usamos una llave única para cada checkbox
+                    key_check = f"sel_alt_{obj}_{act}"
+                    if st.checkbox(f"{act}", key=key_check):
                         actividades_elegidas.append({"OBJETIVO": obj, "ACTIVIDAD": act})
 
         conflicto = False
@@ -257,9 +262,21 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                 acts = df_temp[df_temp["OBJETIVO"] == obj]["ACTIVIDAD"].tolist()
                 config_final.append({"objetivo": obj, "actividades": acts})
             
+            # Guardamos la alternativa en la lista oficial
             st.session_state['lista_alternativas'].append({
                 "nombre": nombre_alt, "descripcion": desc_alt, "configuracion": config_final
             })
+            
+            # --- LÓGICA DE LIMPIEZA ---
+            # Reseteamos los campos de texto
+            st.session_state["input_nombre_alt"] = ""
+            st.session_state["input_desc_alt"] = ""
+            
+            # Reseteamos los checkboxes buscando sus llaves en la sesión
+            for key in list(st.session_state.keys()):
+                if key.startswith("sel_alt_"):
+                    st.session_state[key] = False
+            
             guardar_datos_nube(); st.rerun()
 
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
@@ -292,7 +309,7 @@ if st.session_state.get('lista_alternativas'):
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. EVALUACIÓN MULTICRITERIO (AJUSTADO: CENTRADO Y GUÍA DINÁMICA)
+# 5. EVALUACIÓN MULTICRITERIO
 # ==============================================================================
 st.subheader("📊 5. Evaluación de Alternativas")
 
@@ -301,7 +318,6 @@ alts = st.session_state.get('lista_alternativas', [])
 if not alts:
     st.info("Cree alternativas arriba para evaluar.")
 else:
-    # Ajuste 1: Guía dinámica de puntuación
     num_alts = len(alts)
     
     with st.expander("⚙️ Configurar Pesos (%)", expanded=False):
@@ -326,7 +342,6 @@ else:
     
     df_scores_reset = st.session_state['df_calificaciones'].reset_index().rename(columns={"index": "Alternativa"})
 
-    # Ajuste 2: Centrado de Columnas y Encabezados
     gb_score = GridOptionsBuilder.from_dataframe(df_scores_reset)
     gb_score.configure_column("Alternativa", editable=False, width=200, pinned="left")
     
@@ -338,8 +353,8 @@ else:
             type=["numericColumn"], 
             min=0, 
             max=5,
-            cellStyle={'textAlign': 'center'}, # Centra el valor
-            headerClass='ag-center-header'      # Clase para centrar encabezado
+            cellStyle={'textAlign': 'center'},
+            headerClass='ag-center-header'
         )
 
     pesos = st.session_state['ponderacion_criterios']
@@ -362,7 +377,6 @@ else:
     gb_score.configure_grid_options(domLayout='autoHeight')
     gridOptionsScore = gb_score.build()
     
-    # Aplicación de la guía dinámica en el título
     st.markdown(f"##### 🏆 Matriz de Decisión (Puntuar de 1 a {num_alts})")
     grid_response_score = AgGrid(df_scores_reset, gridOptions=gridOptionsScore, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
 
@@ -379,7 +393,6 @@ else:
         
         if not df_ranking.empty:
             ganadora = df_ranking.iloc[0]
-            # Ajuste 3: Cambio de etiqueta "Alternativa Seleccionada"
             st.success(f"🎉 **Alternativa Seleccionada:** {ganadora['Alternativa']} ({ganadora['PUNTAJE']:.2f} pts)")
             st.dataframe(df_ranking, column_config={"PUNTAJE": st.column_config.ProgressColumn("Puntaje", format="%.2f", min_value=0, max_value=5)}, use_container_width=True, hide_index=True)
 
