@@ -8,12 +8,11 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTRATEGIA: LIMPIEZA PROFUNDA DE REGISTROS ---
+# --- ESTRATEGIA: LIMPIEZA TOTAL DE REGISTROS "NONE" ---
 if 'arbol_tarjetas' in st.session_state:
     for seccion in st.session_state['arbol_tarjetas']:
         lista = st.session_state['arbol_tarjetas'][seccion]
         if isinstance(lista, list):
-            # Solo mantenemos fichas con contenido real y que no sean "None"
             st.session_state['arbol_tarjetas'][seccion] = [
                 it for it in lista if isinstance(it, dict) and 
                 it.get('texto') and 
@@ -33,7 +32,7 @@ st.markdown("""
         border: 1px solid #e2e8f0 !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
         color: #1e293b !important;
         min-height: 100px !important;
     }
@@ -64,66 +63,109 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Construcción y visualización definitiva del diagnóstico.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Estructura profesional con niveles jerárquicos definidos.</div>', unsafe_allow_html=True)
     
     pc_data = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
     hay_datos = len(pc_data) > 0
-    st.progress(1.0 if hay_datos else 0.0, text="Árbol Formulado" if hay_datos else "Esperando Datos")
+    st.progress(1.0 if hay_datos else 0.0, text="Árbol en Construcción" if hay_datos else "Esperando Datos")
 
 with col_img:
     if os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
-# --- MOTOR DE DIBUJO (UNIFICADO PARA PANTALLA Y PNG) ---
+# --- MOTOR DE DIBUJO PROFESIONAL (ESTILO ARBOL.JPG) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
-    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto') and str(it.get('texto')).upper() != "NONE"]
+    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if not pc: return None
 
-    # Orientación vertical (Top-Bottom) para que no se vea aplastado
     dot = graphviz.Digraph(format='png')
     
-    # TÍTULO DEL GRÁFICO
-    dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
-             fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
-    
-    # Control de tamaño para evitar cajas gigantes en pantalla
-    dot.attr(size='14,12!', ratio='fill', center='true', dpi='300') 
-    dot.attr(rankdir='BT', nodesep='0.6', ranksep='0.9', splines='ortho')
-    dot.attr('node', fontsize='12', fontname='Arial Bold', style='filled', shape='box', margin='0.4,0.3')
+    # Título y Configuración General
+    dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
+    dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
     COLORS = {"PC": "#A93226", "ED": "#2E86C1", "EI": "#884EA0", "CD": "#D4AC0D", "CI": "#CA6F1E"}
 
-    # Nodo Central
-    dot.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none')
+    # --- 1. CREACIÓN DE LA COLUMNA DE GUÍA (IZQUIERDA) ---
+    # Creamos nodos de texto para las etiquetas laterales
+    etiquetas = {
+        "L_EI": "EFECTO\nINDIRECTO",
+        "L_ED": "EFECTO\nDIRECTO",
+        "L_PC": "PROBLEMA\nCENTRAL",
+        "L_CD": "CAUSA\nDIRECTA",
+        "L_CI": "CAUSA\nINDIRECTA"
+    }
+    
+    for id_e, txt in etiquetas.items():
+        color_txt = COLORS["PC"] if "PC" in id_e else COLORS[id_e.split('_')[1]]
+        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold')
 
-    ramas = [
-        ("Efectos Directos", "ED", "PC", "forward", COLORS["ED"]),
-        ("Causas Directas", "CD", "PC", "back", COLORS["CD"])
-    ]
+    # Unimos las etiquetas con flechas invisibles para mantener el orden vertical
+    dot.edge("L_CI", "L_CD", style='invis')
+    dot.edge("L_CD", "L_PC", style='invis')
+    dot.edge("L_PC", "L_ED", style='invis')
+    dot.edge("L_ED", "L_EI", style='invis')
 
-    for tipo, id_p, p_key, edge_dir, col in ramas:
-        # Filtro estricto: Solo fichas con texto real
-        items = [it for it in datos.get(tipo, []) if it.get('texto') and str(it.get('texto')).upper() != "NONE"]
-        for i, it in enumerate(items):
-            node_id = f"{id_p}{i}"
-            dot.node(node_id, limpiar(it['texto']), fillcolor=col, fontcolor='white', color='none')
-            if edge_dir == "forward": dot.edge('PC', node_id)
-            else: dot.edge(node_id, 'PC')
-            
-            # Sub-ramas (Solo si el padre coincide exactamente)
-            h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
-            h_col = COLORS["EI"] if "Efecto" in tipo else COLORS["CI"]
-            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == it['texto'] and h.get('texto') and str(h.get('texto')).upper() != "NONE"]
-            
-            for j, h in enumerate(hijos):
-                h_id = f"{id_p}I{i}_{j}"
-                dot.node(h_id, limpiar(h['texto']), fillcolor=h_col, fontcolor='white', color='none', fontsize='11')
-                if edge_dir == "forward": dot.edge(node_id, h_id)
-                else: dot.edge(h_id, node_id)
+    # --- 2. DIBUJO DE NIVELES CON ALINEACIÓN (RANK) ---
+
+    # NIVEL: PROBLEMA CENTRAL
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_PC')
+        s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
+
+    # NIVEL: CAUSAS DIRECTAS
+    c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_CD')
+        for i, it in enumerate(c_directas):
+            node_id = f"CD{i}"
+            s.node(node_id, limpiar(it['texto']), fillcolor=COLORS["CD"], fontcolor='black', color='none')
+            dot.edge(node_id, 'PC')
+
+    # NIVEL: CAUSAS INDIRECTAS
+    c_indirectas = [it for it in datos.get("Causas Indirectas", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_CI')
+        for i, it in enumerate(c_indirectas):
+            node_id_ci = f"CI{i}"
+            s.node(node_id_ci, limpiar(it['texto']), fillcolor=COLORS["CI"], fontcolor='white', color='none', fontsize='10')
+            # Buscar su padre en Directas
+            for j, p_data in enumerate(c_directas):
+                if it.get('padre') == p_data.get('texto'):
+                    dot.edge(node_id_ci, f"CD{j}")
+
+    # NIVEL: EFECTOS DIRECTOS
+    e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_ED')
+        for i, it in enumerate(e_directos):
+            node_id_ed = f"ED{i}"
+            s.node(node_id_ed, limpiar(it['texto']), fillcolor=COLORS["ED"], fontcolor='white', color='none')
+            dot.edge('PC', node_id_ed)
+
+    # NIVEL: EFECTOS INDIRECTOS
+    e_indirectos = [it for it in datos.get("Efectos Indirectos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_EI')
+        for i, it in enumerate(e_indirectos):
+            node_id_ei = f"EI{i}"
+            s.node(node_id_ei, limpiar(it['texto']), fillcolor=COLORS["EI"], fontcolor='white', color='none', fontsize='10')
+            # Buscar su padre en Directos
+            for j, p_data in enumerate(e_directos):
+                if it.get('padre') == p_data.get('texto'):
+                    dot.edge(f"ED{j}", node_id_ei)
+                
     return dot
 
 # --- RENDERIZADO DE TARJETA ---
@@ -168,7 +210,6 @@ with st.sidebar:
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo: 
-        # Botón de descarga con el título ya integrado
         st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
@@ -180,7 +221,6 @@ with tab1:
     else:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
-            # USAMOS st.image en lugar de st.graphviz_chart para que se vea IGUAL al PNG
             st.image(grafo_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
