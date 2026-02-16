@@ -221,26 +221,52 @@ with tab2:
         st.info("💡 Construya su árbol desde el menú lateral.")
     else:
         st.subheader("📋 Panel de Edición")
+        
+        # AJUSTE: FUNCIÓN DE CUADRÍCULA PARA ALINEACIÓN PERFECTA
         def mostrar_seccion_dinamica(tipo_padre, tipo_hijo):
             padres = [p for p in st.session_state.get('arbol_tarjetas', {}).get(tipo_padre, []) if p.get('texto')]
+            hijos = st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, [])
             if not padres: return
-            st.write(f"**{tipo_padre}**")
-            cols = st.columns(len(padres))
-            for i, p in enumerate(padres):
-                with cols[i]:
-                    hijos = [h for h in st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, []) if h.get('padre') == p.get('texto')]
-                    
-                    # AJUSTE DE ORDEN: EFECTOS HACIA ARRIBA, CAUSAS HACIA ABAJO
-                    if "Efectos" in tipo_padre:
-                        for h in hijos:
-                            idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
-                            render_card(tipo_hijo, h, idx_real)
-                        render_card(tipo_padre, p, i)
-                    else:
-                        render_card(tipo_padre, p, i)
-                        for h in hijos:
-                            idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
-                            render_card(tipo_hijo, h, idx_real)
+            
+            st.write(f"**{tipo_padre} e {tipo_hijo}**")
+            
+            # Organizar hijos por su padre respectivo
+            hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p['texto']] for p in padres]
+            max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
+
+            # LÓGICA DE FILAS PARA EFECTOS (Hacia arriba)
+            if "Efecto" in tipo_padre:
+                # Dibujar filas de hijos (Indirectos) de abajo hacia arriba
+                for h_idx in range(max_h - 1, -1, -1):
+                    cols = st.columns(len(padres))
+                    for p_idx, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(hijos_por_p[p_idx]):
+                                idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                                render_card(tipo_hijo, h_data, idx_real)
+                            else: st.empty()
+                
+                # Fila final de padres (Directos) en la base
+                cols_p = st.columns(len(padres))
+                for i, p_data in enumerate(padres):
+                    with cols_p[i]: render_card(tipo_padre, p_data, i)
+
+            # LÓGICA DE FILAS PARA CAUSAS (Hacia abajo)
+            else:
+                # Fila inicial de padres (Directas)
+                cols_p = st.columns(len(padres))
+                for i, p_data in enumerate(padres):
+                    with cols_p[i]: render_card(tipo_padre, p_data, i)
+                
+                # Dibujar filas de hijos (Indirectas) hacia abajo
+                for h_idx in range(max_h):
+                    cols = st.columns(len(padres))
+                    for p_idx, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(hijos_por_p[p_idx]):
+                                idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                                render_card(tipo_hijo, h_data, idx_real)
+                            else: st.empty()
 
         mostrar_seccion_dinamica("Efectos Directos", "Efectos Indirectos")
         st.markdown("---")
