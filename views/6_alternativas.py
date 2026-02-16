@@ -8,9 +8,12 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- ESTILOS PERSONALIZADOS (HEADER, BOTONES Y TABLA) ---
+# --- ESTILOS CSS (DISEÑO UNIFICADO Y LIMPIO) ---
 st.markdown("""
     <style>
+    /* Colchón inferior para que no se corte el final */
+    .block-container { padding-bottom: 150px !important; }
+
     /* Estilos del Encabezado */
     .titulo-seccion { 
         font-size: 30px !important; 
@@ -21,25 +24,28 @@ st.markdown("""
     .subtitulo-gris { 
         font-size: 16px !important; 
         color: #666; 
-        margin-bottom: 10px; 
+        margin-bottom: 15px; 
     }
     
     /* Imagen del logo con bordes redondeados */
     [data-testid="stImage"] img { border-radius: 12px; }
 
-    /* Estilo para el botón de guardar (Solo icono, azul oscuro) */
+    /* Estilo para botones principales */
     div.stButton > button:first-child {
         background-color: #1E3A8A;
         color: white;
         border: none;
-        font-size: 20px;
-        padding: 5px 15px;
+        font-size: 16px;
+        padding: 8px 16px;
         border-radius: 8px;
     }
     div.stButton > button:hover {
         background-color: #153075;
         color: white;
     }
+    
+    /* Ajuste para que las tablas AgGrid no tengan scroll innecesario */
+    .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -64,32 +70,25 @@ with col_t:
     st.progress(progreso_val)
 
 with col_img:
-    if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-    elif os.path.exists("unnamed-1.jpg"):
-        st.image("unnamed-1.jpg", use_container_width=True)
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (Ag-Grid Auto-Height)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# --- LEYENDA COMPACTA ---
+# Leyenda
 st.markdown("""
-    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.8rem; color: #444;">
-        <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">
-            ✅ Seleccionada
-        </span>
-        <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">
-            ⬜ Descartada
-        </span>
-        <span style="color: #666; margin-left: 10px;">(Marque las casillas y presione 💾 para guardar)</span>
+    <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; font-size: 0.85rem; color: #444;">
+        <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
+        <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">⬜ Descartada</span>
     </div>
 """, unsafe_allow_html=True)
 
-# --- SINCRONIZACIÓN INTELIGENTE ---
+# Sincronización de datos
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 
@@ -113,27 +112,25 @@ else:
     df_old = st.session_state['df_evaluacion_alternativas']
     if not df_arbol_actual.empty:
         df_sync = pd.merge(df_arbol_actual, df_old, on=["OBJETIVO", "ACTIVIDAD"], how="left")
-        df_sync["ENFOQUE"] = df_sync["ENFOQUE"].fillna(False).infer_objects(copy=False)
-        df_sync["ALCANCE"] = df_sync["ALCANCE"].fillna(False).infer_objects(copy=False)
-        
-        df_sync["ENFOQUE"] = df_sync["ENFOQUE"].astype(bool)
-        df_sync["ALCANCE"] = df_sync["ALCANCE"].astype(bool)
+        df_sync["ENFOQUE"] = df_sync["ENFOQUE"].fillna(False).infer_objects(copy=False).astype(bool)
+        df_sync["ALCANCE"] = df_sync["ALCANCE"].fillna(False).infer_objects(copy=False).astype(bool)
         
         if len(df_sync) != len(df_old) or not df_sync["OBJETIVO"].equals(df_old["OBJETIVO"]):
              st.session_state['df_evaluacion_alternativas'] = df_sync
              guardar_datos_nube()
              st.rerun()
 
-# --- PREPARACIÓN AG-GRID ---
+# --- AG-GRID CONFIG ---
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
 gb = GridOptionsBuilder.from_dataframe(df_work)
+# Columnas de texto con AJUSTE AUTOMÁTICO (Wrap Text)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
 gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
-gb.configure_column("ENFOQUE", headerName="¿Tiene el enfoque?", editable=True, width=130)
-gb.configure_column("ALCANCE", headerName="¿Está al alcance?", editable=True, width=130)
+gb.configure_column("ENFOQUE", headerName="¿Enfoque?", editable=True, width=110)
+gb.configure_column("ALCANCE", headerName="¿Alcance?", editable=True, width=110)
 
-# Javascript para colores suaves en las filas
+# Colores condicionales
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
@@ -143,39 +140,27 @@ function(params) {
     }
 };
 """)
-
+# IMPORTANTE: domLayout='autoHeight' elimina el espacio vacío
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
-# --- ESTILOS CSS PARA LOS TÍTULOS DE LA TABLA ---
 custom_css = {
-    ".ag-header-cell-text": {
-        "font-size": "15px !important", 
-        "font-weight": "800 !important", 
-        "color": "#1E3A8A !important"
-    },
-    ".ag-header": {
-        "background-color": "#f8f9fa !important"
-    }
+    ".ag-header-cell-text": {"font-size": "14px !important", "font-weight": "800 !important", "color": "#1E3A8A !important"},
+    ".ag-header": {"background-color": "#f8f9fa !important"}
 }
 
 grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
-    custom_css=custom_css, # <--- AQUI APLICAMOS LA NEGRITA Y COLOR
+    custom_css=custom_css,
     update_mode=GridUpdateMode.MANUAL,
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True,
     theme='streamlit',
-    height=500,
     allow_unsafe_jscode=True
 )
 
-col_btn, col_rest = st.columns([1, 10])
-with col_btn:
-    btn_guardar = st.button("💾", help="Guardar Cambios de la Tabla")
-
-if btn_guardar:
+if st.button("💾 Guardar Selección"):
     df_editado = pd.DataFrame(grid_response['data'])
     if not df_editado.empty:
         df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
@@ -199,7 +184,6 @@ except:
 
 if not aprobadas.empty:
     objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
-
     if len(objetivos_seleccionados) >= 2:
         pares_actuales = list(itertools.combinations(objetivos_seleccionados, 2))
         df_existente = st.session_state['df_relaciones_objetivos']
@@ -217,25 +201,23 @@ if not aprobadas.empty:
             st.session_state['df_relaciones_objetivos'] = pd.concat([df_existente, pd.DataFrame(nuevas_filas)], ignore_index=True)
             guardar_datos_nube()
 
-        st.info("Defina si los objetivos seleccionados pueden ejecutarse juntos (Complementarios) o si son Excluyentes.")
-        
+        st.info("Defina la relación entre objetivos seleccionados.")
         df_rel_editado = st.data_editor(
             st.session_state['df_relaciones_objetivos'],
             column_config={
-                "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True, width="medium"),
-                "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True, width="medium"),
-                "RELACIÓN": st.column_config.SelectboxColumn("Tipo de Relación", options=["Por definir", "Complementario", "Excluyente"], required=True)
+                "OBJETIVO A": st.column_config.TextColumn("Objetivo A", disabled=True),
+                "OBJETIVO B": st.column_config.TextColumn("Objetivo B", disabled=True),
+                "RELACIÓN": st.column_config.SelectboxColumn("Relación", options=["Por definir", "Complementario", "Excluyente"], required=True)
             },
             hide_index=True, use_container_width=True, key="tabla_rel_v9"
         )
-
         if not df_rel_editado.equals(st.session_state['df_relaciones_objetivos']):
             st.session_state['df_relaciones_objetivos'] = df_rel_editado
             guardar_datos_nube(); st.rerun()
     else:
-        st.warning("⚠️ Necesita aprobar actividades de al menos 2 objetivos diferentes para habilitar esta sección.")
+        st.warning("Seleccione al menos 2 objetivos válidos arriba.")
 else:
-    st.info("No hay actividades seleccionadas (Casillas Verdes) en la tabla anterior.")
+    st.info("No hay actividades seleccionadas arriba.")
 
 st.divider()
 
@@ -244,122 +226,97 @@ st.divider()
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
-if not aprobadas.empty:
-    objetivos_seleccionados = aprobadas["OBJETIVO"].unique().tolist()
-    
-    if objetivos_seleccionados:
-        with st.container(border=True):
-            st.markdown("#### 🆕 Crear Nueva Alternativa")
-            
-            c_nombre, c_desc = st.columns([1, 2])
-            with c_nombre:
-                nombre_alt = st.text_input("Nombre:", placeholder="Ej: Alternativa Tecnológica A")
-            with c_desc:
-                desc_alt = st.text_area("Descripción Corta:", placeholder="Resumen de la alternativa...", height=68)
+if not aprobadas.empty and objetivos_seleccionados:
+    with st.container(border=True):
+        c_nombre, c_desc = st.columns([1, 2])
+        with c_nombre: nombre_alt = st.text_input("Nombre Alternativa:")
+        with c_desc: desc_alt = st.text_area("Descripción:", height=68)
 
-            st.markdown("**Seleccione los Objetivos a incluir:**")
-            objs_en_paquete = []
-            
-            cols_obj = st.columns(2)
-            for i, obj_opcion in enumerate(objetivos_seleccionados):
-                with cols_obj[i % 2]:
-                    if st.checkbox(f"🎯 {obj_opcion}", key=f"paq_obj_{i}"):
-                        objs_en_paquete.append(obj_opcion)
+        st.write("###### Seleccionar Objetivos:")
+        objs_en_paquete = []
+        cols_obj = st.columns(2)
+        for i, obj_opcion in enumerate(objetivos_seleccionados):
+            with cols_obj[i % 2]:
+                if st.checkbox(f"🎯 {obj_opcion}", key=f"paq_obj_{i}"):
+                    objs_en_paquete.append(obj_opcion)
 
-            # Validación
-            conflicto = False
-            msg_conflicto = ""
-            if len(objs_en_paquete) > 1:
-                for o_a, o_b in itertools.combinations(objs_en_paquete, 2):
-                    rel = st.session_state['df_relaciones_objetivos'][
-                        ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_a) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_b)) |
-                        ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
-                    ]
-                    if not rel.empty and rel.iloc[0]["RELACIÓN"] == "Excluyente":
-                        conflicto = True
-                        msg_conflicto = f"Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."
+        # Validación
+        conflicto = False
+        msg_conflicto = ""
+        if len(objs_en_paquete) > 1:
+            for o_a, o_b in itertools.combinations(objs_en_paquete, 2):
+                rel = st.session_state['df_relaciones_objetivos'][
+                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_a) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_b)) |
+                    ((st.session_state['df_relaciones_objetivos']["OBJETIVO A"] == o_b) & (st.session_state['df_relaciones_objetivos']["OBJETIVO B"] == o_a))
+                ]
+                if not rel.empty and rel.iloc[0]["RELACIÓN"] == "Excluyente":
+                    conflicto = True
+                    msg_conflicto = f"❌ Conflicto: '{o_a}' y '{o_b}' son EXCLUYENTES."
 
-            if conflicto:
-                st.error(f"❌ {msg_conflicto}")
-            
-            # Configuración Actividades
-            config_final = []
-            if objs_en_paquete and not conflicto:
-                st.markdown("---")
-                st.markdown("**Seleccione las actividades:**")
-                for obj_p in objs_en_paquete:
-                    with st.expander(f"📌 {obj_p}", expanded=True):
-                        acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
-                        sel_del_obj = []
-                        for act in acts_aprob:
-                            if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
-                                sel_del_obj.append(act)
-                        if sel_del_obj:
-                            config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
+        if conflicto: st.error(msg_conflicto)
+        
+        config_final = []
+        if objs_en_paquete and not conflicto:
+            st.write("###### Seleccionar Actividades:")
+            for obj_p in objs_en_paquete:
+                with st.expander(f"📌 {obj_p}", expanded=False):
+                    acts_aprob = aprobadas[aprobadas["OBJETIVO"] == obj_p]["ACTIVIDAD"].tolist()
+                    sel_del_obj = []
+                    for act in acts_aprob:
+                        if st.checkbox(act, value=True, key=f"paq_act_{obj_p}_{act}"):
+                            sel_del_obj.append(act)
+                    if sel_del_obj:
+                        config_final.append({"objetivo": obj_p, "actividades": sel_del_obj})
 
-            btn_disable = conflicto or not config_final or not nombre_alt
-            
-            if st.button("🚀 Guardar Alternativa", type="primary", use_container_width=True, disabled=btn_disable):
-                st.session_state['lista_alternativas'].append({
-                    "nombre": nombre_alt, 
-                    "descripcion": desc_alt,
-                    "configuracion": config_final
-                })
-                guardar_datos_nube(); st.rerun()
-
-st.divider()
+        if st.button("🚀 Crear Alternativa", type="primary", disabled=(conflicto or not config_final or not nombre_alt)):
+            st.session_state['lista_alternativas'].append({
+                "nombre": nombre_alt, "descripcion": desc_alt, "configuracion": config_final
+            })
+            guardar_datos_nube(); st.rerun()
 
 # ==============================================================================
 # 4. VISUALIZACIÓN
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
+    st.markdown("---")
     st.subheader("📋 4. Alternativas Consolidadas")
-    
-    colores = ["blue", "green", "orange", "red", "violet"]
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
-        color = colores[idx % len(colores)]
-        nombre = alt.get('nombre', 'Sin nombre').upper()
-        desc = alt.get('descripcion', 'Sin descripción')
-        
-        with st.expander(f"**{idx+1}. {nombre}**", expanded=False):
-            st.caption(f"📝 {desc}")
-            for item in alt.get('configuracion', []):
+        with st.expander(f"**{idx+1}. {alt['nombre'].upper()}**"):
+            st.caption(alt.get('descripcion', ''))
+            for item in alt['configuracion']:
                 st.markdown(f"**🎯 {item['objetivo']}**")
-                for a in item.get('actividades', []):
-                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🔹 {a}")
-            
-            if st.button(f"🗑️ Eliminar", key=f"del_alt_{idx}"):
+                for a in item['actividades']: st.markdown(f"&nbsp;&nbsp;🔹 {a}")
+            if st.button(f"🗑️ Borrar", key=f"del_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx)
                 guardar_datos_nube(); st.rerun()
 
 st.divider()
 
 # ==============================================================================
-# 5. EVALUACIÓN MULTICRITERIO
+# 5. EVALUACIÓN MULTICRITERIO (REAL-TIME AG-GRID)
 # ==============================================================================
 st.subheader("📊 5. Evaluación de Alternativas")
 
 alts = st.session_state.get('lista_alternativas', [])
 
 if not alts:
-    st.info("👆 Configure y guarde al menos una alternativa arriba para iniciar la evaluación.")
+    st.info("👆 Cree alternativas arriba para evaluar.")
 else:
-    with st.expander("⚙️ Configurar Criterios y Pesos", expanded=False):
+    # 1. Pesos
+    with st.expander("⚙️ Configurar Pesos (%)", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         p = st.session_state.get('ponderacion_criterios', {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0})
+        pc = c1.number_input("Costo", 0, 100, int(p['COSTO']))
+        pf = c2.number_input("Facilidad", 0, 100, int(p['FACILIDAD']))
+        pb = c3.number_input("Beneficios", 0, 100, int(p['BENEFICIOS']))
+        pt = c4.number_input("Tiempo", 0, 100, int(p['TIEMPO']))
         
-        with c1: pc = st.number_input("Costo (%)", 0, 100, int(p['COSTO']), key="wc")
-        with c2: pf = st.number_input("Facilidad (%)", 0, 100, int(p['FACILIDAD']), key="wf")
-        with c3: pb = st.number_input("Beneficios (%)", 0, 100, int(p['BENEFICIOS']), key="wb")
-        with c4: pt = st.number_input("Tiempo (%)", 0, 100, int(p['TIEMPO']), key="wt")
-        
-        suma = pc + pf + pb + pt
-        if suma == 100:
+        if pc+pf+pb+pt == 100:
             st.session_state['ponderacion_criterios'] = {"COSTO": pc, "FACILIDAD": pf, "BENEFICIOS": pb, "TIEMPO": pt}
         else:
-            st.warning(f"⚠️ Suma actual: {suma}%. Debe ser 100%.")
+            st.warning(f"Suma: {pc+pf+pb+pt}%. Debe ser 100%.")
 
-    st.markdown("##### 🏆 Matriz de Decisión (Escala 1-5)")
+    # 2. Preparar Datos para AgGrid
     nombres_alts = [a['nombre'] for a in alts]
     criterios = ["COSTO", "FACILIDAD", "BENEFICIOS", "TIEMPO"]
     
@@ -367,44 +324,84 @@ else:
         st.session_state['df_calificaciones'] = pd.DataFrame(1, index=nombres_alts, columns=criterios)
     else:
         st.session_state['df_calificaciones'].index = nombres_alts
+    
+    # Reset index para tener 'Alternativa' como columna en AgGrid
+    df_scores_reset = st.session_state['df_calificaciones'].reset_index().rename(columns={"index": "Alternativa"})
 
-    df_scores = st.data_editor(
-        st.session_state['df_calificaciones'],
-        column_config={c: st.column_config.NumberColumn(min_value=0, max_value=5, step=1) for c in criterios},
-        use_container_width=True, key="ed_scores_final"
+    # 3. Configurar AgGrid con Fórmula JS para Total
+    gb_score = GridOptionsBuilder.from_dataframe(df_scores_reset)
+    
+    gb_score.configure_column("Alternativa", editable=False, width=200, pinned="left")
+    for crit in criterios:
+        gb_score.configure_column(crit, editable=True, width=120, type=["numericColumn", "numberColumnFilter"], min=0, max=5)
+
+    # Inyección de Pesos en JS
+    pesos = st.session_state['ponderacion_criterios']
+    js_calc_total = JsCode(f"""
+    function(params) {{
+        var c = params.data.COSTO || 0;
+        var f = params.data.FACILIDAD || 0;
+        var b = params.data.BENEFICIOS || 0;
+        var t = params.data.TIEMPO || 0;
+        
+        var total = (c * {pesos['COSTO']} + f * {pesos['FACILIDAD']} + b * {pesos['BENEFICIOS']} + t * {pesos['TIEMPO']}) / 100;
+        return Number(total).toFixed(2);
+    }}
+    """)
+    
+    gb_score.configure_column("TOTAL", valueGetter=js_calc_total, width=140, cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f9ff'})
+    
+    gb_score.configure_grid_options(domLayout='autoHeight')
+    gridOptionsScore = gb_score.build()
+    
+    st.markdown("##### 🏆 Matriz de Decisión (1-5)")
+    st.caption("Edite los valores. El total se actualiza automáticamente.")
+    
+    grid_response_score = AgGrid(
+        df_scores_reset,
+        gridOptions=gridOptionsScore,
+        custom_css=custom_css,
+        update_mode=GridUpdateMode.VALUE_CHANGED, # <--- ESTO ACTUALIZA LA APP AL CAMBIAR UN DATO
+        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+        fit_columns_on_grid_load=True,
+        theme='streamlit',
+        allow_unsafe_jscode=True,
+        key="grid_scores_realtime"
     )
 
-    if not df_scores.equals(st.session_state['df_calificaciones']):
-        st.session_state['df_calificaciones'] = df_scores
-        guardar_datos_nube(); st.rerun()
-
-    st.markdown("### 🥇 Resultados")
-    res_finales = []
-    pesos = st.session_state['ponderacion_criterios']
+    # 4. Procesar Resultados (Actualización Inmediata)
+    df_res = pd.DataFrame(grid_response_score['data'])
     
-    if suma == 100:
-        for alt_n in nombres_alts:
-            fila = {"Alternativa": alt_n}
+    # Recuperamos el índice para guardar
+    if not df_res.empty and "Alternativa" in df_res.columns:
+        df_save = df_res.set_index("Alternativa")[criterios].astype(float)
+        st.session_state['df_calificaciones'] = df_save
+        
+        # Calculamos ranking para mostrar la ganadora
+        res_finales = []
+        for alt_n in df_save.index:
             p_final = 0
             for crit in criterios:
-                sc = df_scores.loc[alt_n, crit]
-                w = pesos[crit] / 100
-                p_final += sc * w
-            fila["PUNTAJE FINAL"] = round(p_final, 2)
-            res_finales.append(fila)
-
-        df_final = pd.DataFrame(res_finales).sort_values(by="PUNTAJE FINAL", ascending=False)
+                p_final += df_save.loc[alt_n, crit] * (pesos[crit]/100)
+            res_finales.append({"Alternativa": alt_n, "PUNTAJE": p_final})
+            
+        df_ranking = pd.DataFrame(res_finales).sort_values("PUNTAJE", ascending=False)
         
-        st.dataframe(
-            df_final, 
-            column_config={
-                "PUNTAJE FINAL": st.column_config.ProgressColumn(
-                    "Puntaje Ponderado", format="%.2f", min_value=0, max_value=5
-                )
-            },
-            use_container_width=True, hide_index=True
-        )
+        # Mostrar Ganadora
+        if not df_ranking.empty:
+            ganadora = df_ranking.iloc[0]
+            st.success(f"🎉 **Ganadora Actual:** {ganadora['Alternativa']} con **{ganadora['PUNTAJE']:.2f}** puntos")
+            
+            # Tabla visual del ranking
+            st.dataframe(
+                df_ranking,
+                column_config={
+                    "PUNTAJE": st.column_config.ProgressColumn(
+                        "Puntaje", format="%.2f", min_value=0, max_value=5
+                    )
+                },
+                use_container_width=True, hide_index=True
+            )
 
-        if not df_final.empty:
-            ganadora = df_final.iloc[0]
-            st.success(f"🎉 Ganadora: **{ganadora['Alternativa']}** ({ganadora['PUNTAJE FINAL']} pts).")
+# Espacio final
+st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
