@@ -9,14 +9,42 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia
 inicializar_session()
 
-# --- DISEÑO PROFESIONAL (Idéntico al Paso 7) ---
+# --- SANEAMIENTO DE DATOS (Corrección Automática de Errores) ---
+# Esto evita el AttributeError convirtiendo textos viejos al nuevo formato
+if 'arbol_problemas_final' in st.session_state:
+    for k in st.session_state['arbol_problemas_final']:
+        if k == 'referencia_manual': continue # Saltamos la referencia
+        
+        datos_sucios = st.session_state['arbol_problemas_final'][k]
+        datos_limpios = []
+        
+        if isinstance(datos_sucios, list):
+            for item in datos_sucios:
+                # Si es texto simple, lo convertimos a diccionario
+                if isinstance(item, str):
+                    datos_limpios.append({"texto": item, "id_unico": str(uuid.uuid4()), "padre": ""})
+                # Si ya es diccionario y tiene texto, lo dejamos pasar
+                elif isinstance(item, dict) and item.get('texto'):
+                    datos_limpios.append(item)
+            st.session_state['arbol_problemas_final'][k] = datos_limpios
+
+# --- RECUPERAR REFERENCIA (Del Paso 7) ---
+if 'arbol_objetivos_final' not in st.session_state:
+    st.session_state['arbol_objetivos_final'] = {}
+if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
+    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
+        "nombre": "No definida", "objetivo": "", "especificos": "", "actividades": ""
+    }
+
+ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
+
+# --- DISEÑO PROFESIONAL ---
 st.markdown("""
     <style>
     .block-container { padding-bottom: 10rem !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Tarjeta Modo Poda */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -55,17 +83,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- RECUPERAR REFERENCIA (Del Paso 7) ---
-# Accedemos a la misma "caja fuerte" donde guardamos los datos en el paso anterior
-if 'arbol_objetivos_final' not in st.session_state:
-    st.session_state['arbol_objetivos_final'] = {}
-if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
-    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
-        "nombre": "No definida", "objetivo": "", "especificos": "", "actividades": ""
-    }
-
-ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
-
 # --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
@@ -73,7 +90,8 @@ with col_t:
     st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico basado en la estrategia.</div>', unsafe_allow_html=True)
     
     datos_prob = st.session_state.get('arbol_problemas_final', {})
-    hay_datos = any(datos_prob.values()) if datos_prob else False
+    claves_reales = [k for k in datos_prob.keys() if k != 'referencia_manual']
+    hay_datos = any(datos_prob[k] for k in claves_reales) if claves_reales else False
     st.progress(1.0 if hay_datos else 0.0)
 
 with col_img:
@@ -94,10 +112,12 @@ def calc_altura(texto):
     lineas = str(texto).count('\n') + (len(str(texto)) // 50) + 1
     return max(100, lineas * 25)
 
-# --- MOTOR DE DIBUJO (GRAPHVIZ) ---
+# --- MOTOR DE DIBUJO ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_problemas_final', {})
-    if not any(datos.values()): return None
+    # Filtramos claves que no sean del árbol para evitar errores
+    claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
+    if not any(datos.get(k) for k in claves_graficas): return None
     
     dot = graphviz.Digraph(format='png')
     dot.attr(label='\nÁRBOL DE PROBLEMAS FINAL\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
@@ -107,7 +127,6 @@ def generar_grafo_problemas():
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
-    # Alineación Lateral (Espejo de Step 7)
     MAPA_LLAVES = {"CI": "Causas Indirectas", "CD": "Causas Directas", "PP": "Problema Principal", "ED": "Efectos Directos", "EI": "Efectos Indirectos"}
     niv_list = ["CI", "CD", "PP", "ED", "EI"]
     
@@ -117,32 +136,27 @@ def generar_grafo_problemas():
     for i in range(len(niv_list)-1):
         dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
 
-    # Problema Central
     prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
 
-    # Efectos (Hacia Arriba - Similar a Fines)
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
             n_id = f"ED{i}"
             dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
             dot.edge("PP", n_id)
-            
             hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
             for j, h in enumerate(hijos):
                 h_id = f"EI{i}_{j}"
                 dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
                 dot.edge(n_id, h_id)
 
-    # Causas (Hacia Abajo - Similar a Medios)
     for tipo, p_id, h_tipo in [("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
             n_id = f"CD{i}"
             dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
             dot.edge(n_id, "PP")
-            
             hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
             for j, h in enumerate(hijos):
                 h_id = f"CI{i}_{j}"
@@ -165,12 +179,13 @@ def render_poda_card(seccion, item, idx):
 with st.sidebar:
     st.header("⚙️ Herramientas")
     if st.button("♻️ Importar desde Paso 4", use_container_width=True, type="primary"):
-        # Importamos del árbol original convirtiendo strings a dicts si es necesario
+        # Importación limpia
         origen = st.session_state.get('arbol_tarjetas', {})
         destino = {}
         for k, v in origen.items():
             lista_nueva = []
             for item in v:
+                # Normalizamos al importar también
                 if isinstance(item, dict): lista_nueva.append(item)
                 else: lista_nueva.append({"texto": str(item), "id_unico": str(uuid.uuid4()), "padre": ""})
             destino[k] = lista_nueva
@@ -191,9 +206,8 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- BLOQUE DE REFERENCIA (Lectura del Paso 7) ---
-        st.subheader("📌 Estrategia de Solución (Referencia del Paso 7)")
-        st.info("Estos son los objetivos que definió. Use esta referencia para podar el árbol de problemas: solo deje los problemas que esta estrategia va a resolver.")
+        # --- BLOQUE DE REFERENCIA (Lectura Inmutable) ---
+        st.subheader("📌 Alternativa Seleccionada (Referencia)")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -205,8 +219,9 @@ with tab2:
 
         st.divider()
 
-        # --- PANEL DE PODA (Lógica espejo Problemas) ---
+        # --- PANEL DE PODA ---
         st.subheader("📋 Panel de Poda")
+        st.info("Deje solo los problemas que su alternativa resolverá.")
         
         def mostrar_seccion_problemas(tipo_padre, tipo_hijo):
             datos_sec = st.session_state['arbol_problemas_final'].get(tipo_padre, [])
@@ -218,7 +233,7 @@ with tab2:
             h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
             max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
 
-            # Lógica: Efectos arriba (invertido), Causas abajo (normal)
+            # Lógica invertida para Efectos (crecen hacia arriba)
             if "Efectos" in tipo_padre:
                 for h_idx in range(max_h - 1, -1, -1):
                     cols = st.columns(len(padres_con_idx))
@@ -229,6 +244,7 @@ with tab2:
                 cols_p = st.columns(len(padres_con_idx))
                 for i, (idx_o, p_d) in enumerate(padres_con_idx):
                     with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
+            # Lógica normal para Causas (crecen hacia abajo)
             else:
                 cols_p = st.columns(len(padres_con_idx))
                 for i, (idx_o, p_d) in enumerate(padres_con_idx):
