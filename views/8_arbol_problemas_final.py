@@ -1,163 +1,248 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-import io
+import graphviz
+import os
+import uuid
 import textwrap
 import copy
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Carga de persistencia
+# 1. Asegurar persistencia
 inicializar_session()
 
-# --- SANEAMIENTO AUTOMÁTICO SILENCIOSO ---
-def es_valido(item):
-    if not item: return False
-    txt = item["texto"] if isinstance(item, dict) else str(item)
-    # Filtro estricto: Menos de 4 letras se considera basura o error de edición
-    return len(txt.strip()) > 3 
-
-# --- ESTILO DE TARJETAS ---
+# --- DISEÑO PROFESIONAL (Idéntico al Paso 7) ---
 st.markdown("""
     <style>
-    div[data-testid="stTextArea"] textarea {
-        background-color: #f8f9fb !important;
-        border-radius: 0 0 10px 10px !important;
-        text-align: center !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
+    .block-container { padding-bottom: 10rem !important; }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+
+    /* Tarjeta Modo Poda */
+    .poda-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0 0 10px 10px;
+        padding: 15px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 5px;
     }
-    .stButton button:not([kind="primary"]) {
+
+    .main .stButton button {
         border: none !important;
         background: transparent !important;
-        color: #ff4b4b !important;
-        padding: 0 !important;
-        font-weight: bold !important;
+        color: #ef4444 !important;
+        font-size: 1.2rem !important;
+        margin-top: -10px !important;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f1f5f9;
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+        color: #475569;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1E3A8A !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🌳 8. Árbol de Problemas Final")
-st.info("Este árbol refleja el diagnóstico definitivo que se resolverá en la Matriz de Marco Lógico.")
+# --- RECUPERAR REFERENCIA (Del Paso 7) ---
+# Accedemos a la misma "caja fuerte" donde guardamos los datos en el paso anterior
+if 'arbol_objetivos_final' not in st.session_state:
+    st.session_state['arbol_objetivos_final'] = {}
+if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
+    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
+        "nombre": "No definida", "objetivo": "", "especificos": "", "actividades": ""
+    }
+
+ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
+
+# --- ENCABEZADO ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico basado en la estrategia.</div>', unsafe_allow_html=True)
+    
+    datos_prob = st.session_state.get('arbol_problemas_final', {})
+    hay_datos = any(datos_prob.values()) if datos_prob else False
+    st.progress(1.0 if hay_datos else 0.0)
+
+with col_img:
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
 
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS INDIRECTOS"},
-    "Efectos Directos": {"color": "#80BFFF", "label": "EFECTOS DIRECTOS"},
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA PRINCIPAL"},
-    "Causas Directas": {"color": "#FFFFBA", "label": "CAUSAS DIRECTAS"},
-    "Causas Indirectas": {"color": "#FFDFBA", "label": "CAUSAS INDIRECTAS"}
+    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\nINDIRECTOS"},
+    "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\nDIRECTOS"},
+    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA\nCENTRAL"},
+    "Causas Directas":    {"color": "#FFFFBA", "label": "CAUSAS\nDIRECTAS"},
+    "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\nINDIRECTAS"}
 }
 
-# --- BARRA LATERAL: HERRAMIENTAS ---
+# --- FUNCIÓN ALTURA DINÁMICA ---
+def calc_altura(texto):
+    lineas = str(texto).count('\n') + (len(str(texto)) // 50) + 1
+    return max(100, lineas * 25)
+
+# --- MOTOR DE DIBUJO (GRAPHVIZ) ---
+def generar_grafo_problemas():
+    datos = st.session_state.get('arbol_problemas_final', {})
+    if not any(datos.values()): return None
+    
+    dot = graphviz.Digraph(format='png')
+    dot.attr(label='\nÁRBOL DE PROBLEMAS FINAL\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
+    dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
+    
+    def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
+
+    # Alineación Lateral (Espejo de Step 7)
+    MAPA_LLAVES = {"CI": "Causas Indirectas", "CD": "Causas Directas", "PP": "Problema Principal", "ED": "Efectos Directos", "EI": "Efectos Indirectos"}
+    niv_list = ["CI", "CD", "PP", "ED", "EI"]
+    
+    for niv in niv_list:
+        conf = CONFIG_PROB[MAPA_LLAVES[niv]]
+        dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor='#475569', fontsize='11', fontname='Arial Bold', style='none')
+    for i in range(len(niv_list)-1):
+        dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
+
+    # Problema Central
+    prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
+    if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
+
+    # Efectos (Hacia Arriba - Similar a Fines)
+    for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos")]:
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        for i, item in enumerate(items):
+            n_id = f"ED{i}"
+            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
+            dot.edge("PP", n_id)
+            
+            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
+            for j, h in enumerate(hijos):
+                h_id = f"EI{i}_{j}"
+                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
+                dot.edge(n_id, h_id)
+
+    # Causas (Hacia Abajo - Similar a Medios)
+    for tipo, p_id, h_tipo in [("Causas Directas", "PP", "Causas Indirectas")]:
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        for i, item in enumerate(items):
+            n_id = f"CD{i}"
+            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
+            dot.edge(n_id, "PP")
+            
+            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
+            for j, h in enumerate(hijos):
+                h_id = f"CI{i}_{j}"
+                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
+                dot.edge(h_id, n_id)
+
+    return dot
+
+# --- RENDERIZADO DE TARJETA MODO PODA ---
+def render_poda_card(seccion, item, idx):
+    if not isinstance(item, dict): return
+    id_u = item.get('id_unico', str(uuid.uuid4()))
+    color_barra = CONFIG_PROB.get(seccion, {}).get("color", "#ccc")
+    st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
+    if st.button("🗑️", key=f"poda_prob_{id_u}"):
+        st.session_state['arbol_problemas_final'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
+
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
-    
-    if st.button("♻️ Importar desde Paso 4", use_container_width=True):
-        st.session_state['arbol_problemas_final'] = copy.deepcopy(st.session_state['arbol_tarjetas'])
+    if st.button("♻️ Importar desde Paso 4", use_container_width=True, type="primary"):
+        # Importamos del árbol original convirtiendo strings a dicts si es necesario
+        origen = st.session_state.get('arbol_tarjetas', {})
+        destino = {}
+        for k, v in origen.items():
+            lista_nueva = []
+            for item in v:
+                if isinstance(item, dict): lista_nueva.append(item)
+                else: lista_nueva.append({"texto": str(item), "id_unico": str(uuid.uuid4()), "padre": ""})
+            destino[k] = lista_nueva
+        
+        st.session_state['arbol_problemas_final'] = destino
         guardar_datos_nube(); st.rerun()
-    
+        
     st.divider()
-    
-    def generar_png_final_limpio():
-        fig, ax = plt.subplots(figsize=(18, 16))
-        ax.set_xlim(0, 10); ax.set_ylim(-3, 11); ax.axis('off')
-        datos = st.session_state.get('arbol_problemas_final', {})
+    grafo = generar_grafo_problemas()
+    if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas_final.png", use_container_width=True)
+
+# --- PANEL PRINCIPAL ---
+tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
+
+with tab1:
+    g_f = generar_grafo_problemas()
+    if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
+
+with tab2:
+    if hay_datos:
+        # --- BLOQUE DE REFERENCIA (Lectura del Paso 7) ---
+        st.subheader("📌 Estrategia de Solución (Referencia del Paso 7)")
+        st.info("Estos son los objetivos que definió. Use esta referencia para podar el árbol de problemas: solo deje los problemas que esta estrategia va a resolver.")
         
-        # Mapeo X basado solo en elementos válidos
-        c_dir = [c for c in datos.get("Causas Directas", []) if es_valido(c)]
-        esp_c = 10 / (len(c_dir) + 1) if c_dir else 5.0
-        pos_x_causas = { (c['texto'] if isinstance(c, dict) else c): (i+1)*esp_c for i, c in enumerate(c_dir) }
+        col1, col2 = st.columns(2)
+        with col1:
+            st.text_input("Nombre de la Alternativa:", value=ref_data['nombre'], disabled=True)
+            st.text_area("Objetivo General:", value=ref_data['objetivo'], height=calc_altura(ref_data['objetivo']), disabled=True)
+        with col2:
+            st.text_area("Objetivos Específicos:", value=ref_data['especificos'], height=calc_altura(ref_data['especificos']), disabled=True)
+            st.text_area("Actividades Clave:", value=ref_data['actividades'], height=calc_altura(ref_data['actividades']), disabled=True)
 
-        e_dir = [e for e in datos.get("Efectos Directos", []) if es_valido(e)]
-        esp_e = 10 / (len(e_dir) + 1) if e_dir else 5.0
-        pos_x_efectos = { (e['texto'] if isinstance(e, dict) else e): (i+1)*esp_e for i, e in enumerate(e_dir) }
+        st.divider()
 
-        Y_LEVELS = {"Efectos Indirectos": 9.5, "Efectos Directos": 8.0, "Problema Principal": 5.0, "Causas Directas": 2.5, "Causas Indirectas": 1.0}
-        stacks = {}
-
-        for sec, y_base in Y_LEVELS.items():
-            items = [it for it in datos.get(sec, []) if es_valido(it)]
-            for it in items:
-                txt = it["texto"] if isinstance(it, dict) else it
-                x = 5.0
-                if sec == "Causas Directas": x = pos_x_causas.get(txt, 5.0)
-                elif sec == "Efectos Directos": x = pos_x_efectos.get(txt, 5.0)
-                elif sec in ["Causas Indirectas", "Efectos Indirectos"]:
-                    p_txt = it.get("padre") if isinstance(it, dict) else None
-                    x = pos_x_causas.get(p_txt) if sec == "Causas Indirectas" else pos_x_efectos.get(p_txt)
-                    if x is None: continue 
-
-                current_y = y_base
-                if sec in ["Causas Indirectas", "Efectos Indirectos"]:
-                    offset = stacks.get((sec, x), 0)
-                    current_y = y_base - offset if sec == "Causas Indirectas" else y_base + offset
-                    stacks[(sec, x)] = offset + 1.3
-
-                ax.add_patch(plt.Rectangle((x-1.15, current_y-0.5), 2.3, 1.0, facecolor=CONFIG_PROB[sec]["color"], edgecolor='#333', lw=1.5))
-                ax.text(x, current_y, "\n".join(textwrap.wrap(txt, width=22)), ha='center', va='center', fontsize=9, fontweight='bold')
+        # --- PANEL DE PODA (Lógica espejo Problemas) ---
+        st.subheader("📋 Panel de Poda")
         
-        buf = io.BytesIO(); plt.savefig(buf, format="png", dpi=300, bbox_inches='tight'); plt.close(fig)
-        return buf.getvalue()
-
-    # Nombre de botón unificado con Step 7
-    st.download_button("🖼️ Descargar Árbol Final", generar_png_final_limpio(), "arbol_problemas_final.png", use_container_width=True)
-
-# --- FUNCIONES DE RENDERIZADO ---
-
-def render_poda_card(seccion, indice, item):
-    texto_actual = item["texto"] if isinstance(item, dict) else item
-    color = CONFIG_PROB[seccion]["color"]
-    with st.container():
-        st.markdown(f'<div style="background-color: {color}; height: 6px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
-        nuevo_texto = st.text_area(label=f"txt_{seccion}_{indice}", value=texto_actual, label_visibility="collapsed", height=90, key=f"p_edit_{seccion}_{indice}")
-        
-        if st.button("🗑️ Eliminar", key=f"p_del_{seccion}_{indice}"):
-            st.session_state['arbol_problemas_final'][seccion].pop(indice)
-            guardar_datos_nube(); st.rerun()
+        def mostrar_seccion_problemas(tipo_padre, tipo_hijo):
+            datos_sec = st.session_state['arbol_problemas_final'].get(tipo_padre, [])
+            padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
+            if not padres_con_idx: return
             
-        if nuevo_texto != texto_actual:
-            if isinstance(item, dict): st.session_state['arbol_problemas_final'][seccion][indice]["texto"] = nuevo_texto.strip()
-            else: st.session_state['arbol_problemas_final'][seccion][indice] = nuevo_texto.strip()
-            guardar_datos_nube()
+            st.write(f"**{tipo_padre}**")
+            hijos = st.session_state['arbol_problemas_final'].get(tipo_hijo, [])
+            h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
+            max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
 
-def mostrar_rama_poda(padre_key, hijo_key, inversion=False):
-    # Aplicamos el filtro es_valido también en la visualización de pantalla
-    padres = [p for p in st.session_state['arbol_problemas_final'].get(padre_key, []) if es_valido(p)]
-    hijos = [h for h in st.session_state['arbol_problemas_final'].get(hijo_key, []) if es_valido(h)]
-    orden = [(hijo_key, True), (padre_key, False)] if inversion else [(padre_key, False), (hijo_key, True)]
-    
-    for sec, es_hijo in orden:
-        c1, c2 = st.columns([1, 4])
-        with c1: st.markdown(f"<div style='margin-top:25px;'>**{CONFIG_PROB[sec]['label']}**</div>", unsafe_allow_html=True)
-        with c2:
-            if padres:
-                cols = st.columns(len(padres))
-                for i, p_data in enumerate(padres):
-                    p_txt = p_data["texto"] if isinstance(p_data, dict) else p_data
-                    with cols[i]:
-                        if es_hijo:
-                            h_rel = [(idx, h) for idx, h in enumerate(hijos) if isinstance(h, dict) and h.get("padre") == p_txt]
-                            for _, h_data in h_rel:
-                                idx_orig = next(i for i, x in enumerate(st.session_state['arbol_problemas_final'][sec]) if x == h_data)
-                                render_poda_card(sec, idx_orig, h_data)
-                        else:
-                            idx_orig = next(i for i, x in enumerate(st.session_state['arbol_problemas_final'][padre_key]) if x == p_data)
-                            render_poda_card(sec, idx_orig, p_data)
-            else: st.caption("Sin datos.")
+            # Lógica: Efectos arriba (invertido), Causas abajo (normal)
+            if "Efectos" in tipo_padre:
+                for h_idx in range(max_h - 1, -1, -1):
+                    cols = st.columns(len(padres_con_idx))
+                    for p_col, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
+                            else: st.empty()
+                cols_p = st.columns(len(padres_con_idx))
+                for i, (idx_o, p_d) in enumerate(padres_con_idx):
+                    with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
+            else:
+                cols_p = st.columns(len(padres_con_idx))
+                for i, (idx_o, p_d) in enumerate(padres_con_idx):
+                    with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
+                for h_idx in range(max_h):
+                    cols = st.columns(len(padres_con_idx))
+                    for p_col, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
+                            else: st.empty()
 
-# --- DIBUJO DE LA MESA ---
-arbol_p_f = st.session_state.get('arbol_problemas_final', {})
-
-if not arbol_p_f:
-    st.warning("Árbol vacío. Use 'Importar desde Paso 4' en el menú lateral.")
-else:
-    st.divider()
-    mostrar_rama_poda("Efectos Directos", "Efectos Indirectos", inversion=True)
-    st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-    
-    c1, c2 = st.columns([1, 4])
-    with c1: st.markdown(f"**{CONFIG_PROB['Problema Principal']['label']}**")
-    with c2: 
-        if arbol_p_f.get('Problema Principal') and es_valido(arbol_p_f['Problema Principal'][0]):
-            render_poda_card('Problema Principal', 0, arbol_p_f['Problema Principal'][0])
-    st.markdown("<hr style='border: 1px solid #eee; opacity: 0.1;'>", unsafe_allow_html=True)
-    
-    mostrar_rama_poda("Causas Directas", "Causas Indirectas", inversion=False)
+        mostrar_seccion_problemas("Efectos Directos", "Efectos Indirectos")
+        st.markdown("---")
+        pp_f = st.session_state['arbol_problemas_final'].get("Problema Principal", [])
+        if pp_f: render_poda_card("Problema Principal", pp_f[0], 0)
+        st.markdown("---")
+        mostrar_seccion_problemas("Causas Directas", "Causas Indirectas")
