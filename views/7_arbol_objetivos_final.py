@@ -16,16 +16,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Panel de Diligenciamiento Manual */
-    .contenedor-manual {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 30px;
-    }
-
-    /* Tarjeta Modo Poda (Solo lectura) */
+    /* Estilo de Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -68,7 +59,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Referencia manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Diligenciamiento manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
     hay_datos = any(datos_final.values()) if datos_final else False
@@ -112,7 +103,6 @@ def generar_grafo_final():
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
     if obj_gen: dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
-    # Lógica simplificada de jerarquías
     for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
@@ -157,19 +147,17 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- BLOQUE DE DILIGENCIAMIENTO MANUAL ---
-        st.subheader("📌 Referencia de la Alternativa Seleccionada")
-        with st.container():
-            st.markdown('<div class="contenedor-manual">', unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            with col1:
-                n_alt = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt")
-                o_gen = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen")
-            with col2:
-                o_esp = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp")
-                activ = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if st.button("💾 Guardar Referencia"): guardar_datos_nube(); st.success("Referencia guardada.")
+        # --- BLOQUE DE DILIGENCIAMIENTO AJUSTADO (Sin Referencia y Sin Cinta Gris) ---
+        st.subheader("📌 Alternativa Seleccionada")
+        col1, col2 = st.columns(2)
+        with col1:
+            n_alt = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt")
+            o_gen = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen")
+        with col2:
+            o_esp = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp")
+            activ = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ")
+        
+        if st.button("💾 Guardar Datos"): guardar_datos_nube(); st.success("Información guardada.")
 
         st.subheader("📋 Panel de Poda")
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
