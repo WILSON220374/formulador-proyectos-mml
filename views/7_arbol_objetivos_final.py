@@ -16,7 +16,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estilo de Tarjeta Modo Poda (Solo lectura) */
+    /* Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -59,7 +59,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Diligenciamiento manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Diligenciamiento manual con guardado automático y poda de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
     hay_datos = any(datos_final.values()) if datos_final else False
@@ -147,17 +147,31 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- BLOQUE DE DILIGENCIAMIENTO AJUSTADO (Sin Referencia y Sin Cinta Gris) ---
+        # --- BLOQUE DE DILIGENCIAMIENTO CON GUARDADO AUTOMÁTICO ---
         st.subheader("📌 Alternativa Seleccionada")
         col1, col2 = st.columns(2)
         with col1:
-            n_alt = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt")
-            o_gen = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen")
+            st.text_input("Nombre de la Alternativa:", 
+                         value=st.session_state.get('p7_nom_alt', ''), 
+                         key="p7_nom_alt", 
+                         on_change=guardar_datos_nube)
+            
+            st.text_area("Objetivo General:", 
+                        value=st.session_state.get('p7_obj_gen', ''), 
+                        key="p7_obj_gen", 
+                        on_change=guardar_datos_nube)
         with col2:
-            o_esp = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp")
-            activ = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ")
+            st.text_area("Objetivos Específicos:", 
+                        value=st.session_state.get('p7_obj_esp', ''), 
+                        key="p7_obj_esp", 
+                        on_change=guardar_datos_nube)
+            
+            st.text_area("Actividades Clave:", 
+                        value=st.session_state.get('p7_activ', ''), 
+                        key="p7_activ", 
+                        on_change=guardar_datos_nube)
         
-        if st.button("💾 Guardar Datos"): guardar_datos_nube(); st.success("Información guardada.")
+        st.info("💡 La información se guarda automáticamente al cambiar de casilla.")
 
         st.subheader("📋 Panel de Poda")
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
