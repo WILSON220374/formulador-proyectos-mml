@@ -8,17 +8,29 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTRATEGIA: LIMPIEZA TOTAL DE REGISTROS "NONE" ---
+# --- ESTRATEGIA: SISTEMA INMUNITARIO (LIMPIEZA AUTOMÁTICA Y SINCRONIZADA) ---
+# Este bloque detecta "zombis" o "Nones", los borra y limpia la nube sin preguntar
 if 'arbol_tarjetas' in st.session_state:
+    limpieza_realizada = False
     for seccion in st.session_state['arbol_tarjetas']:
         lista = st.session_state['arbol_tarjetas'][seccion]
         if isinstance(lista, list):
-            st.session_state['arbol_tarjetas'][seccion] = [
+            # Solo permitimos fichas con texto real, mayor a 2 letras y que no sea "NONE"
+            nueva_lista = [
                 it for it in lista if isinstance(it, dict) and 
                 it.get('texto') and 
-                len(str(it.get('texto')).strip()) > 2 and 
-                str(it.get('texto')).upper() != "NONE"
+                str(it.get('texto')).strip().upper() != "NONE" and
+                len(str(it.get('texto')).strip()) > 2
             ]
+            
+            if len(nueva_lista) != len(lista):
+                st.session_state['arbol_tarjetas'][seccion] = nueva_lista
+                limpieza_realizada = True
+    
+    # Si encontramos basura, limpiamos la base de datos de una vez
+    if limpieza_realizada:
+        guardar_datos_nube()
+        st.rerun()
 
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
@@ -45,16 +57,10 @@ st.markdown("""
         margin-top: -15px !important;
     }
     
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f1f5f9;
-        border-radius: 10px 10px 0 0;
-        padding: 10px 20px;
-        color: #475569;
-    }
     .stTabs [aria-selected="true"] {
         background-color: #1E3A8A !important;
         color: white !important;
+        border-radius: 10px 10px 0 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -63,26 +69,24 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Estructura profesional con niveles jerárquicos definidos.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Visualización jerárquica con autolimpieza de registros.</div>', unsafe_allow_html=True)
     
     pc_data = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
     hay_datos = len(pc_data) > 0
-    st.progress(1.0 if hay_datos else 0.0, text="Árbol en Construcción" if hay_datos else "Esperando Datos")
+    st.progress(1.0 if hay_datos else 0.0, text="Lienzo Limpio" if hay_datos else "Esperando Datos")
 
 with col_img:
     if os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
-# --- MOTOR DE DIBUJO PROFESIONAL (ESTILO ARBOL.JPG) ---
+# --- MOTOR DE DIBUJO PROFESIONAL ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     pc = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if not pc: return None
 
     dot = graphviz.Digraph(format='png')
-    
-    # Título y Configuración General
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
     dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
@@ -92,80 +96,43 @@ def generar_grafo_problemas():
 
     COLORS = {"PC": "#A93226", "ED": "#2E86C1", "EI": "#884EA0", "CD": "#D4AC0D", "CI": "#CA6F1E"}
 
-    # --- 1. CREACIÓN DE LA COLUMNA DE GUÍA (IZQUIERDA) ---
-    # Creamos nodos de texto para las etiquetas laterales
-    etiquetas = {
-        "L_EI": "EFECTO\nINDIRECTO",
-        "L_ED": "EFECTO\nDIRECTO",
-        "L_PC": "PROBLEMA\nCENTRAL",
-        "L_CD": "CAUSA\nDIRECTA",
-        "L_CI": "CAUSA\nINDIRECTA"
-    }
-    
+    # 1. Columna de Guía Lateral
+    etiquetas = {"L_EI": "EFECTO\nINDIRECTO", "L_ED": "EFECTO\nDIRECTO", "L_PC": "PROBLEMA\nCENTRAL", "L_CD": "CAUSA\nDIRECTA", "L_CI": "CAUSA\nINDIRECTA"}
     for id_e, txt in etiquetas.items():
-        color_txt = COLORS["PC"] if "PC" in id_e else COLORS[id_e.split('_')[1]]
-        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold')
+        dot.node(id_e, txt, shape='plaintext', fontcolor='#94a3b8', fontsize='10', fontname='Arial Bold')
 
-    # Unimos las etiquetas con flechas invisibles para mantener el orden vertical
-    dot.edge("L_CI", "L_CD", style='invis')
-    dot.edge("L_CD", "L_PC", style='invis')
-    dot.edge("L_PC", "L_ED", style='invis')
-    dot.edge("L_ED", "L_EI", style='invis')
+    dot.edge("L_CI", "L_CD", style='invis'); dot.edge("L_CD", "L_PC", style='invis')
+    dot.edge("L_PC", "L_ED", style='invis'); dot.edge("L_ED", "L_EI", style='invis')
 
-    # --- 2. DIBUJO DE NIVELES CON ALINEACIÓN (RANK) ---
-
-    # NIVEL: PROBLEMA CENTRAL
+    # 2. Dibujo por Niveles (Rank Same)
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('L_PC')
+        s.attr(rank='same'); s.node('L_PC')
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
 
-    # NIVEL: CAUSAS DIRECTAS
-    c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('L_CD')
-        for i, it in enumerate(c_directas):
-            node_id = f"CD{i}"
-            s.node(node_id, limpiar(it['texto']), fillcolor=COLORS["CD"], fontcolor='black', color='none')
-            dot.edge(node_id, 'PC')
-
-    # NIVEL: CAUSAS INDIRECTAS
-    c_indirectas = [it for it in datos.get("Causas Indirectas", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('L_CI')
-        for i, it in enumerate(c_indirectas):
-            node_id_ci = f"CI{i}"
-            s.node(node_id_ci, limpiar(it['texto']), fillcolor=COLORS["CI"], fontcolor='white', color='none', fontsize='10')
-            # Buscar su padre en Directas
-            for j, p_data in enumerate(c_directas):
-                if it.get('padre') == p_data.get('texto'):
-                    dot.edge(node_id_ci, f"CD{j}")
-
-    # NIVEL: EFECTOS DIRECTOS
-    e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('L_ED')
-        for i, it in enumerate(e_directos):
-            node_id_ed = f"ED{i}"
-            s.node(node_id_ed, limpiar(it['texto']), fillcolor=COLORS["ED"], fontcolor='white', color='none')
-            dot.edge('PC', node_id_ed)
-
-    # NIVEL: EFECTOS INDIRECTOS
-    e_indirectos = [it for it in datos.get("Efectos Indirectos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('L_EI')
-        for i, it in enumerate(e_indirectos):
-            node_id_ei = f"EI{i}"
-            s.node(node_id_ei, limpiar(it['texto']), fillcolor=COLORS["EI"], fontcolor='white', color='none', fontsize='10')
-            # Buscar su padre en Directos
-            for j, p_data in enumerate(e_directos):
-                if it.get('padre') == p_data.get('texto'):
-                    dot.edge(f"ED{j}", node_id_ei)
+    for tipo, id_p, l_node, edge_dir, col in [
+        ("Efectos Directos", "ED", "L_ED", "forward", COLORS["ED"]),
+        ("Causas Directas", "CD", "L_CD", "back", COLORS["CD"])
+    ]:
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        with dot.subgraph() as s:
+            s.attr(rank='same'); s.node(l_node)
+            for i, it in enumerate(items):
+                node_id = f"{id_p}{i}"
+                s.node(node_id, limpiar(it['texto']), fillcolor=col, fontcolor='white' if col != COLORS["CD"] else 'black', color='none')
+                dot.edge('PC', node_id) if edge_dir == "forward" else dot.edge(node_id, 'PC')
                 
+                # Sub-ramas (Indirectas)
+                h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
+                h_col = COLORS["EI"] if "Efecto" in tipo else COLORS["CI"]
+                h_l_node = "L_EI" if "Efecto" in tipo else "L_CI"
+                
+                hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == it['texto'] and h.get('texto')]
+                with dot.subgraph() as sh:
+                    sh.attr(rank='same'); sh.node(h_l_node)
+                    for j, h in enumerate(hijos):
+                        h_id = f"{id_p}I{i}_{j}"
+                        sh.node(h_id, limpiar(h['texto']), fillcolor=h_col, fontcolor='white', color='none', fontsize='9')
+                        dot.edge(node_id, h_id) if edge_dir == "forward" else dot.edge(h_id, node_id)
     return dot
 
 # --- RENDERIZADO DE TARJETA ---
@@ -178,11 +145,11 @@ def render_card(seccion, item, idx):
     texto_actual = item.get('texto', '')
     nuevo = st.text_area("t", value=texto_actual, key=f"txt_{id_u}", label_visibility="collapsed")
     
-    if st.button("🗑️", key=f"btn_{id_u}"):
+    if st.button("🗑️", key=f"btn_{id_u}", help="Eliminar permanentemente"):
         st.session_state['arbol_tarjetas'][seccion].pop(idx)
         guardar_datos_nube(); st.rerun()
         
-    if nuevo != texto_actual: 
+    if nuevo != texto_actual and len(nuevo.strip()) > 2: 
         st.session_state['arbol_tarjetas'][seccion][idx]['texto'] = nuevo.strip()
         guardar_datos_nube()
 
@@ -190,7 +157,6 @@ def render_card(seccion, item, idx):
 with st.sidebar:
     st.header("➕ Agregar Ficha")
     tipo_sel = st.selectbox("Nivel:", ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"], index=2)
-    
     with st.form("crear_ficha", clear_on_submit=True):
         texto_input = st.text_area("Descripción:")
         padre_asociado = None
@@ -201,7 +167,7 @@ with st.sidebar:
         
         if st.form_submit_button("Generar Ficha") and texto_input.strip():
             if len(texto_input.strip()) > 2:
-                nueva = {"texto": texto_input.strip(), "id_unico": str(uuid.uuid4())}
+                nueva = {"texto": texto_input.strip().upper(), "id_unico": str(uuid.uuid4())}
                 if padre_asociado: nueva["padre"] = padre_asociado
                 if tipo_sel == "Problema Principal": st.session_state['arbol_tarjetas'][tipo_sel] = [nueva]
                 else: st.session_state['arbol_tarjetas'][tipo_sel].append(nueva)
@@ -225,7 +191,7 @@ with tab1:
 
 with tab2:
     if not hay_datos:
-        st.info("💡 Construya su árbol desde el menú lateral.")
+        st.info("💡 Use el menú lateral para construir el árbol.")
     else:
         st.subheader("📋 Panel de Edición")
         def mostrar_seccion_dinamica(tipo_padre, tipo_hijo):
