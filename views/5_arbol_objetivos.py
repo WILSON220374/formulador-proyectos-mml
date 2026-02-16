@@ -5,29 +5,28 @@ import uuid
 import textwrap
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Persistencia
+# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- SANEAMIENTO DE DATOS (Arreglo para Grupo 2) ---
-# Este bloque limpia la memoria apenas carga la página para evitar el TypeError
+# --- ESTRATEGIA: SANEAMIENTO DE DATOS (Arreglo para Grupo 2) ---
 if 'arbol_objetivos' in st.session_state:
     for seccion in st.session_state['arbol_objetivos']:
         lista = st.session_state['arbol_objetivos'][seccion]
         if isinstance(lista, list):
-            # Filtramos para que solo queden diccionarios válidos con texto
             st.session_state['arbol_objetivos'][seccion] = [
                 it for it in lista if isinstance(it, dict) and it.get('texto')
             ]
 
-# --- ESTILO GLOBAL ---
+# --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
+    .block-container { padding-bottom: 10rem !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: none !important;           
+        border: 1px solid #e2e8f0 !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 14px !important;
@@ -36,17 +35,24 @@ st.markdown("""
         min-height: 100px !important;
     }
 
-    [data-testid="stImage"] img { border-radius: 12px; pointer-events: none; }
-    button[title="View fullscreen"] { display: none !important; }
-    
     .main .stButton button {
         border: none !important;
         background: transparent !important;
-        color: #ff4b4b !important;
-        font-size: 1.3rem !important;
+        color: #ef4444 !important;
+        font-size: 1.2rem !important;
         margin-top: -15px !important;
-        position: relative;
-        z-index: 2;
+    }
+    
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f1f5f9;
+        border-radius: 10px 10px 0 0;
+        padding: 10px 20px;
+        color: #475569;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1E3A8A !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -63,7 +69,6 @@ with col_t:
 
 with col_img:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
-    elif os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
@@ -76,84 +81,75 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "font_color": "white", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO ---
+# --- MOTOR DE DIBUJO PROFESIONAL ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
     
     dot = graphviz.Digraph(format='png')
-    dot.attr(label='ÁRBOL DE OBJETIVOS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
-    dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
-    dot.attr('node', fontsize='20', fontname='Arial Bold', style='filled', color='none', margin='0.6,0.4', shape='box')
+    dot.attr(label='\nÁRBOL DE OBJETIVOS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
+    dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     
-    def limpiar(t, w=50): return "\n".join(textwrap.wrap(str(t).upper(), width=w))
+    def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
-    etiquetas = ["L_FI", "L_FD", "L_OG", "L_MD", "L_MI"]
-    tipos = ["Fines Indirectos", "Fines Directos", "Objetivo General", "Medios Directos", "Medios Indirectos"]
-    
-    for id_e, tipo in zip(etiquetas, tipos):
+    etiquetas = {"L_FI": "Fines Indirectos", "L_FD": "Fines Directos", "L_OG": "Objetivo General", "L_MD": "Medios Directos", "L_MI": "Medios Indirectos"}
+    for id_e, tipo in etiquetas.items():
         conf = CONFIG_OBJ[tipo]
-        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='18', fontname='Arial Bold', style='')
+        dot.node(id_e, conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='12', fontname='Arial Bold', style='none')
 
-    for i in range(len(etiquetas)-1):
-        dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
+    dot.edge("L_MI", "L_MD", style='invis')
+    dot.edge("L_MD", "L_OG", style='invis')
+    dot.edge("L_OG", "L_FD", style='invis')
+    dot.edge("L_FD", "L_FI", style='invis')
 
-    # 1. Fines Indirectos
-    f_ind = [it for it in datos.get("Fines Indirectos", []) if isinstance(it, dict)]
-    if f_ind:
-        c = CONFIG_OBJ["Fines Indirectos"]
+    # 1. Objetivo General
+    obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
+    if obj_gen:
         with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_FI')
-            for i, item in enumerate(f_ind):
-                s.node(f"FI{i}", limpiar(item.get('texto', '')), fillcolor=c["color"], fontcolor=c["font_color"])
+            s.attr(rank='same'); s.node('L_OG', shape='plaintext', style='none')
+            s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
     # 2. Fines Directos
-    f_dir = [it for it in datos.get("Fines Directos", []) if isinstance(it, dict)]
-    if f_dir:
-        c = CONFIG_OBJ["Fines Directos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_FD')
-            for i, item in enumerate(f_dir):
-                node_id = f"FD{i}"
-                s.node(node_id, limpiar(item.get('texto', '')), fillcolor=c["color"], fontcolor=c["font_color"])
-                hijos = [h for h in f_ind if h.get('padre') == item.get('texto')]
-                for h in hijos:
-                    idx_real = f_ind.index(h)
-                    dot.edge(node_id, f"FI{idx_real}", weight="5")
+    f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('L_FD', shape='plaintext', style='none')
+        for i, item in enumerate(f_dir):
+            node_id = f"FD{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
+            if obj_gen: dot.edge("OG", node_id)
 
-    # 3. Objetivo General
-    obj_gen = [it for it in datos.get("Objetivo General", []) if isinstance(it, dict)]
-    if obj_gen:
-        c = CONFIG_OBJ["Objetivo General"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_OG')
-            s.node("OG", limpiar(obj_gen[0].get('texto', ''), w=80), fillcolor=c["color"], fontcolor=c["font_color"], margin='0.8,0.4')
-        for i in range(len(f_dir)): 
-            dot.edge("OG", f"FD{i}", weight="5")
+    # 3. Fines Indirectos
+    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('L_FI', shape='plaintext', style='none')
+        for i, item in enumerate(f_ind):
+            node_id = f"FI{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
+            for j, p_data in enumerate(f_dir):
+                if item.get('padre') == p_data.get('texto'):
+                    dot.edge(f"FD{j}", node_id)
 
     # 4. Medios Directos
-    m_dir = [it for it in datos.get("Medios Directos", []) if isinstance(it, dict)]
-    if m_dir:
-        c = CONFIG_OBJ["Medios Directos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_MD')
-            for i, item in enumerate(m_dir):
-                node_id = f"MD{i}"
-                s.node(node_id, limpiar(item.get('texto', '')), fillcolor=c["color"], fontcolor=c["font_color"])
-                if obj_gen: dot.edge(node_id, "OG", weight="5")
+    m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('L_MD', shape='plaintext', style='none')
+        for i, item in enumerate(m_dir):
+            node_id = f"MD{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
+            if obj_gen: dot.edge(node_id, "OG")
 
     # 5. Medios Indirectos
-    m_ind = [it for it in datos.get("Medios Indirectos", []) if isinstance(it, dict)]
-    if m_ind:
-        c = CONFIG_OBJ["Medios Indirectos"]
-        with dot.subgraph() as s:
-            s.attr(rank='same'); s.node('L_MI')
-            for i, item in enumerate(m_ind):
-                node_id = f"MI{i}"
-                s.node(node_id, limpiar(item.get('texto', '')), fillcolor=c["color"], fontcolor=c["font_color"])
-                for p_idx, padre in enumerate(m_dir):
-                    if item.get('padre') == padre.get('texto'):
-                        dot.edge(node_id, f"MD{p_idx}", weight="5")
+    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('L_MI', shape='plaintext', style='none')
+        for i, item in enumerate(m_ind):
+            node_id = f"MI{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
+            for j, p_data in enumerate(m_dir):
+                if item.get('padre') == p_data.get('texto'):
+                    dot.edge(node_id, f"MD{j}")
                 
     return dot
 
@@ -187,58 +183,78 @@ with st.sidebar:
                     nueva = {"texto": item.get('texto', '').upper(), "id_unico": str(uuid.uuid4()), "padre": item.get('padre', "").upper()}
                     st.session_state['arbol_objetivos'][o_sec].append(nueva)
         guardar_datos_nube(); st.rerun()
+    
     st.divider()
     grafo = generar_grafo_objetivos()
-    if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
+    if grafo: 
+        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
+
+    st.divider()
+    with st.expander("⚠️ BORRADO TOTAL"):
+        st.write("Esto reseteará el Árbol de Objetivos.")
+        confirmar = st.checkbox("Confirmo el reseteo")
+        if st.button("🔥 BORRAR TODO", disabled=not confirmar, use_container_width=True):
+            for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
+            guardar_datos_nube(); st.rerun()
 
 # --- PANEL PRINCIPAL ---
-if not hay_datos:
-    st.info("Utilice el botón en la barra lateral para importar los datos.")
-else:
-    if grafo: st.image(grafo.pipe(format='png'), use_container_width=True)
-    st.divider()
-    st.subheader("📋 Panel de Edición")
+tab1, tab2 = st.tabs(["🌳 Visualización del Árbol", "📝 Constructor y Edición"])
 
-    def render_seccion_jerarquica(tipo_padre, tipo_hijo):
-        # Filtros de seguridad para evitar el TypeError
-        padres = [p for p in st.session_state['arbol_objetivos'].get(tipo_padre, []) if isinstance(p, dict)]
-        hijos = [h for h in st.session_state['arbol_objetivos'].get(tipo_hijo, []) if isinstance(h, dict)]
-        if not padres: return
-        
-        st.write(f"**{tipo_padre} e {tipo_hijo}**")
-        hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p.get('texto')] for p in padres]
-        max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
+with tab1:
+    if not hay_datos:
+        st.info("Utilice el botón en la barra lateral para importar los datos del Árbol de Problemas.")
+    else:
+        grafo_f = generar_grafo_objetivos()
+        if grafo_f: st.image(grafo_f.pipe(format='png'), use_container_width=True)
 
-        if "Fin" in tipo_padre:
-            for h_idx in range(max_h - 1, -1, -1):
-                cols = st.columns(len(padres))
-                for p_idx, col in enumerate(cols):
-                    with col:
-                        if h_idx < len(hijos_por_p[p_idx]):
-                            idx_real, h_data = hijos_por_p[p_idx][h_idx]
-                            render_card_obj(tipo_hijo, h_data, idx_real)
-                        else: st.empty()
-            cols_p = st.columns(len(padres))
-            for i, p_data in enumerate(padres):
-                with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
-        else:
-            cols_p = st.columns(len(padres))
-            for i, p_data in enumerate(padres):
-                with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
-            for h_idx in range(max_h):
-                cols = st.columns(len(padres))
-                for p_idx, col in enumerate(cols):
-                    with col:
-                        if h_idx < len(hijos_por_p[p_idx]):
-                            idx_real, h_data = hijos_por_p[p_idx][h_idx]
-                            render_card_obj(tipo_hijo, h_data, idx_real)
-                        else: st.empty()
+with tab2:
+    if not hay_datos:
+        st.info("💡 Importe sus datos para comenzar la edición.")
+    else:
+        st.subheader("📋 Panel de Edición de Objetivos")
 
-    render_seccion_jerarquica("Fines Directos", "Fines Indirectos")
-    st.markdown("---")
-    pc_og = [it for it in st.session_state['arbol_objetivos'].get("Objetivo General", []) if isinstance(it, dict)]
-    if pc_og: 
-        st.write("**Objetivo General**")
-        render_card_obj("Objetivo General", pc_og[0], 0)
-    st.markdown("---")
-    render_seccion_jerarquica("Medios Directos", "Medios Indirectos")
+        def mostrar_seccion_jerarquica(tipo_padre, tipo_hijo):
+            padres = [p for p in st.session_state['arbol_objetivos'].get(tipo_padre, []) if isinstance(p, dict)]
+            hijos = st.session_state['arbol_objetivos'].get(tipo_hijo, [])
+            if not padres: return
+            
+            st.write(f"**{tipo_padre} e {tipo_hijo}**")
+            hijos_por_p = [[(idx, h) for idx, h in enumerate(hijos) if h.get('padre') == p.get('texto')] for p in padres]
+            max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
+
+            # FILAS PARA FINES (Crecen hacia arriba)
+            if "Fin" in tipo_padre:
+                for h_idx in range(max_h - 1, -1, -1):
+                    cols = st.columns(len(padres))
+                    for p_idx, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(hijos_por_p[p_idx]):
+                                idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                                render_card_obj(tipo_hijo, h_data, idx_real)
+                            else: st.empty()
+                cols_p = st.columns(len(padres))
+                for i, p_data in enumerate(padres):
+                    with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
+            
+            # FILAS PARA MEDIOS (Crecen hacia abajo)
+            else:
+                cols_p = st.columns(len(padres))
+                for i, p_data in enumerate(padres):
+                    with cols_p[i]: render_card_obj(tipo_padre, p_data, i)
+                for h_idx in range(max_h):
+                    cols = st.columns(len(padres))
+                    for p_idx, col in enumerate(cols):
+                        with col:
+                            if h_idx < len(hijos_por_p[p_idx]):
+                                idx_real, h_data = hijos_por_p[p_idx][h_idx]
+                                render_card_obj(tipo_hijo, h_data, idx_real)
+                            else: st.empty()
+
+        mostrar_seccion_jerarquica("Fines Directos", "Fines Indirectos")
+        st.markdown("---")
+        pc_og = [it for it in st.session_state['arbol_objetivos'].get("Objetivo General", []) if isinstance(it, dict)]
+        if pc_og: 
+            st.write("**Objetivo General**")
+            render_card_obj("Objetivo General", pc_og[0], 0)
+        st.markdown("---")
+        mostrar_seccion_jerarquica("Medios Directos", "Medios Indirectos")
