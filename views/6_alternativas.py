@@ -8,6 +8,18 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
+# --- LÓGICA DE LIMPIEZA AUTOMÁTICA (SOLUCIÓN AL ERROR) ---
+# Esta sección revisa si el botón de "Crear" fue presionado y limpia los campos ANTES de dibujarlos
+if st.session_state.get('limpiar_constructor_pendiente', False):
+    st.session_state["input_nombre_alt"] = ""
+    st.session_state["input_desc_alt"] = ""
+    # Limpiamos los checkboxes de actividades
+    for key in list(st.session_state.keys()):
+        if key.startswith("sel_alt_"):
+            st.session_state[key] = False
+    # Apagamos el gatillo para que no siga limpiando en cada recarga
+    st.session_state['limpiar_constructor_pendiente'] = False
+
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
@@ -15,15 +27,11 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { border-radius: 12px; }
-    
-    /* Botones y diseño general */
     div.stButton > button:first-child {
         background-color: #1E3A8A; color: white; border: none; font-size: 15px; padding: 6px 14px; border-radius: 8px;
     }
     .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px !important; }
     .compact-divider { margin: 15px 0px !important; border-top: 1px solid #eee; }
-    
-    /* Centrado de encabezados en AgGrid */
     .ag-header-cell-label { justify-content: center !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -190,7 +198,7 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             return null;
         };
         """)
-        gb_rel.configure_grid_options(getRowStyle=jscode_rel_style, domLayout='autoHeight')
+        gb_rel.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
         gridOptionsRel = gb_rel.build()
 
         grid_response_rel = AgGrid(
@@ -214,7 +222,7 @@ else:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CONSTRUCTOR DE ALTERNATIVAS (AJUSTE: LIMPIEZA AUTOMÁTICA)
+# 3. CONSTRUCTOR DE ALTERNATIVAS
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
@@ -223,7 +231,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     
     with st.container(border=True):
         c_nombre, c_desc = st.columns([1, 2])
-        # Agregamos llaves (key) para controlar el estado de los inputs
         with c_nombre: 
             nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Estrategia A", key="input_nombre_alt")
         with c_desc: 
@@ -235,9 +242,7 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             acts_del_obj = aprobadas[aprobadas["OBJETIVO"] == obj]["ACTIVIDAD"].tolist()
             with st.expander(f"🎯 {obj}", expanded=True):
                 for act in acts_del_obj:
-                    # Usamos una llave única para cada checkbox
-                    key_check = f"sel_alt_{obj}_{act}"
-                    if st.checkbox(f"{act}", key=key_check):
+                    if st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}"):
                         actividades_elegidas.append({"OBJETIVO": obj, "ACTIVIDAD": act})
 
         conflicto = False
@@ -262,20 +267,12 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                 acts = df_temp[df_temp["OBJETIVO"] == obj]["ACTIVIDAD"].tolist()
                 config_final.append({"objetivo": obj, "actividades": acts})
             
-            # Guardamos la alternativa en la lista oficial
             st.session_state['lista_alternativas'].append({
                 "nombre": nombre_alt, "descripcion": desc_alt, "configuracion": config_final
             })
             
-            # --- LÓGICA DE LIMPIEZA ---
-            # Reseteamos los campos de texto
-            st.session_state["input_nombre_alt"] = ""
-            st.session_state["input_desc_alt"] = ""
-            
-            # Reseteamos los checkboxes buscando sus llaves en la sesión
-            for key in list(st.session_state.keys()):
-                if key.startswith("sel_alt_"):
-                    st.session_state[key] = False
+            # ACTIVAMOS EL GATILLO DE LIMPIEZA PARA LA PRÓXIMA RECARGA
+            st.session_state['limpiar_constructor_pendiente'] = True
             
             guardar_datos_nube(); st.rerun()
 
@@ -328,72 +325,4 @@ else:
         pb = c3.number_input("Beneficios", 0, 100, int(p['BENEFICIOS']))
         pt = c4.number_input("Tiempo", 0, 100, int(p['TIEMPO']))
         if pc+pf+pb+pt == 100:
-            st.session_state['ponderacion_criterios'] = {"COSTO": pc, "FACILIDAD": pf, "BENEFICIOS": pb, "TIEMPO": pt}
-        else:
-            st.warning(f"La suma es {pc+pf+pb+pt}%. Debe ser 100%.")
-
-    nombres_alts = [a['nombre'] for a in alts]
-    criterios = ["COSTO", "FACILIDAD", "BENEFICIOS", "TIEMPO"]
-    
-    if st.session_state['df_calificaciones'].empty or len(st.session_state['df_calificaciones']) != len(nombres_alts):
-        st.session_state['df_calificaciones'] = pd.DataFrame(1, index=nombres_alts, columns=criterios)
-    else:
-        st.session_state['df_calificaciones'].index = nombres_alts
-    
-    df_scores_reset = st.session_state['df_calificaciones'].reset_index().rename(columns={"index": "Alternativa"})
-
-    gb_score = GridOptionsBuilder.from_dataframe(df_scores_reset)
-    gb_score.configure_column("Alternativa", editable=False, width=200, pinned="left")
-    
-    for crit in criterios:
-        gb_score.configure_column(
-            crit, 
-            editable=True, 
-            width=120, 
-            type=["numericColumn"], 
-            min=0, 
-            max=5,
-            cellStyle={'textAlign': 'center'},
-            headerClass='ag-center-header'
-        )
-
-    pesos = st.session_state['ponderacion_criterios']
-    js_calc_total = JsCode(f"""
-    function(params) {{
-        var c = params.data.COSTO || 0;
-        var f = params.data.FACILIDAD || 0;
-        var b = params.data.BENEFICIOS || 0;
-        var t = params.data.TIEMPO || 0;
-        var total = (c * {pesos['COSTO']} + f * {pesos['FACILIDAD']} + b * {pesos['BENEFICIOS']} + t * {pesos['TIEMPO']}) / 100;
-        return Number(total).toFixed(2);
-    }}
-    """)
-    gb_score.configure_column(
-        "TOTAL", 
-        valueGetter=js_calc_total, 
-        width=140, 
-        cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f9ff', 'textAlign': 'center'}
-    )
-    gb_score.configure_grid_options(domLayout='autoHeight')
-    gridOptionsScore = gb_score.build()
-    
-    st.markdown(f"##### 🏆 Matriz de Decisión (Puntuar de 1 a {num_alts})")
-    grid_response_score = AgGrid(df_scores_reset, gridOptions=gridOptionsScore, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
-
-    df_res = pd.DataFrame(grid_response_score['data'])
-    if not df_res.empty and "Alternativa" in df_res.columns:
-        df_save = df_res.set_index("Alternativa")[criterios].astype(float)
-        st.session_state['df_calificaciones'] = df_save
-        res_ranking = []
-        for alt_n in df_save.index:
-            p_final = 0
-            for crit in criterios: p_final += df_save.loc[alt_n, crit] * (pesos[crit]/100)
-            res_ranking.append({"Alternativa": alt_n, "PUNTAJE": p_final})
-        df_ranking = pd.DataFrame(res_ranking).sort_values("PUNTAJE", ascending=False)
-        
-        if not df_ranking.empty:
-            ganadora = df_ranking.iloc[0]
-            st.success(f"🎉 **Alternativa Seleccionada:** {ganadora['Alternativa']} ({ganadora['PUNTAJE']:.2f} pts)")
-            st.dataframe(df_ranking, column_config={"PUNTAJE": st.column_config.ProgressColumn("Puntaje", format="%.2f", min_value=0, max_value=5)}, use_container_width=True, hide_index=True)
-
-st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
+            st
