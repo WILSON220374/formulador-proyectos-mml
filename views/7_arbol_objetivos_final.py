@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import graphviz
 import os
 import uuid
@@ -66,21 +66,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- INICIALIZACIÓN DE LA ESTRUCTURA "POLIZÓN" ---
-# Verificamos si existe la "caja fuerte" del árbol. Si no, la creamos.
 if 'arbol_objetivos_final' not in st.session_state:
     st.session_state['arbol_objetivos_final'] = {}
 
-# Verificamos si dentro del árbol ya existe nuestro espacio reservado para la referencia.
-# Si no existe, lo creamos vacío. Esto asegura que viajen juntos.
 if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
     st.session_state['arbol_objetivos_final']['referencia_manual'] = {
-        "nombre": "",
-        "objetivo": "",
-        "especificos": "",
-        "actividades": ""
+        "nombre": "", "objetivo": "", "especificos": "", "actividades": ""
     }
 
-# Atajo para facilitar la lectura del código (referencia local)
 ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
 
 # --- ENCABEZADO ---
@@ -90,7 +83,6 @@ with col_t:
     st.markdown('<div class="subtitulo-gris">Diligenciamiento manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
-    # Calculamos si hay datos reales (ignorando nuestra referencia manual)
     claves_reales = [k for k in datos_final.keys() if k != 'referencia_manual']
     hay_datos = any(datos_final[k] for k in claves_reales) if claves_reales else False
     st.progress(1.0 if hay_datos else 0.0)
@@ -110,7 +102,6 @@ CONFIG_OBJ = {
 }
 
 # --- FUNCIONES DE ACTUALIZACIÓN SEGURA ---
-# Estas funciones se ejecutan cada vez que escribes algo, forzando el guardado dentro del Árbol
 def actualizar_nombre():
     st.session_state['arbol_objetivos_final']['referencia_manual']['nombre'] = st.session_state.temp_nombre
     guardar_datos_nube()
@@ -127,10 +118,16 @@ def actualizar_actividades():
     st.session_state['arbol_objetivos_final']['referencia_manual']['actividades'] = st.session_state.temp_actividades
     guardar_datos_nube()
 
+# --- FUNCIÓN INTELIGENTE: CALCULAR ALTURA DINÁMICA ---
+def calc_altura(texto):
+    # Base mínima de 100px. Calculamos aprox 50 caracteres por línea visual.
+    # Multiplicamos por 25px cada línea estimada.
+    lineas = str(texto).count('\n') + (len(str(texto)) // 50) + 1
+    return max(100, lineas * 25)
+
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_final():
     datos = st.session_state.get('arbol_objetivos_final', {})
-    # Filtramos para que el motor gráfico no se confunda con nuestros datos de referencia
     claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
     if not any(datos.get(k) for k in claves_graficas): return None
     
@@ -182,11 +179,10 @@ def render_poda_card(seccion, item, idx):
 with st.sidebar:
     st.header("⚙️ Herramientas")
     if st.button("♻️ Importar Paso 5", use_container_width=True, type="primary"):
-        # Al importar, copiamos el árbol PERO protegemos nuestra referencia manual
-        referencia_backup = copy.deepcopy(st.session_state['arbol_objetivos_final'].get('referencia_manual', {}))
-        nuevo_arbol = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
-        nuevo_arbol['referencia_manual'] = referencia_backup # Restauramos la referencia
-        st.session_state['arbol_objetivos_final'] = nuevo_arbol
+        ref_bk = copy.deepcopy(st.session_state['arbol_objetivos_final'].get('referencia_manual', {}))
+        nuevo = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
+        nuevo['referencia_manual'] = ref_bk
+        st.session_state['arbol_objetivos_final'] = nuevo
         guardar_datos_nube(); st.rerun()
     st.divider()
     grafo = generar_grafo_final()
@@ -201,18 +197,22 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- NUEVO SISTEMA DE PEGADO SIMPLE (Persistente) ---
+        # --- BLOQUE DE REFERENCIA (Con altura dinámica) ---
         st.subheader("📌 Alternativa Seleccionada")
         
-        # Usamos claves temporales (key=temp_...) y callbacks (on_change=actualizar_...)
-        # Esto conecta directamente los inputs con la estructura segura dentro del árbol
+        # Aplicamos la función calc_altura() en el parámetro height de cada text_area
         col1, col2 = st.columns(2)
         with col1:
             st.text_input("Nombre de la Alternativa:", value=ref_data['nombre'], key="temp_nombre", on_change=actualizar_nombre)
-            st.text_area("Objetivo General:", value=ref_data['objetivo'], key="temp_objetivo", on_change=actualizar_objetivo)
+            
+            st.text_area("Objetivo General:", value=ref_data['objetivo'], key="temp_objetivo", 
+                         height=calc_altura(ref_data['objetivo']), on_change=actualizar_objetivo)
         with col2:
-            st.text_area("Objetivos Específicos:", value=ref_data['especificos'], key="temp_especificos", on_change=actualizar_especificos)
-            st.text_area("Actividades Clave:", value=ref_data['actividades'], key="temp_actividades", on_change=actualizar_actividades)
+            st.text_area("Objetivos Específicos:", value=ref_data['especificos'], key="temp_especificos", 
+                         height=calc_altura(ref_data['especificos']), on_change=actualizar_especificos)
+            
+            st.text_area("Actividades Clave:", value=ref_data['actividades'], key="temp_actividades", 
+                         height=calc_altura(ref_data['actividades']), on_change=actualizar_actividades)
 
         st.divider()
 
