@@ -274,23 +274,34 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. VISUALIZACIÓN (LIMPIEZA DE ASTERISCOS)
+# 4. VISUALIZACIÓN (CON TARJETAS DE COLORES)
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
     st.subheader("📋 4. Alternativas Consolidadas")
+    
+    # Paleta de colores profesionales
+    colores_borde = ["#1E3A8A", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
+    
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
+        # Asignar color según el índice
+        color = colores_borde[idx % len(colores_borde)]
+        
         # Título limpio sin asteriscos
         nombre_limpio = f"{idx+1}. {alt['nombre'].upper()}"
+        
+        # Aplicamos el color como un borde lateral izquierdo
+        st.markdown(f'<div style="border-left: 8px solid {color}; padding-left: 15px; margin-bottom: 10px;">', unsafe_allow_html=True)
         with st.expander(nombre_limpio):
             st.caption(alt.get('descripcion', ''))
             for item in alt['configuracion']:
-                # Formato de negrilla corregido para objetivos
+                # Formato de negrilla corregido para objetivos (sin asteriscos visibles)
                 st.markdown(f"**🎯 {item['objetivo'].strip()}**")
                 for a in item['actividades']: 
                     st.markdown(f"&nbsp;&nbsp;🔹 {a.strip()}")
             if st.button(f"🗑️ Eliminar", key=f"del_alt_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx)
                 guardar_datos_nube(); st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
