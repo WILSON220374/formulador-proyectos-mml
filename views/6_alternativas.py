@@ -16,12 +16,15 @@ st.markdown("""
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { border-radius: 12px; }
     
-    /* Botones y diseño de tablas */
+    /* Botones y diseño de tarjetas fijas */
     div.stButton > button:first-child {
         background-color: #1E3A8A; color: white; border: none; font-size: 15px; padding: 6px 14px; border-radius: 8px;
     }
     .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px !important; }
     .compact-divider { margin: 15px 0px !important; border-top: 1px solid #eee; }
+    
+    /* Estilo para que las tarjetas se sientan elevadas */
+    [data-testid="stVerticalBlockBorderWrapper"] { margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -128,7 +131,7 @@ if not df_editado_live.empty and not df_editado_live.equals(st.session_state['df
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. ANÁLISIS DE RELACIONES (CON AUTOLIMPIEZA Y FILTRO DE COLUMNAS)
+# 2. ANÁLISIS DE RELACIONES (CON AUTOLIMPIEZA)
 # ==============================================================================
 st.subheader("🔄 2. Análisis de Relaciones")
 
@@ -147,7 +150,7 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
         
         df_rel_acts = st.session_state['df_relaciones_actividades'].copy()
         
-        # Sincronización estricta
+        # Autolimpieza estricta
         df_rel_acts = df_rel_acts[
             (df_rel_acts["ACTIVIDAD A"].isin(actividades_seleccionadas)) & 
             (df_rel_acts["ACTIVIDAD B"].isin(actividades_seleccionadas))
@@ -172,7 +175,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
 
         st.info("Defina las relaciones técnicas entre actividades.")
 
-        # --- FILTRO ANT-ID (Elimina ::auto_unique_id::) ---
         cols_finales = ["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"]
         df_visual_rel = df_rel_acts[cols_finales].copy()
 
@@ -236,7 +238,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                     if st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}"):
                         actividades_elegidas.append({"OBJETIVO": obj, "ACTIVIDAD": act})
 
-        # Validación
         conflicto = False
         msg_conf = ""
         if len(actividades_elegidas) > 1:
@@ -267,28 +268,27 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. VISUALIZACIÓN (CON FRANJA DE COLOR INTERNA)
+# 4. VISUALIZACIÓN (TARJETAS SIEMPRE VISIBLES)
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
     st.subheader("📋 4. Alternativas Consolidadas")
     
-    colores = ["#1E3A8A", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"] # Azul, Verde, Naranja, Rojo, Violeta
+    colores = ["#1E3A8A", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
     
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
         color_actual = colores[idx % len(colores)]
-        nombre_limpio = f"{idx+1}. {alt['nombre'].upper()}"
         
-        with st.expander(nombre_limpio):
-            # Franja de color interna y encabezado resaltado
+        # Usamos CONTAINER fijo con borde en lugar de expander
+        with st.container(border=True):
+            # Encabezado con franja de color interna
             st.markdown(f"""
-                <div style="background-color: {color_actual}; padding: 10px; border-radius: 6px; color: white; margin-bottom: 15px;">
-                    <strong style="font-size: 1.1rem;">🚀 {alt['nombre'].upper()}</strong><br>
-                    <span style="font-size: 0.9rem; opacity: 0.9;">{alt.get('descripcion', 'Sin descripción')}</span>
+                <div style="background-color: {color_actual}; padding: 12px; border-radius: 6px; color: white; margin-bottom: 15px;">
+                    <strong style="font-size: 1.2rem; letter-spacing: 1px;">{idx+1}. {alt['nombre'].upper()}</strong><br>
+                    <span style="font-size: 0.95rem; opacity: 0.9;">📝 {alt.get('descripcion', 'Sin descripción')}</span>
                 </div>
             """, unsafe_allow_html=True)
             
             for item in alt['configuracion']:
-                # Formato limpio sin asteriscos
                 st.markdown(f"**🎯 {item['objetivo'].strip()}**")
                 for a in item['actividades']: 
                     st.markdown(f"&nbsp;&nbsp;🔹 {a.strip()}")
