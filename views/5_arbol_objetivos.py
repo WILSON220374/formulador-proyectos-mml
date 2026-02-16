@@ -61,7 +61,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 5. Árbol de Objetivos</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Estructura jerárquica con alineación simétrica de etiquetas.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Estructura jerárquica con etiquetas de guía simétricas.</div>', unsafe_allow_html=True)
     
     hay_datos = any(st.session_state.get('arbol_objetivos', {}).values())
     st.progress(1.0 if hay_datos else 0.0)
@@ -79,7 +79,7 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO CON ALINEACIÓN TOTAL ---
+# --- MOTOR DE DIBUJO CORREGIDO ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -92,22 +92,28 @@ def generar_grafo_objetivos():
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
-    # Definir todas las etiquetas de guía (izquierda y derecha)
-    niveles = ["MI", "MD", "OG", "FD", "FI"]
-    for niv in niveles:
-        tipo = [k for k in CONFIG_OBJ if niv in k[:2] or (niv=="OG" and "General" in k)][0]
-        conf = CONFIG_OBJ[tipo]
-        # Etiquetas Izquierda
+    # MAPEO SEGURO DE CLAVES
+    MAPA_LLAVES = {
+        "MI": "Medios Indirectos",
+        "MD": "Medios Directos",
+        "OG": "Objetivo General",
+        "FD": "Fines Directos",
+        "FI": "Fines Indirectos"
+    }
+
+    # Crear etiquetas de guía a los lados
+    for niv, full_key in MAPA_LLAVES.items():
+        conf = CONFIG_OBJ[full_key]
         dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
-        # Etiquetas Derecha (Para simetría)
         dot.node(f"R_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
 
-    # Enlace invisible maestro para alinear TODAS las etiquetas en columna
-    for i in range(len(niveles)-1):
-        dot.edge(f"L_{niveles[i]}", f"L_{niveles[i+1]}", style='invis')
-        dot.edge(f"R_{niveles[i]}", f"R_{niveles[i+1]}", style='invis')
+    # Alineación vertical de las guías
+    niveles_list = ["MI", "MD", "OG", "FD", "FI"]
+    for i in range(len(niveles_list)-1):
+        dot.edge(f"L_{niveles_list[i]}", f"L_{niveles_list[i+1]}", style='invis')
+        dot.edge(f"R_{niveles_list[i]}", f"R_{niveles_list[i+1]}", style='invis')
 
-    # 1. NIVEL OBJETIVO GENERAL
+    # 1. OBJETIVO GENERAL
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
@@ -115,7 +121,7 @@ def generar_grafo_objetivos():
         if obj_gen:
             s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
-    # 2. NIVELES DE FINES
+    # 2. FINES
     f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
@@ -136,7 +142,7 @@ def generar_grafo_objetivos():
                 if item.get('padre') == p_data.get('texto'):
                     dot.edge(f"FD{j}", node_id)
 
-    # 3. NIVELES DE MEDIOS
+    # 3. MEDIOS
     m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
