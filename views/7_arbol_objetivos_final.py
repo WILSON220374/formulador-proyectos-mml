@@ -16,14 +16,13 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Panel de Referencia Estratégica */
-    .resumen-estrategico {
-        background-color: #f0f7ff;
-        border-left: 5px solid #1E3A8A;
+    /* Panel de Diligenciamiento Manual */
+    .contenedor-manual {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
         padding: 20px;
-        border-radius: 8px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-radius: 12px;
+        margin-bottom: 30px;
     }
 
     /* Tarjeta Modo Poda (Solo lectura) */
@@ -69,7 +68,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Poda definitiva basada en la alternativa seleccionada.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Referencia manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
     hay_datos = any(datos_final.values()) if datos_final else False
@@ -104,7 +103,6 @@ def generar_grafo_final():
 
     MAPA_LLAVES = {"MI": "Medios Indirectos", "MD": "Medios Directos", "OG": "Objetivo General", "FD": "Fines Directos", "FI": "Fines Indirectos", "FU": "Fin Último"}
     niv_list = ["MI", "MD", "OG", "FD", "FI", "FU"]
-    
     for niv in niv_list:
         conf = CONFIG_OBJ[MAPA_LLAVES[niv]]
         dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
@@ -112,40 +110,22 @@ def generar_grafo_final():
         dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
 
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_OG")
-        if obj_gen: s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
+    if obj_gen: dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
-    f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_FD")
-        for i, item in enumerate(f_dir):
-            s.node(f"FD{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
-            dot.edge("OG", f"FD{i}")
-
-    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_FI")
-        for i, item in enumerate(f_ind):
-            s.node(f"FI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
-            for j, p_data in enumerate(f_dir):
-                if item.get('padre') == p_data.get('texto'): dot.edge(f"FD{j}", f"FI{i}")
-
-    m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_MD")
-        for i, item in enumerate(m_dir):
-            s.node(f"MD{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
-            dot.edge(f"MD{i}", "OG")
-
-    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_MI")
-        for i, item in enumerate(m_ind):
-            s.node(f"MI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
-            for j, p_data in enumerate(m_dir):
-                if item.get('padre') == p_data.get('texto'): dot.edge(f"MI{i}", f"MD{j}")
-                
+    # Lógica simplificada de jerarquías
+    for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        for i, item in enumerate(items):
+            n_id = f"{tipo[:2]}{i}"
+            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ[tipo]["color"], fontcolor='white' if "Fin" in tipo else 'black', color='none')
+            if "Fin" in tipo: dot.edge("OG", n_id)
+            else: dot.edge(n_id, "OG")
+            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
+            for j, h in enumerate(hijos):
+                h_id = f"{h_tipo[:2]}{i}_{j}"
+                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_tipo]["color"], fontcolor='white', color='none', fontsize='10')
+                if "Fin" in tipo: dot.edge(n_id, h_id)
+                else: dot.edge(h_id, n_id)
     return dot
 
 # --- RENDERIZADO DE TARJETA ---
@@ -156,8 +136,7 @@ def render_poda_card(seccion, item, idx):
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
     if st.button("🗑️", key=f"poda_btn_{id_u}"):
-        st.session_state['arbol_objetivos_final'][seccion].pop(idx)
-        guardar_datos_nube(); st.rerun()
+        st.session_state['arbol_objetivos_final'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -173,48 +152,34 @@ with st.sidebar:
 tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
-    if not hay_datos: st.info("Importe el árbol del Paso 5 para visualizar.")
-    else:
-        g_f = generar_grafo_final()
-        if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
+    g_f = generar_grafo_final()
+    if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    if not hay_datos: st.info("💡 Importe sus datos para realizar la poda.")
-    else:
-        # --- BLOQUE DE REFERENCIA ESTRATÉGICA SINCRONIZADA ---
-        st.subheader("📌 Referencia: Estrategia Seleccionada")
-        alt_ganadora = st.session_state.get('alternativa_seleccionada', {})
-        
-        # Lógica para asegurar que traiga datos o muestre un aviso útil
-        obj_ref = alt_ganadora.get('objetivo', 'PENDIENTE DE SELECCIÓN EN PASO ANTERIOR').upper()
-        res_ref = alt_ganadora.get('resumen', 'No se encontró resumen.')
-        act_ref = alt_ganadora.get('actividades_texto', 'No se encontraron actividades vinculadas.')
-
-        st.markdown(f"""
-        <div class="resumen-estrategico">
-            <h4 style="margin-top:0; color:#1E3A8A;">🎯 OBJETIVO GENERAL:</h4>
-            <p><b>{obj_ref}</b></p>
-            <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
-            <p style="margin-bottom: 5px;"><b>Resumen de la Alternativa:</b></p>
-            <p style="color: #4b5563;">{res_ref}</p>
-            <p style="margin-top: 10px; margin-bottom: 5px;"><b>Actividades Clave Definidas:</b></p>
-            <p style="color: #4b5563;">{act_ref}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    if hay_datos:
+        # --- BLOQUE DE DILIGENCIAMIENTO MANUAL ---
+        st.subheader("📌 Referencia de la Alternativa Seleccionada")
+        with st.container():
+            st.markdown('<div class="contenedor-manual">', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            with col1:
+                n_alt = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt")
+                o_gen = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen")
+            with col2:
+                o_esp = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp")
+                activ = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ")
+            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("💾 Guardar Referencia"): guardar_datos_nube(); st.success("Referencia guardada.")
 
         st.subheader("📋 Panel de Poda")
-        st.warning("Solo lectura: Use la papelera para descartar lo que no aporte a la estrategia superior.")
-
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
             datos_sec = st.session_state['arbol_objetivos_final'].get(tipo_padre, [])
             padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
             if not padres_con_idx: return
-            
             st.write(f"**{tipo_padre}**")
             hijos = st.session_state['arbol_objetivos_final'].get(tipo_hijo, [])
             h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
             max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
-
             if "Fin" in tipo_padre:
                 for h_idx in range(max_h - 1, -1, -1):
                     cols = st.columns(len(padres_con_idx))
