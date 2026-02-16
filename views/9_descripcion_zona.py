@@ -1,135 +1,156 @@
 import streamlit as st
 import os
-from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube
+import uuid
+from PIL import Image
+from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Configuración de la página
-st.set_page_config(page_title="JC Flow - Formulador MML", layout="wide")
+# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- PURIFICACIÓN DE RAÍZ ---
-if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
-    st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
+# --- CONFIGURACIÓN DE ALMACENAMIENTO ---
+if 'descripcion_zona' not in st.session_state:
+    st.session_state['descripcion_zona'] = {
+        # Localización
+        "departamento": "", "municipio": "", "vereda_corregimiento": "", "ubicacion_especifica": "",
+        # Características Físicas
+        "clima_temperatura": "", "altitud": "", "topografia_suelos": "", "hidrografia": "",
+        # Aspectos Socioambientales
+        "ecosistemas_clave": "", "uso_suelo": "", "poblacion_beneficiaria": "",
+        "actividades_economicas": "", "vias_acceso": "", "infraestructura_servicios": "",
+        # Rutas de Imágenes
+        "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
+        # Pies de Foto
+        "pie_mapa": "", "pie_foto1": "", "pie_foto2": ""
+    }
 
-# --- LÓGICA DE ACCESO (LOGIN) ---
-if not st.session_state['autenticado']:
-    st.markdown("""
-        <style>
-        .titulo-acceso { 
-            font-size: 32px !important; 
-            font-weight: 800 !important; 
-            color: #4F8BFF; 
-            text-align: left; 
-            margin-bottom: 15px; 
-            margin-top: 10px;
-        }
-        .label-mediana { 
-            font-size: 16px !important; 
-            font-weight: bold; 
-            color: #1E3A8A; 
-            margin-bottom: 5px !important; 
-            margin-top: 10px !important; 
-            display: block; 
-        }
-        input { 
-            font-size: 18px !important; 
-            height: 45px !important; 
-            border-radius: 10px !important; 
-        }
-        div.stButton > button { 
-            font-size: 20px !important; 
-            height: 50px !important; 
-            font-weight: bold !important; 
-            background-color: #4F8BFF !important; 
-            border-radius: 12px !important; 
-            margin-top: 25px; 
-        }
-        [data-testid="stVerticalBlock"] {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+# Referencia corta
+zona_data = st.session_state['descripcion_zona']
 
-    col_img, col_form = st.columns([1.8, 1.2], gap="large")
+# Carpeta para guardar imágenes
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-    with col_img:
-        if os.path.exists("unnamed.jpg"):
-            st.image("unnamed.jpg", use_container_width=True) 
-        else:
-            st.info("Carga la imagen 'unnamed.jpg' en la carpeta raíz.")
+# --- DISEÑO PROFESIONAL ---
+st.markdown("""
+    <style>
+    .block-container { padding-bottom: 5rem !important; }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 25px; }
+    .form-header {
+        color: #1E3A8A; font-weight: 700; font-size: 1.1rem; margin-top: 20px;
+        margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;
+    }
+    .img-preview-container {
+        border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;
+        text-align: center; background-color: #f8fafc; min-height: 200px;
+        display: flex; flex-direction: column; justify-content: center;
+    }
+    .main .stButton button {
+        border: none !important; background: transparent !important;
+        color: #ef4444 !important; font-size: 1.2rem !important; margin-top: -10px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-    with col_form:
-        st.markdown('<div class="titulo-acceso">Acceso Grupal<br>Posgrado</div>', unsafe_allow_html=True)
-        
-        with st.container(border=True):
-            st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
-            u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
-            
-            st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
-            p = st.text_input("p", type="password", label_visibility="collapsed")
-            
-            if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
-                try:
-                    db = conectar_db()
-                    res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
-                    if res.data:
-                        st.session_state['autenticado'] = True
-                        st.session_state['usuario_id'] = u
-                        cargar_datos_nube(u)
-                        st.rerun()
-                    else:
-                        st.error("Credenciales incorrectas.")
-                except Exception:
-                    st.error("Error de conexión.")
-    st.stop()
-
-# --- SIDEBAR Y NAVEGACIÓN ---
-with st.sidebar:
-    st.header(f"👷 {st.session_state['usuario_id']}")
+# --- ENCABEZADO ---
+col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">🗺️ 9. Descripción General de la Zona de Estudio</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Caracterización geográfica, ambiental y socioeconómica.</div>', unsafe_allow_html=True)
     
-    integrantes = st.session_state.get('integrantes', [])
-    if integrantes and isinstance(integrantes, list):
-        for persona in integrantes:
-            try:
-                if persona and isinstance(persona, dict):
-                    nombre_full = persona.get("Nombre Completo", "").strip()
-                    if nombre_full:
-                        nombre_pila = nombre_full.split()[0].upper()
-                        st.markdown(f"**👤 {nombre_pila}**")
-            except Exception:
-                continue
-    
-    st.divider()
-    if st.button("☁️ GUARDAR TODO EN NUBE", use_container_width=True, type="primary"):
+    campos_texto = [v for k, v in zona_data.items() if isinstance(v, str) and not k.startswith('ruta') and not k.startswith('pie')]
+    progreso = len([c for c in campos_texto if c.strip() != ""]) / len(campos_texto) if campos_texto else 0
+    st.progress(progreso)
+
+with col_img_head:
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
+
+# --- FUNCIONES ---
+def update_field(key):
+    temp_key = f"temp_{key}"
+    if temp_key in st.session_state:
+        st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
         guardar_datos_nube()
-        st.toast("✅ Avance guardado", icon="🚀")
-    st.divider()
-    if st.button("🚪 Cerrar Sesión", use_container_width=True):
-        st.session_state['autenticado'] = False
-        st.rerun()
 
-# --- DEFINICIÓN DE PÁGINAS Y SECCIONES ---
-# Aquí se define la estructura del menú lateral
-pg = st.navigation({
-    "Configuración": [
-        st.Page("views/0_equipo.py", title="Equipo", icon="👥")
-    ],
-    "Fase I: Identificación": [
-        st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
-        st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
-        st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
-    ],
-    "Fase II: Análisis": [
-        st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
-        st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
-        st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
-        st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
-        st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
-    ],
-    "El Problema": [  # <--- SECCIÓN NUEVA SOLICITADA
-        st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
-    ]
-})
+def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
+    if uploaded_file is not None:
+        file_ext = os.path.splitext(uploaded_file.name)[1]
+        unique_filename = f"{tipo_imagen_key}_{uuid.uuid4()}{file_ext}"
+        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
+        
+        ruta_anterior = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
+        if ruta_anterior and os.path.exists(ruta_anterior):
+            try: os.remove(ruta_anterior)
+            except: pass
 
-pg.run()
+        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = file_path
+        guardar_datos_nube()
+        st.toast(f"✅ Imagen cargada correctamente.")
+
+# --- FORMULARIO ---
+st.markdown('<div class="form-header">📍 1. Localización Geográfica</div>', unsafe_allow_html=True)
+c1, c2, c3 = st.columns(3)
+with c1: st.text_input("Departamento:", value=zona_data['departamento'], key="temp_departamento", on_change=update_field, args=("departamento",))
+with c2: st.text_input("Municipio(s):", value=zona_data['municipio'], key="temp_municipio", on_change=update_field, args=("municipio",))
+with c3: st.text_input("Vereda / Barrio:", value=zona_data['vereda_corregimiento'], key="temp_vereda_corregimiento", on_change=update_field, args=("vereda_corregimiento",))
+st.text_area("Ubicación Específica:", value=zona_data['ubicacion_especifica'], key="temp_ubicacion_especifica", on_change=update_field, args=("ubicacion_especifica",), height=80)
+
+st.markdown('<div class="form-header">⛰️ 2. Características Físicas y Ambientales</div>', unsafe_allow_html=True)
+c1, c2 = st.columns(2)
+with c1:
+    st.text_input("Clima / Temperatura:", value=zona_data['clima_temperatura'], key="temp_clima_temperatura", on_change=update_field, args=("clima_temperatura",))
+    st.text_area("Topografía / Suelos:", value=zona_data['topografia_suelos'], key="temp_topografia_suelos", on_change=update_field, args=("topografia_suelos",), height=100)
+    st.text_input("Ecosistemas Clave:", value=zona_data['ecosistemas_clave'], key="temp_ecosistemas_clave", on_change=update_field, args=("ecosistemas_clave",))
+with c2:
+    st.text_input("Altitud (m.s.n.m.):", value=zona_data['altitud'], key="temp_altitud", on_change=update_field, args=("altitud",))
+    st.text_area("Hidrografía:", value=zona_data['hidrografia'], key="temp_hidrografia", on_change=update_field, args=("hidrografia",), height=100)
+    st.text_input("Uso del Suelo:", value=zona_data['uso_suelo'], key="temp_uso_suelo", on_change=update_field, args=("uso_suelo",))
+
+st.markdown('<div class="form-header">👥 3. Aspectos Socioeconómicos</div>', unsafe_allow_html=True)
+st.text_area("Población Beneficiaria:", value=zona_data['poblacion_beneficiaria'], key="temp_poblacion_beneficiaria", on_change=update_field, args=("poblacion_beneficiaria",), height=100)
+c1, c2 = st.columns(2)
+with c1: st.text_area("Actividades Económicas:", value=zona_data['actividades_economicas'], key="temp_actividades_economicas", on_change=update_field, args=("actividades_economicas",), height=100)
+with c2: st.text_area("Vías de Acceso:", value=zona_data['vias_acceso'], key="temp_vias_acceso", on_change=update_field, args=("vias_acceso",), height=100)
+st.text_area("Infraestructura y Servicios:", value=zona_data['infraestructura_servicios'], key="temp_infraestructura_servicios", on_change=update_field, args=("infraestructura_servicios",), height=80)
+
+st.divider()
+
+st.markdown('<div class="form-header">📸 4. Evidencia Gráfica</div>', unsafe_allow_html=True)
+col_mapa, col_foto1, col_foto2 = st.columns(3)
+
+with col_mapa:
+    st.markdown("**Mapa**")
+    up = st.file_uploader("Subir Mapa", type=['png', 'jpg'], key="up_mapa", label_visibility="collapsed")
+    if up: manejar_subida_imagen(up, "mapa"); st.rerun()
+    
+    st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
+    if zona_data.get("ruta_mapa") and os.path.exists(zona_data["ruta_mapa"]): st.image(zona_data["ruta_mapa"], use_container_width=True)
+    else: st.markdown('<span style="color:#ccc;">Sin Mapa</span>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.text_input("Pie de foto:", value=zona_data['pie_mapa'], key="temp_pie_mapa", on_change=update_field, args=("pie_mapa",))
+
+with col_foto1:
+    st.markdown("**Foto 1**")
+    up = st.file_uploader("Subir Foto 1", type=['png', 'jpg'], key="up_foto1", label_visibility="collapsed")
+    if up: manejar_subida_imagen(up, "foto1"); st.rerun()
+    
+    st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
+    if zona_data.get("ruta_foto1") and os.path.exists(zona_data["ruta_foto1"]): st.image(zona_data["ruta_foto1"], use_container_width=True)
+    else: st.markdown('<span style="color:#ccc;">Sin Foto 1</span>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.text_input("Pie de foto:", value=zona_data['pie_foto1'], key="temp_pie_foto1", on_change=update_field, args=("pie_foto1",))
+
+with col_foto2:
+    st.markdown("**Foto 2**")
+    up = st.file_uploader("Subir Foto 2", type=['png', 'jpg'], key="up_foto2", label_visibility="collapsed")
+    if up: manejar_subida_imagen(up, "foto2"); st.rerun()
+    
+    st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
+    if zona_data.get("ruta_foto2") and os.path.exists(zona_data["ruta_foto2"]): st.image(zona_data["ruta_foto2"], use_container_width=True)
+    else: st.markdown('<span style="color:#ccc;">Sin Foto 2</span>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.text_input("Pie de foto:", value=zona_data['pie_foto2'], key="temp_pie_foto2", on_change=update_field, args=("pie_foto2",))
