@@ -11,7 +11,8 @@ inicializar_session()
 if 'descripcion_zona' not in st.session_state:
     st.session_state['descripcion_zona'] = {
         # Localización
-        "departamento": "", "municipio": "", "vereda_corregimiento": "", "ubicacion_especifica": "",
+        "departamento": "", "provincia": "", "municipio": "", 
+        "vereda_corregimiento": "", "coordenadas": "",
         # Características Físicas
         "clima_temperatura": "", "altitud": "", "topografia_suelos": "", "hidrografia": "",
         # Aspectos Socioambientales
@@ -50,8 +51,20 @@ st.markdown("""
         border: none !important; background: transparent !important;
         color: #ef4444 !important; font-size: 1.2rem !important; margin-top: -10px !important;
     }
+    /* Ajuste para que los text_area se vean más limpios */
+    div[data-testid="stTextArea"] textarea {
+        background-color: #f8fafc;
+    }
     </style>
 """, unsafe_allow_html=True)
+
+# --- FUNCIÓN INTELIGENTE: CALCULAR ALTURA DINÁMICA ---
+def calc_altura(texto):
+    # Calcula aprox 80 caracteres por línea visual + saltos de línea reales
+    # Base mínima de 100px para que no se vea muy pequeño
+    if not texto: return 100
+    lineas = str(texto).count('\n') + (len(str(texto)) // 80) + 1
+    return max(100, lineas * 25)
 
 # --- ENCABEZADO ---
 col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
@@ -92,33 +105,49 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
         st.toast(f"✅ Imagen cargada correctamente.")
 
 # --- FORMULARIO ---
-st.markdown('<div class="form-header">📍 1. Localización Geográfica</div>', unsafe_allow_html=True)
-c1, c2, c3 = st.columns(3)
-with c1: st.text_input("Departamento:", value=zona_data['departamento'], key="temp_departamento", on_change=update_field, args=("departamento",))
-with c2: st.text_input("Municipio(s):", value=zona_data['municipio'], key="temp_municipio", on_change=update_field, args=("municipio",))
-with c3: st.text_input("Vereda / Barrio:", value=zona_data['vereda_corregimiento'], key="temp_vereda_corregimiento", on_change=update_field, args=("vereda_corregimiento",))
-st.text_area("Ubicación Específica:", value=zona_data['ubicacion_especifica'], key="temp_ubicacion_especifica", on_change=update_field, args=("ubicacion_especifica",), height=80)
 
+# 1. LOCALIZACIÓN GEOGRÁFICA (Ajustado con Provincia y Coordenadas)
+st.markdown('<div class="form-header">📍 1. Localización Geográfica</div>', unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+with c1: st.text_input("Departamento:", value=zona_data['departamento'], key="temp_departamento", on_change=update_field, args=("departamento",))
+with c2: st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="temp_provincia", on_change=update_field, args=("provincia",))
+with c3: st.text_input("Municipio:", value=zona_data['municipio'], key="temp_municipio", on_change=update_field, args=("municipio",))
+with c4: st.text_input("Barrio / Vereda:", value=zona_data['vereda_corregimiento'], key="temp_vereda_corregimiento", on_change=update_field, args=("vereda_corregimiento",))
+
+# Fila completa para Coordenadas
+st.text_input("Coordenadas:", value=zona_data.get('coordenadas', ''), placeholder="Ej: Latitud: 5.715, Longitud: -72.933", key="temp_coordenadas", on_change=update_field, args=("coordenadas",))
+
+# 2. CARACTERÍSTICAS FÍSICAS (Con Auto-Ajuste de Altura)
 st.markdown('<div class="form-header">⛰️ 2. Características Físicas y Ambientales</div>', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 with c1:
     st.text_input("Clima / Temperatura:", value=zona_data['clima_temperatura'], key="temp_clima_temperatura", on_change=update_field, args=("clima_temperatura",))
-    st.text_area("Topografía / Suelos:", value=zona_data['topografia_suelos'], key="temp_topografia_suelos", on_change=update_field, args=("topografia_suelos",), height=100)
+    st.text_area("Topografía / Suelos:", value=zona_data['topografia_suelos'], key="temp_topografia_suelos", 
+                 height=calc_altura(zona_data['topografia_suelos']), on_change=update_field, args=("topografia_suelos",))
     st.text_input("Ecosistemas Clave:", value=zona_data['ecosistemas_clave'], key="temp_ecosistemas_clave", on_change=update_field, args=("ecosistemas_clave",))
 with c2:
     st.text_input("Altitud (m.s.n.m.):", value=zona_data['altitud'], key="temp_altitud", on_change=update_field, args=("altitud",))
-    st.text_area("Hidrografía:", value=zona_data['hidrografia'], key="temp_hidrografia", on_change=update_field, args=("hidrografia",), height=100)
+    st.text_area("Hidrografía:", value=zona_data['hidrografia'], key="temp_hidrografia", 
+                 height=calc_altura(zona_data['hidrografia']), on_change=update_field, args=("hidrografia",))
     st.text_input("Uso del Suelo:", value=zona_data['uso_suelo'], key="temp_uso_suelo", on_change=update_field, args=("uso_suelo",))
 
+# 3. ASPECTOS SOCIOECONÓMICOS (Con Auto-Ajuste de Altura)
 st.markdown('<div class="form-header">👥 3. Aspectos Socioeconómicos</div>', unsafe_allow_html=True)
-st.text_area("Población Beneficiaria:", value=zona_data['poblacion_beneficiaria'], key="temp_poblacion_beneficiaria", on_change=update_field, args=("poblacion_beneficiaria",), height=100)
+st.text_area("Población Beneficiaria:", value=zona_data['poblacion_beneficiaria'], key="temp_poblacion_beneficiaria", 
+             height=calc_altura(zona_data['poblacion_beneficiaria']), on_change=update_field, args=("poblacion_beneficiaria",))
+
 c1, c2 = st.columns(2)
-with c1: st.text_area("Actividades Económicas:", value=zona_data['actividades_economicas'], key="temp_actividades_economicas", on_change=update_field, args=("actividades_economicas",), height=100)
-with c2: st.text_area("Vías de Acceso:", value=zona_data['vias_acceso'], key="temp_vias_acceso", on_change=update_field, args=("vias_acceso",), height=100)
-st.text_area("Infraestructura y Servicios:", value=zona_data['infraestructura_servicios'], key="temp_infraestructura_servicios", on_change=update_field, args=("infraestructura_servicios",), height=80)
+with c1: st.text_area("Actividades Económicas:", value=zona_data['actividades_economicas'], key="temp_actividades_economicas", 
+                     height=calc_altura(zona_data['actividades_economicas']), on_change=update_field, args=("actividades_economicas",))
+with c2: st.text_area("Vías de Acceso:", value=zona_data['vias_acceso'], key="temp_vias_acceso", 
+                     height=calc_altura(zona_data['vias_acceso']), on_change=update_field, args=("vias_acceso",))
+
+st.text_area("Infraestructura y Servicios:", value=zona_data['infraestructura_servicios'], key="temp_infraestructura_servicios", 
+             height=calc_altura(zona_data['infraestructura_servicios']), on_change=update_field, args=("infraestructura_servicios",))
 
 st.divider()
 
+# 4. EVIDENCIA GRÁFICA
 st.markdown('<div class="form-header">📸 4. Evidencia Gráfica</div>', unsafe_allow_html=True)
 col_mapa, col_foto1, col_foto2 = st.columns(3)
 
