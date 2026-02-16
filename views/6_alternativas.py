@@ -8,21 +8,17 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- ESTILOS CSS (DISEÑO LIMPIO Y SIN HUECOS) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .block-container { padding-bottom: 150px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { border-radius: 12px; }
-    
-    /* Botones profesionales */
     div.stButton > button:first-child {
         background-color: #1E3A8A; color: white; border: none; font-size: 15px; padding: 6px 14px; border-radius: 8px;
     }
     div.stButton > button:hover { background-color: #153075; color: white; }
-    
-    /* Ag-Grid estilizado */
     .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px !important; }
     .compact-divider { margin: 15px 0px !important; border-top: 1px solid #eee; }
     </style>
@@ -58,7 +54,6 @@ st.markdown("""
     <div style="display: flex; gap: 10px; margin-bottom: 12px; align-items: center; font-size: 0.85rem; color: #444;">
         <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
         <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">⬜ Descartada</span>
-        <span style="margin-left: 10px; color: #888;">(Los cambios se guardan instantáneamente al marcar)</span>
     </div>
 """, unsafe_allow_html=True)
 
@@ -116,7 +111,7 @@ grid_response = AgGrid(
     df_work, 
     gridOptions=gridOptions, 
     custom_css=custom_css, 
-    update_mode=GridUpdateMode.VALUE_CHANGED, # <--- ACTUALIZACIÓN INSTANTÁNEA
+    update_mode=GridUpdateMode.VALUE_CHANGED,
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED, 
     fit_columns_on_grid_load=True, 
     theme='streamlit', 
@@ -124,7 +119,7 @@ grid_response = AgGrid(
     key="grid_paso_1_auto"
 )
 
-# Sincronización automática de datos al cerebro
+# Sincronización automática
 df_editado_live = pd.DataFrame(grid_response['data'])
 if not df_editado_live.empty and not df_editado_live.equals(st.session_state['df_evaluacion_alternativas']):
     st.session_state['df_evaluacion_alternativas'] = df_editado_live
@@ -134,7 +129,7 @@ if not df_editado_live.empty and not df_editado_live.equals(st.session_state['df
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. ANÁLISIS DE RELACIONES (CON FILTRO ESTRICTO)
+# 2. ANÁLISIS DE RELACIONES (CON AUTOLIMPIEZA)
 # ==============================================================================
 st.subheader("🔄 2. Análisis de Relaciones")
 
@@ -148,33 +143,44 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     actividades_seleccionadas = aprobadas["ACTIVIDAD"].unique().tolist()
     
     if len(actividades_seleccionadas) >= 2:
-        pares_actuales = list(itertools.combinations(actividades_seleccionadas, 2))
-        
+        # 1. Asegurar existencia del DataFrame de relaciones
         if 'df_relaciones_actividades' not in st.session_state:
             st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
         
-        df_rel_acts = st.session_state['df_relaciones_actividades']
+        df_rel_acts = st.session_state['df_relaciones_actividades'].copy()
         
-        # Sincronizar pares
+        # --- LÓGICA DE AUTOLIMPIEZA ---
+        # Solo mantenemos relaciones donde AMBAS actividades estén en la lista de aprobadas
+        df_rel_acts = df_rel_acts[
+            (df_rel_acts["ACTIVIDAD A"].isin(actividades_seleccionadas)) & 
+            (df_rel_acts["ACTIVIDAD B"].isin(actividades_seleccionadas))
+        ]
+        
+        # --- LÓGICA DE AGREGAR PARES NUEVOS ---
+        pares_actuales = list(itertools.combinations(actividades_seleccionadas, 2))
         nuevas_filas = []
         for a_a, a_b in pares_actuales:
-            existe = False
-            if not df_rel_acts.empty:
-                existe = not df_rel_acts[((df_rel_acts["ACTIVIDAD A"] == a_a) & (df_rel_acts["ACTIVIDAD B"] == a_b)) |
-                                         ((df_rel_acts["ACTIVIDAD A"] == a_b) & (df_rel_acts["ACTIVIDAD B"] == a_a))].empty
+            existe = not df_rel_acts[
+                ((df_rel_acts["ACTIVIDAD A"] == a_a) & (df_rel_acts["ACTIVIDAD B"] == a_b)) |
+                ((df_rel_acts["ACTIVIDAD A"] == a_b) & (df_rel_acts["ACTIVIDAD B"] == a_a))
+            ].empty
             if not existe:
                 nuevas_filas.append({"ACTIVIDAD A": a_a, "ACTIVIDAD B": a_b, "RELACIÓN": "Complementaria"})
         
         if nuevas_filas:
-            st.session_state['df_relaciones_actividades'] = pd.concat([df_rel_acts, pd.DataFrame(nuevas_filas)], ignore_index=True)
+            df_rel_acts = pd.concat([df_rel_acts, pd.DataFrame(nuevas_filas)], ignore_index=True)
+
+        # Si hubo limpieza o adición, guardamos y refrescamos
+        if not df_rel_acts.equals(st.session_state['df_relaciones_actividades']):
+            st.session_state['df_relaciones_actividades'] = df_rel_acts
             guardar_datos_nube()
             st.rerun()
 
-        st.info("Defina si las actividades pueden ejecutarse juntas o son excluyentes.")
+        st.info("Defina las relaciones técnicas entre actividades.")
 
-        # --- FILTRO ESTRICTO PARA EVITAR IDS TÉCNICOS ---
+        # --- CONFIGURACIÓN AG-GRID LIMPIA ---
         columnas_finales = ["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"]
-        df_final_rel = st.session_state['df_relaciones_actividades'][columnas_finales].copy()
+        df_final_rel = df_rel_acts[columnas_finales].copy()
 
         gb_rel = GridOptionsBuilder.from_dataframe(df_final_rel)
         gb_rel.configure_column("ACTIVIDAD A", headerName="🛠️ Actividad A", wrapText=True, autoHeight=True, width=350)
@@ -198,20 +204,23 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             df_final_rel, 
             gridOptions=gridOptionsRel, 
             custom_css=custom_css, 
-            update_mode=GridUpdateMode.VALUE_CHANGED, # <--- AUTO-GUARDADO DE RELACIONES
+            update_mode=GridUpdateMode.VALUE_CHANGED,
             theme='streamlit', 
             allow_unsafe_jscode=True,
-            key="grid_relaciones_limpia"
+            key="grid_relaciones_final"
         )
         
-        # Guardar cambios de relaciones automáticamente
         df_rel_live = pd.DataFrame(grid_response_rel['data'])
         if not df_rel_live.empty and not df_rel_live.equals(st.session_state['df_relaciones_actividades']):
             st.session_state['df_relaciones_actividades'] = df_rel_live[columnas_finales]
             guardar_datos_nube()
                 
     else:
-        st.warning("⚠️ Seleccione al menos 2 actividades válidas arriba para habilitar esta sección.")
+        st.warning("⚠️ Seleccione al menos 2 actividades válidas arriba.")
+        # Limpiar si ya no hay suficientes actividades
+        if not st.session_state.get('df_relaciones_actividades', pd.DataFrame()).empty:
+            st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
+            guardar_datos_nube()
 else:
     st.info("Complete la selección de actividades en el Paso 1.")
 
@@ -227,16 +236,16 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     
     with st.container(border=True):
         c_nombre, c_desc = st.columns([1, 2])
-        with c_nombre: nombre_alt = st.text_input("Nombre de Alternativa:", placeholder="Ej: Estrategia de Choque")
-        with c_desc: desc_alt = st.text_area("Descripción corta:", height=68)
+        with c_nombre: nombre_alt = st.text_input("Nombre:", placeholder="Ej: Alternativa A")
+        with c_desc: desc_alt = st.text_area("Descripción:", height=68)
 
-        st.write("###### Seleccione las actividades a incluir:")
+        st.write("###### Seleccione las actividades:")
         actividades_elegidas = []
         for obj in objetivos_disponibles:
             acts_del_obj = aprobadas[aprobadas["OBJETIVO"] == obj]["ACTIVIDAD"].tolist()
             with st.expander(f"🎯 {obj}", expanded=True):
                 for act in acts_del_obj:
-                    if st.checkbox(f"{act}", key=f"sel_{obj}_{act}"):
+                    if st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}"):
                         actividades_elegidas.append({"OBJETIVO": obj, "ACTIVIDAD": act})
 
         # Validación de Conflictos
@@ -250,7 +259,7 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
                                ((df_rel["ACTIVIDAD A"] == a2) & (df_rel["ACTIVIDAD B"] == a1))]
                 if not match.empty and match.iloc[0]["RELACIÓN"] == "Excluyente":
                     conflicto = True
-                    msg_conf = f"❌ Error: '{a1}' y '{a2}' no pueden ir juntas (Excluyentes)."
+                    msg_conf = f"❌ Error: '{a1}' y '{a2}' son EXCLUYENTES."
                     break
 
         if conflicto: st.error(msg_conf)
@@ -280,7 +289,7 @@ if st.session_state.get('lista_alternativas'):
             for item in alt['configuracion']:
                 st.markdown(f"**🎯 {item['objetivo']}**")
                 for a in item['actividades']: st.markdown(f"&nbsp;&nbsp;🔹 {a}")
-            if st.button(f"🗑️ Eliminar", key=f"del_{idx}"):
+            if st.button(f"🗑️ Eliminar", key=f"del_alt_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx)
                 guardar_datos_nube(); st.rerun()
 
@@ -294,9 +303,9 @@ st.subheader("📊 5. Evaluación de Alternativas")
 alts = st.session_state.get('lista_alternativas', [])
 
 if not alts:
-    st.info("Construya alternativas arriba para habilitar la evaluación.")
+    st.info("Cree alternativas arriba para evaluar.")
 else:
-    with st.expander("⚙️ Configurar Criterios (%)", expanded=False):
+    with st.expander("⚙️ Configurar Pesos (%)", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         p = st.session_state.get('ponderacion_criterios', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
         pc = c1.number_input("Costo", 0, 100, int(p['COSTO']))
@@ -338,8 +347,8 @@ else:
     gb_score.configure_grid_options(domLayout='autoHeight')
     gridOptionsScore = gb_score.build()
     
-    st.markdown("##### 🏆 Matriz de Decisión (Escala 1 a 5)")
-    grid_response_score = AgGrid(df_scores_reset, gridOptions=gridOptionsScore, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_scores_realtime")
+    st.markdown("##### 🏆 Matriz de Decisión")
+    grid_response_score = AgGrid(df_scores_reset, gridOptions=gridOptionsScore, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
 
     df_res = pd.DataFrame(grid_response_score['data'])
     if not df_res.empty and "Alternativa" in df_res.columns:
