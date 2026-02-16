@@ -16,6 +16,16 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
+    /* Estilo para las cajas de visualización de texto limpio */
+    .texto-limpio {
+        background-color: transparent;
+        border: none;
+        padding: 5px 0;
+        font-size: 16px;
+        color: #334155;
+        line-height: 1.5;
+    }
+
     /* Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
@@ -59,7 +69,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Diligenciamiento manual con guardado automático y poda de componentes.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Diligenciamiento manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
     hay_datos = any(datos_final.values()) if datos_final else False
@@ -118,7 +128,7 @@ def generar_grafo_final():
                 else: dot.edge(h_id, n_id)
     return dot
 
-# --- RENDERIZADO DE TARJETA ---
+# --- RENDERIZADO DE TARJETA MODO PODA ---
 def render_poda_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
@@ -147,33 +157,23 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- BLOQUE DE DILIGENCIAMIENTO CON GUARDADO AUTOMÁTICO ---
+        # --- NUEVO SISTEMA DE PEGADO SIMPLE ---
         st.subheader("📌 Alternativa Seleccionada")
+        
         col1, col2 = st.columns(2)
         with col1:
-            st.text_input("Nombre de la Alternativa:", 
-                         value=st.session_state.get('p7_nom_alt', ''), 
-                         key="p7_nom_alt", 
-                         on_change=guardar_datos_nube)
-            
-            st.text_area("Objetivo General:", 
-                        value=st.session_state.get('p7_obj_gen', ''), 
-                        key="p7_obj_gen", 
-                        on_change=guardar_datos_nube)
+            nom_val = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt", on_change=guardar_datos_nube)
+            obj_val = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen", on_change=guardar_datos_nube)
         with col2:
-            st.text_area("Objetivos Específicos:", 
-                        value=st.session_state.get('p7_obj_esp', ''), 
-                        key="p7_obj_esp", 
-                        on_change=guardar_datos_nube)
-            
-            st.text_area("Actividades Clave:", 
-                        value=st.session_state.get('p7_activ', ''), 
-                        key="p7_activ", 
-                        on_change=guardar_datos_nube)
-        
-        st.info("💡 La información se guarda automáticamente al cambiar de casilla.")
+            esp_val = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp", on_change=guardar_datos_nube)
+            act_val = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ", on_change=guardar_datos_nube)
 
+        st.divider()
+
+        # --- PANEL DE PODA ---
         st.subheader("📋 Panel de Poda")
+        st.info("Solo lectura: Use la papelera para descartar lo que no aporte a la alternativa de arriba.")
+
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
             datos_sec = st.session_state['arbol_objetivos_final'].get(tipo_padre, [])
             padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
