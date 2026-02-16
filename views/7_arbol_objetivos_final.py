@@ -16,16 +16,17 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estilo del Panel de Referencia (Estrategia) */
+    /* Panel de Referencia Estratégica */
     .resumen-estrategico {
         background-color: #f0f7ff;
         border-left: 5px solid #1E3A8A;
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 25px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* Tarjeta Modo Poda */
+    /* Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -110,7 +111,6 @@ def generar_grafo_final():
     for i in range(len(niv_list)-1):
         dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
 
-    # Lógica de dibujo jerárquico (Espejo de Paso 5)
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same'); s.node("L_OG")
@@ -181,27 +181,35 @@ with tab1:
 with tab2:
     if not hay_datos: st.info("💡 Importe sus datos para realizar la poda.")
     else:
-        # --- NUEVO: BLOQUE DE REFERENCIA ESTRATÉGICA ---
+        # --- BLOQUE DE REFERENCIA ESTRATÉGICA SINCRONIZADA ---
         st.subheader("📌 Referencia: Estrategia Seleccionada")
         alt_ganadora = st.session_state.get('alternativa_seleccionada', {})
         
-        with st.container():
-            st.markdown(f"""
-            <div class="resumen-estrategico">
-                <h4 style="margin-top:0; color:#1E3A8A;">🎯 OBJETIVO GENERAL:</h4>
-                <p><b>{alt_ganadora.get('objetivo', 'NO DEFINIDO').upper()}</b></p>
-                <hr>
-                <p><b>Resumen de la Alternativa:</b> {alt_ganadora.get('resumen', 'No hay resumen disponible.')}</p>
-                <p><b>Actividades Clave:</b> {alt_ganadora.get('actividades_texto', 'No definidas.')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+        # Lógica para asegurar que traiga datos o muestre un aviso útil
+        obj_ref = alt_ganadora.get('objetivo', 'PENDIENTE DE SELECCIÓN EN PASO ANTERIOR').upper()
+        res_ref = alt_ganadora.get('resumen', 'No se encontró resumen.')
+        act_ref = alt_ganadora.get('actividades_texto', 'No se encontraron actividades vinculadas.')
+
+        st.markdown(f"""
+        <div class="resumen-estrategico">
+            <h4 style="margin-top:0; color:#1E3A8A;">🎯 OBJETIVO GENERAL:</h4>
+            <p><b>{obj_ref}</b></p>
+            <hr style="border: 0; border-top: 1px solid #d1d5db; margin: 15px 0;">
+            <p style="margin-bottom: 5px;"><b>Resumen de la Alternativa:</b></p>
+            <p style="color: #4b5563;">{res_ref}</p>
+            <p style="margin-top: 10px; margin-bottom: 5px;"><b>Actividades Clave Definidas:</b></p>
+            <p style="color: #4b5563;">{act_ref}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.subheader("📋 Panel de Poda")
         st.warning("Solo lectura: Use la papelera para descartar lo que no aporte a la estrategia superior.")
 
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
-            padres_con_idx = [(idx, p) for idx, p in enumerate(st.session_state['arbol_objetivos_final'].get(tipo_padre, [])) if p.get('texto')]
+            datos_sec = st.session_state['arbol_objetivos_final'].get(tipo_padre, [])
+            padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
             if not padres_con_idx: return
+            
             st.write(f"**{tipo_padre}**")
             hijos = st.session_state['arbol_objetivos_final'].get(tipo_hijo, [])
             h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
