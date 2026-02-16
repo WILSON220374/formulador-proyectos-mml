@@ -16,15 +16,15 @@ st.markdown("""
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { border-radius: 12px; }
     
-    /* Botones y diseño de tarjetas fijas */
+    /* Botones y diseño general */
     div.stButton > button:first-child {
         background-color: #1E3A8A; color: white; border: none; font-size: 15px; padding: 6px 14px; border-radius: 8px;
     }
     .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px !important; }
     .compact-divider { margin: 15px 0px !important; border-top: 1px solid #eee; }
     
-    /* Estilo para que las tarjetas se sientan elevadas */
-    [data-testid="stVerticalBlockBorderWrapper"] { margin-bottom: 10px; }
+    /* Centrado de encabezados en AgGrid */
+    .ag-header-cell-label { justify-content: center !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -149,8 +149,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
         
         df_rel_acts = st.session_state['df_relaciones_actividades'].copy()
-        
-        # Autolimpieza estricta
         df_rel_acts = df_rel_acts[
             (df_rel_acts["ACTIVIDAD A"].isin(actividades_seleccionadas)) & 
             (df_rel_acts["ACTIVIDAD B"].isin(actividades_seleccionadas))
@@ -174,7 +172,6 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
             guardar_datos_nube(); st.rerun()
 
         st.info("Defina las relaciones técnicas entre actividades.")
-
         cols_finales = ["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"]
         df_visual_rel = df_rel_acts[cols_finales].copy()
 
@@ -277,22 +274,16 @@ if st.session_state.get('lista_alternativas'):
     
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
         color_actual = colores[idx % len(colores)]
-        
-        # Usamos CONTAINER fijo con borde en lugar de expander
         with st.container(border=True):
-            # Encabezado con franja de color interna
             st.markdown(f"""
                 <div style="background-color: {color_actual}; padding: 12px; border-radius: 6px; color: white; margin-bottom: 15px;">
                     <strong style="font-size: 1.2rem; letter-spacing: 1px;">{idx+1}. {alt['nombre'].upper()}</strong><br>
                     <span style="font-size: 0.95rem; opacity: 0.9;">📝 {alt.get('descripcion', 'Sin descripción')}</span>
                 </div>
             """, unsafe_allow_html=True)
-            
             for item in alt['configuracion']:
                 st.markdown(f"**🎯 {item['objetivo'].strip()}**")
-                for a in item['actividades']: 
-                    st.markdown(f"&nbsp;&nbsp;🔹 {a.strip()}")
-            
+                for a in item['actividades']: st.markdown(f"&nbsp;&nbsp;🔹 {a.strip()}")
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button(f"🗑️ Eliminar Alternativa", key=f"del_alt_btn_{idx}"):
                 st.session_state['lista_alternativas'].pop(idx)
@@ -301,7 +292,7 @@ if st.session_state.get('lista_alternativas'):
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. EVALUACIÓN MULTICRITERIO
+# 5. EVALUACIÓN MULTICRITERIO (AJUSTADO: CENTRADO Y GUÍA DINÁMICA)
 # ==============================================================================
 st.subheader("📊 5. Evaluación de Alternativas")
 
@@ -310,6 +301,9 @@ alts = st.session_state.get('lista_alternativas', [])
 if not alts:
     st.info("Cree alternativas arriba para evaluar.")
 else:
+    # Ajuste 1: Guía dinámica de puntuación
+    num_alts = len(alts)
+    
     with st.expander("⚙️ Configurar Pesos (%)", expanded=False):
         c1, c2, c3, c4 = st.columns(4)
         p = st.session_state.get('ponderacion_criterios', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
@@ -332,10 +326,21 @@ else:
     
     df_scores_reset = st.session_state['df_calificaciones'].reset_index().rename(columns={"index": "Alternativa"})
 
+    # Ajuste 2: Centrado de Columnas y Encabezados
     gb_score = GridOptionsBuilder.from_dataframe(df_scores_reset)
     gb_score.configure_column("Alternativa", editable=False, width=200, pinned="left")
+    
     for crit in criterios:
-        gb_score.configure_column(crit, editable=True, width=120, type=["numericColumn"], min=0, max=5)
+        gb_score.configure_column(
+            crit, 
+            editable=True, 
+            width=120, 
+            type=["numericColumn"], 
+            min=0, 
+            max=5,
+            cellStyle={'textAlign': 'center'}, # Centra el valor
+            headerClass='ag-center-header'      # Clase para centrar encabezado
+        )
 
     pesos = st.session_state['ponderacion_criterios']
     js_calc_total = JsCode(f"""
@@ -348,11 +353,17 @@ else:
         return Number(total).toFixed(2);
     }}
     """)
-    gb_score.configure_column("TOTAL", valueGetter=js_calc_total, width=140, cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f9ff'})
+    gb_score.configure_column(
+        "TOTAL", 
+        valueGetter=js_calc_total, 
+        width=140, 
+        cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f9ff', 'textAlign': 'center'}
+    )
     gb_score.configure_grid_options(domLayout='autoHeight')
     gridOptionsScore = gb_score.build()
     
-    st.markdown("##### 🏆 Matriz de Decisión")
+    # Aplicación de la guía dinámica en el título
+    st.markdown(f"##### 🏆 Matriz de Decisión (Puntuar de 1 a {num_alts})")
     grid_response_score = AgGrid(df_scores_reset, gridOptions=gridOptionsScore, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
 
     df_res = pd.DataFrame(grid_response_score['data'])
@@ -365,9 +376,11 @@ else:
             for crit in criterios: p_final += df_save.loc[alt_n, crit] * (pesos[crit]/100)
             res_ranking.append({"Alternativa": alt_n, "PUNTAJE": p_final})
         df_ranking = pd.DataFrame(res_ranking).sort_values("PUNTAJE", ascending=False)
+        
         if not df_ranking.empty:
             ganadora = df_ranking.iloc[0]
-            st.success(f"🎉 **Ganadora:** {ganadora['Alternativa']} ({ganadora['PUNTAJE']:.2f} pts)")
+            # Ajuste 3: Cambio de etiqueta "Alternativa Seleccionada"
+            st.success(f"🎉 **Alternativa Seleccionada:** {ganadora['Alternativa']} ({ganadora['PUNTAJE']:.2f} pts)")
             st.dataframe(df_ranking, column_config={"PUNTAJE": st.column_config.ProgressColumn("Puntaje", format="%.2f", min_value=0, max_value=5)}, use_container_width=True, hide_index=True)
 
 st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
