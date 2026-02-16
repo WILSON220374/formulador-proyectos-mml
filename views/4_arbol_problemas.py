@@ -8,27 +8,27 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTRATEGIA: SISTEMA INMUNITARIO (LIMPIEZA AUTOMÁTICA Y SINCRONIZADA) ---
-# Este bloque detecta "zombis" o "Nones", los borra y limpia la nube sin preguntar
+# --- ESTRATEGIA: AUTOLIMPIEZA PROFUNDA Y SINCRONIZADA ---
+# Detecta registros basura, los borra de la sesión y los elimina de la nube automáticamente
 if 'arbol_tarjetas' in st.session_state:
-    limpieza_realizada = False
+    datos_sucios = False
     for seccion in st.session_state['arbol_tarjetas']:
-        lista = st.session_state['arbol_tarjetas'][seccion]
-        if isinstance(lista, list):
-            # Solo permitimos fichas con texto real, mayor a 2 letras y que no sea "NONE"
-            nueva_lista = [
-                it for it in lista if isinstance(it, dict) and 
+        lista_original = st.session_state['arbol_tarjetas'][seccion]
+        if isinstance(lista_original, list):
+            # Filtro: Solo se quedan fichas con texto real, > 2 letras y que no digan "NONE"
+            lista_limpia = [
+                it for it in lista_original if isinstance(it, dict) and 
                 it.get('texto') and 
                 str(it.get('texto')).strip().upper() != "NONE" and
                 len(str(it.get('texto')).strip()) > 2
             ]
             
-            if len(nueva_lista) != len(lista):
-                st.session_state['arbol_tarjetas'][seccion] = nueva_lista
-                limpieza_realizada = True
+            if len(lista_limpia) != len(lista_original):
+                st.session_state['arbol_tarjetas'][seccion] = lista_limpia
+                datos_sucios = True
     
-    # Si encontramos basura, limpiamos la base de datos de una vez
-    if limpieza_realizada:
+    # Si se detectó basura, se limpia la base de datos de inmediato
+    if datos_sucios:
         guardar_datos_nube()
         st.rerun()
 
@@ -39,6 +39,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
+    /* Estilo de tarjetas en el Constructor */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;           
@@ -69,42 +70,52 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Visualización jerárquica con autolimpieza de registros.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Visualización profesional con sistema de autolimpieza de base de datos.</div>', unsafe_allow_html=True)
     
     pc_data = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
     hay_datos = len(pc_data) > 0
-    st.progress(1.0 if hay_datos else 0.0, text="Lienzo Limpio" if hay_datos else "Esperando Datos")
+    st.progress(1.0 if hay_datos else 0.0, text="Base de datos optimizada" if hay_datos else "Esperando Problema Central")
 
 with col_img:
     if os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
-# --- MOTOR DE DIBUJO PROFESIONAL ---
+# --- MOTOR DE DIBUJO CON GUÍA LATERAL (ESTILO MANUAL) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     pc = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if not pc: return None
 
     dot = graphviz.Digraph(format='png')
-    dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
+    
+    # Título para la imagen descargada
+    dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
+             fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
+    
     dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.7', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
     COLORS = {"PC": "#A93226", "ED": "#2E86C1", "EI": "#884EA0", "CD": "#D4AC0D", "CI": "#CA6F1E"}
 
-    # 1. Columna de Guía Lateral
-    etiquetas = {"L_EI": "EFECTO\nINDIRECTO", "L_ED": "EFECTO\nDIRECTO", "L_PC": "PROBLEMA\nCENTRAL", "L_CD": "CAUSA\nDIRECTA", "L_CI": "CAUSA\nINDIRECTA"}
+    # 1. Columna de Guía Lateral (Izquierda)
+    etiquetas = {
+        "L_EI": "EFECTO\nINDIRECTO",
+        "L_ED": "EFECTO\nDIRECTO",
+        "L_PC": "PROBLEMA\nCENTRAL",
+        "L_CD": "CAUSA\nDIRECTA",
+        "L_CI": "CAUSA\nINDIRECTA"
+    }
     for id_e, txt in etiquetas.items():
         dot.node(id_e, txt, shape='plaintext', fontcolor='#94a3b8', fontsize='10', fontname='Arial Bold')
 
     dot.edge("L_CI", "L_CD", style='invis'); dot.edge("L_CD", "L_PC", style='invis')
     dot.edge("L_PC", "L_ED", style='invis'); dot.edge("L_ED", "L_EI", style='invis')
 
-    # 2. Dibujo por Niveles (Rank Same)
+    # 2. Dibujo por Niveles (Alineación Horizontal Perfecta)
     with dot.subgraph() as s:
         s.attr(rank='same'); s.node('L_PC')
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
@@ -121,7 +132,7 @@ def generar_grafo_problemas():
                 s.node(node_id, limpiar(it['texto']), fillcolor=col, fontcolor='white' if col != COLORS["CD"] else 'black', color='none')
                 dot.edge('PC', node_id) if edge_dir == "forward" else dot.edge(node_id, 'PC')
                 
-                # Sub-ramas (Indirectas)
+                # Indirectas vinculadas
                 h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
                 h_col = COLORS["EI"] if "Efecto" in tipo else COLORS["CI"]
                 h_l_node = "L_EI" if "Efecto" in tipo else "L_CI"
@@ -145,18 +156,19 @@ def render_card(seccion, item, idx):
     texto_actual = item.get('texto', '')
     nuevo = st.text_area("t", value=texto_actual, key=f"txt_{id_u}", label_visibility="collapsed")
     
-    if st.button("🗑️", key=f"btn_{id_u}", help="Eliminar permanentemente"):
+    if st.button("🗑️", key=f"btn_{id_u}"):
         st.session_state['arbol_tarjetas'][seccion].pop(idx)
         guardar_datos_nube(); st.rerun()
         
     if nuevo != texto_actual and len(nuevo.strip()) > 2: 
-        st.session_state['arbol_tarjetas'][seccion][idx]['texto'] = nuevo.strip()
+        st.session_state['arbol_tarjetas'][seccion][idx]['texto'] = nuevo.strip().upper()
         guardar_datos_nube()
 
-# --- SIDEBAR ---
+# --- SIDEBAR: GESTIÓN ---
 with st.sidebar:
     st.header("➕ Agregar Ficha")
     tipo_sel = st.selectbox("Nivel:", ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"], index=2)
+    
     with st.form("crear_ficha", clear_on_submit=True):
         texto_input = st.text_area("Descripción:")
         padre_asociado = None
@@ -178,22 +190,23 @@ with st.sidebar:
     if grafo: 
         st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
-# --- PANEL PRINCIPAL ---
+# --- PANEL PRINCIPAL: PESTAÑAS ---
 tab1, tab2 = st.tabs(["🌳 Visualización del Árbol", "📝 Constructor y Edición"])
 
 with tab1:
     if not hay_datos:
-        st.info("🎯 Defina el Problema Principal para visualizar el árbol.")
+        st.info("🎯 Defina el Problema Principal para visualizar el gráfico.")
     else:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
+            # Mostramos la imagen procesada para que se vea igual al archivo descargado
             st.image(grafo_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
     if not hay_datos:
-        st.info("💡 Use el menú lateral para construir el árbol.")
+        st.info("💡 Use el menú lateral para agregar las fichas de su diagnóstico.")
     else:
-        st.subheader("📋 Panel de Edición")
+        st.subheader("📋 Panel de Edición Lógica")
         def mostrar_seccion_dinamica(tipo_padre, tipo_hijo):
             padres = [p for p in st.session_state.get('arbol_tarjetas', {}).get(tipo_padre, []) if p.get('texto')]
             if not padres: return
