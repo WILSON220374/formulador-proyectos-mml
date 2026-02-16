@@ -70,7 +70,6 @@ with col_t:
     st.progress(1.0 if hay_datos else 0.0, text="Árbol en Construcción" if hay_datos else "Esperando Datos")
 
 with col_img:
-    # 2. CAMBIO DE NOMBRE DE LOGO
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
@@ -90,11 +89,9 @@ def generar_grafo_problemas():
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
     COLORS = {"PC": "#A93226", "ED": "#2E86C1", "EI": "#884EA0", "CD": "#D4AC0D", "CI": "#CA6F1E"}
 
-    # 3. ELIMINACIÓN DE CUADROS GRISES EN ETIQUETAS DE GUÍA
     etiquetas = {"L_EI": "EFECTO\nINDIRECTO", "L_ED": "EFECTO\nDIRECTO", "L_PC": "PROBLEMA\nCENTRAL", "L_CD": "CAUSA\nDIRECTA", "L_CI": "CAUSA\nINDIRECTA"}
     for id_e, txt in etiquetas.items():
         color_txt = COLORS["PC"] if "PC" in id_e else COLORS[id_e.split('_')[1]]
-        # Se define explícitamente sin fondo y sin borde
         dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold', style='none')
 
     dot.edge("L_CI", "L_CD", style='invis')
@@ -104,7 +101,6 @@ def generar_grafo_problemas():
 
     with dot.subgraph() as s:
         s.attr(rank='same')
-        # Se asegura que la etiqueta de guía mantenga el estilo sin cuadro
         s.node('L_PC', shape='plaintext', style='none')
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
 
@@ -194,7 +190,6 @@ with st.sidebar:
     if grafo: 
         st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
-    # 1. CAMBIO DE NOMBRE A BORRADO TOTAL
     st.divider()
     with st.expander("⚠️ BORRADO TOTAL"):
         st.write("Esta acción reseteará todo el árbol permanentemente.")
@@ -233,11 +228,19 @@ with tab2:
             cols = st.columns(len(padres))
             for i, p in enumerate(padres):
                 with cols[i]:
-                    render_card(tipo_padre, p, i)
                     hijos = [h for h in st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, []) if h.get('padre') == p.get('texto')]
-                    for h in hijos:
-                        idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
-                        render_card(tipo_hijo, h, idx_real)
+                    
+                    # AJUSTE DE ORDEN: EFECTOS HACIA ARRIBA, CAUSAS HACIA ABAJO
+                    if "Efectos" in tipo_padre:
+                        for h in hijos:
+                            idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
+                            render_card(tipo_hijo, h, idx_real)
+                        render_card(tipo_padre, p, i)
+                    else:
+                        render_card(tipo_padre, p, i)
+                        for h in hijos:
+                            idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
+                            render_card(tipo_hijo, h, idx_real)
 
         mostrar_seccion_dinamica("Efectos Directos", "Efectos Indirectos")
         st.markdown("---")
