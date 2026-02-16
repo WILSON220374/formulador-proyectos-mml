@@ -8,7 +8,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- ESTILOS CSS (DISEÑO UNIFICADO Y LIMPIO) ---
+# --- ESTILOS CSS (DISEÑO UNIFICADO Y COMPACTO) ---
 st.markdown("""
     <style>
     /* Colchón inferior para que no se corte el final */
@@ -44,7 +44,11 @@ st.markdown("""
         color: white;
     }
     
-    /* Ajuste para que las tablas AgGrid no tengan scroll innecesario */
+    /* Ajuste para reducir espacios entre elementos (Compacto) */
+    div.stButton { margin-bottom: 0px !important; }
+    .compact-divider { margin: 10px 0px !important; border-top: 1px solid #eee; }
+    
+    /* Ajuste AgGrid */
     .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; }
     </style>
 """, unsafe_allow_html=True)
@@ -73,14 +77,14 @@ with col_img:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
     elif os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
-st.divider()
+st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
 # 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (Ag-Grid Auto-Height)
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# Leyenda
+# Leyenda compacta
 st.markdown("""
     <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; font-size: 0.85rem; color: #444;">
         <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
@@ -140,7 +144,7 @@ function(params) {
     }
 };
 """)
-# IMPORTANTE: domLayout='autoHeight' elimina el espacio vacío
+# domLayout='autoHeight' CLAVE PARA ELIMINAR ESPACIO
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
@@ -169,7 +173,9 @@ if st.button("💾 Guardar Selección"):
         guardar_datos_nube()
         st.rerun()
 
-st.divider()
+# Espacio manual mínimo en lugar de Divider grande
+st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
 # 2. ANÁLISIS DE RELACIONES
@@ -219,7 +225,7 @@ if not aprobadas.empty:
 else:
     st.info("No hay actividades seleccionadas arriba.")
 
-st.divider()
+st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
 # 3. CONSTRUCTOR DE ALTERNATIVAS
@@ -278,7 +284,7 @@ if not aprobadas.empty and objetivos_seleccionados:
 # 4. VISUALIZACIÓN
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
-    st.markdown("---")
+    st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
     st.subheader("📋 4. Alternativas Consolidadas")
     for idx, alt in enumerate(st.session_state['lista_alternativas']):
         with st.expander(f"**{idx+1}. {alt['nombre'].upper()}**"):
@@ -290,7 +296,7 @@ if st.session_state.get('lista_alternativas'):
                 st.session_state['lista_alternativas'].pop(idx)
                 guardar_datos_nube(); st.rerun()
 
-st.divider()
+st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
 # 5. EVALUACIÓN MULTICRITERIO (REAL-TIME AG-GRID)
