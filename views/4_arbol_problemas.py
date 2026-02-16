@@ -8,11 +8,12 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTRATEGIA: LIMPIEZA TOTAL DE REGISTROS "NONE" ---
+# --- ESTRATEGIA: LIMPIEZA PROFUNDA DE REGISTROS ---
 if 'arbol_tarjetas' in st.session_state:
     for seccion in st.session_state['arbol_tarjetas']:
         lista = st.session_state['arbol_tarjetas'][seccion]
         if isinstance(lista, list):
+            # Solo mantenemos fichas con contenido real y que no sean "None"
             st.session_state['arbol_tarjetas'][seccion] = [
                 it for it in lista if isinstance(it, dict) and 
                 it.get('texto') and 
@@ -63,32 +64,34 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Construcción y visualización de la estructura lógica del proyecto.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Construcción y visualización definitiva del diagnóstico.</div>', unsafe_allow_html=True)
     
     pc_data = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
     hay_datos = len(pc_data) > 0
-    st.progress(1.0 if hay_datos else 0.0, text="Árbol Activo" if hay_datos else "Esperando Datos")
+    st.progress(1.0 if hay_datos else 0.0, text="Árbol Formulado" if hay_datos else "Esperando Datos")
 
 with col_img:
     if os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
 
-# --- MOTOR DE DIBUJO (CON TÍTULO PARA EL PNG) ---
+# --- MOTOR DE DIBUJO (UNIFICADO PARA PANTALLA Y PNG) ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
     pc = [it for it in datos.get("Problema Principal", []) if it.get('texto') and str(it.get('texto')).upper() != "NONE"]
     if not pc: return None
 
+    # Orientación vertical (Top-Bottom) para que no se vea aplastado
     dot = graphviz.Digraph(format='png')
     
-    # --- AJUSTE AQUÍ: TÍTULO DEL GRÁFICO ---
+    # TÍTULO DEL GRÁFICO
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', 
-             fontsize='25', fontname='Arial Bold', fontcolor='#1E3A8A')
+             fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
     
-    dot.attr(size='12,10!', ratio='fill', center='true', dpi='300') 
-    dot.attr(rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
-    dot.attr('node', fontsize='12', fontname='Arial Bold', style='filled', shape='box', margin='0.3,0.2')
+    # Control de tamaño para evitar cajas gigantes en pantalla
+    dot.attr(size='14,12!', ratio='fill', center='true', dpi='300') 
+    dot.attr(rankdir='BT', nodesep='0.6', ranksep='0.9', splines='ortho')
+    dot.attr('node', fontsize='12', fontname='Arial Bold', style='filled', shape='box', margin='0.4,0.3')
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
@@ -103,6 +106,7 @@ def generar_grafo_problemas():
     ]
 
     for tipo, id_p, p_key, edge_dir, col in ramas:
+        # Filtro estricto: Solo fichas con texto real
         items = [it for it in datos.get(tipo, []) if it.get('texto') and str(it.get('texto')).upper() != "NONE"]
         for i, it in enumerate(items):
             node_id = f"{id_p}{i}"
@@ -110,13 +114,14 @@ def generar_grafo_problemas():
             if edge_dir == "forward": dot.edge('PC', node_id)
             else: dot.edge(node_id, 'PC')
             
+            # Sub-ramas (Solo si el padre coincide exactamente)
             h_tipo = "Efectos Indirectos" if "Efecto" in tipo else "Causas Indirectas"
             h_col = COLORS["EI"] if "Efecto" in tipo else COLORS["CI"]
             hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == it['texto'] and h.get('texto') and str(h.get('texto')).upper() != "NONE"]
             
             for j, h in enumerate(hijos):
                 h_id = f"{id_p}I{i}_{j}"
-                dot.node(h_id, limpiar(h['texto']), fillcolor=h_col, fontcolor='white', color='none', fontsize='10')
+                dot.node(h_id, limpiar(h['texto']), fillcolor=h_col, fontcolor='white', color='none', fontsize='11')
                 if edge_dir == "forward": dot.edge(node_id, h_id)
                 else: dot.edge(h_id, node_id)
     return dot
@@ -139,7 +144,7 @@ def render_card(seccion, item, idx):
         st.session_state['arbol_tarjetas'][seccion][idx]['texto'] = nuevo.strip()
         guardar_datos_nube()
 
-# --- SIDEBAR: GESTIÓN ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("➕ Agregar Ficha")
     tipo_sel = st.selectbox("Nivel:", ["Efectos Indirectos", "Efectos Directos", "Problema Principal", "Causas Directas", "Causas Indirectas"], index=2)
@@ -163,6 +168,7 @@ with st.sidebar:
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo: 
+        # Botón de descarga con el título ya integrado
         st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
@@ -170,15 +176,16 @@ tab1, tab2 = st.tabs(["🌳 Visualización del Árbol", "📝 Constructor y Edic
 
 with tab1:
     if not hay_datos:
-        st.info("🎯 Defina el Problema Principal en el menú lateral.")
+        st.info("🎯 Defina el Problema Principal para visualizar el árbol.")
     else:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
-            st.graphviz_chart(grafo_f)
+            # USAMOS st.image en lugar de st.graphviz_chart para que se vea IGUAL al PNG
+            st.image(grafo_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
     if not hay_datos:
-        st.info("💡 Use el menú lateral para construir el árbol.")
+        st.info("💡 Construya su árbol desde el menú lateral.")
     else:
         st.subheader("📋 Panel de Edición")
         def mostrar_seccion_dinamica(tipo_padre, tipo_hijo):
@@ -190,7 +197,7 @@ with tab2:
                 with cols[i]:
                     render_card(tipo_padre, p, i)
                     hijos = [h for h in st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, []) if h.get('padre') == p.get('texto')]
-                    for j, h in enumerate(hijos):
+                    for h in hijos:
                         idx_real = st.session_state['arbol_tarjetas'][tipo_hijo].index(h)
                         render_card(tipo_hijo, h, idx_real)
 
