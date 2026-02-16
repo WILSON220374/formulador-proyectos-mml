@@ -8,25 +8,29 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- SANEAMIENTO DE DATOS (Arreglo para Grupo 2) ---
+# --- SANEAMIENTO DE DATOS ---
 if 'arbol_tarjetas' in st.session_state:
     for seccion in st.session_state['arbol_tarjetas']:
         lista = st.session_state['arbol_tarjetas'][seccion]
         if isinstance(lista, list):
-            # Filtramos para que solo queden diccionarios válidos con texto
+            # Filtramos para que solo queden diccionarios válidos con texto real
             st.session_state['arbol_tarjetas'][seccion] = [
-                it for it in lista if isinstance(it, dict) and it.get('texto')
+                it for it in lista if isinstance(it, dict) and it.get('texto') and len(str(it.get('texto')).strip()) > 0
             ]
 
 # --- ESTILO GLOBAL ---
 st.markdown("""
     <style>
+    /* AJUSTE 1: Agregamos el margen inferior (padding-bottom) para evitar el recorte abajo */
+    .block-container { padding-bottom: 12rem !important; }
+    
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
+    /* Estética de Tarjetas */
     div[data-testid="stTextArea"] textarea {
         background-color: #ffffff !important;
-        border: none !important;           
+        border: 1px solid #eee !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
         font-size: 14px !important;
@@ -57,8 +61,10 @@ with col_t:
     st.markdown('<div class="titulo-seccion">🌳 4. Árbol de Problemas</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Identificación del problema central, sus causas raíces y efectos directos.</div>', unsafe_allow_html=True)
     
-    hay_tarjetas = any(st.session_state.get('arbol_tarjetas', {}).values())
-    progreso = 1.0 if hay_tarjetas else 0.0
+    # Progreso basado en si hay tarjetas creadas (especialmente el Problema Principal)
+    pc_data = st.session_state.get('arbol_tarjetas', {}).get("Problema Principal", [])
+    hay_datos = len(pc_data) > 0
+    progreso = 1.0 if hay_datos else 0.0
     st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
 
 with col_img:
@@ -79,7 +85,11 @@ CONFIG_PROB = {
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
-    if not datos: return None
+    pc = datos.get("Problema Principal", [])
+    
+    # AJUSTE 2: Si no hay Problema Principal, no generamos el grafo para evitar el texto gigante
+    if not pc: return None
+
     dot = graphviz.Digraph(format='png')
     dot.attr(label='ÁRBOL DE PROBLEMAS', labelloc='t', fontsize='35', fontname='Arial Bold', fontcolor='#333333')
     dot.attr(dpi='300', rankdir='BT', nodesep='0.5', ranksep='0.8', splines='ortho')
@@ -99,13 +109,12 @@ def generar_grafo_problemas():
     for i in range(len(etiquetas)-1):
         dot.edge(etiquetas[i+1], etiquetas[i], style='invis')
 
-    pc = datos.get("Problema Principal", [])
-    if pc and isinstance(pc[0], dict):
-        dot.node('PC', limpiar(pc[0].get('texto', ''), 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
-        with dot.subgraph() as s:
-            s.attr(rank='same')
-            s.node('L_PC')
-            s.node('PC')
+    # Nodo del Problema Principal
+    dot.node('PC', limpiar(pc[0].get('texto', ''), 100), fillcolor=CONFIG_PROB["Problema Principal"]["color"], margin='0.8,0.4')
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('L_PC')
+        s.node('PC')
 
     for tipo, id_et, p_key, edge_dir in [
         ("Efectos Directos", "L_ED", "PC", "forward"), 
@@ -159,7 +168,6 @@ with st.sidebar:
         padre_asociado = None
         if "Indirect" in tipo_sel:
             p_key = "Efectos Directos" if "Efecto" in tipo_sel else "Causas Directas"
-            # CORRECCIÓN PARA GRUPO 2: Filtrar 'it' para que no sea None antes de pedir 'texto'
             opciones = [it['texto'] for it in st.session_state.get('arbol_tarjetas', {}).get(p_key, []) if isinstance(it, dict) and 'texto' in it]
             if opciones: padre_asociado = st.selectbox("Vincular a:", opciones)
         
@@ -174,11 +182,13 @@ with st.sidebar:
     if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol.png", use_container_width=True)
 
 # --- PANEL PRINCIPAL ---
-if not hay_tarjetas:
-    st.warning("Inicie con el Problema Principal.")
+if not hay_datos:
+    st.warning("⚠️ El árbol está vacío. Comience agregando el **Problema Principal** desde el menú lateral para visualizar el gráfico.")
 else:
     grafo_f = generar_grafo_problemas()
-    if grafo_f: st.image(grafo_f.pipe(format='png'), use_container_width=True)
+    if grafo_f: 
+        st.image(grafo_f.pipe(format='png'), use_container_width=True)
+    
     st.divider()
     st.subheader("📋 Panel de Edición")
 
