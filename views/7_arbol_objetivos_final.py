@@ -67,7 +67,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Poda definitiva basada en la alternativa seleccionada.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Poda definitiva sincronizada con la alternativa seleccionada.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
     hay_datos = any(datos_final.values()) if datos_final else False
@@ -87,25 +87,24 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- LÓGICA DE BÚSQUEDA ROBUSTA (Solo en Hoja 7) ---
-# Intentamos encontrar los datos de la alternativa ganadora en diferentes posibles ubicaciones
-alt_ganadora = st.session_state.get('alternativa_seleccionada', {})
-if not alt_ganadora:
-    # Si no está en el casillero principal, buscamos en los resultados de la matriz
-    matriz = st.session_state.get('matriz_alternativas', [])
-    if matriz:
-        # Buscamos la fila que tenga el puntaje más alto (la seleccionada)
-        try:
-            # Ordenamos por puntaje y tomamos la primera
-            matriz_ordenada = sorted(matriz, key=lambda x: x.get('total', 0), reverse=True)
-            alt_ganadora = matriz_ordenada[0]
-        except:
-            alt_ganadora = {}
+# --- RASTREO DE DATOS DESDE ALTERNATIVAS CONSOLIDADAS ---
+# 1. Buscamos el nombre de la alternativa ganadora
+nombre_ganadora = st.session_state.get('seleccion_final', "")
 
-# Extraer textos con nombres de variables alternativos para mayor seguridad
-obj_ref = alt_ganadora.get('objetivo', alt_ganadora.get('texto', 'PENDIENTE DE SELECCIÓN')).upper()
-res_ref = alt_ganadora.get('resumen', alt_ganadora.get('descripcion', 'No se encontró resumen.'))
-act_ref = alt_ganadora.get('actividades_texto', alt_ganadora.get('actividades', 'No se encontraron actividades.'))
+# 2. Buscamos en la lista de alternativas consolidadas (donde están los textos largos)
+lista_consolidadas = st.session_state.get('alternativas_consolidadas', [])
+datos_alternativa = {}
+
+for alt in lista_consolidadas:
+    # Verificamos si el nombre coincide con la seleccionada
+    if alt.get('titulo', '') in nombre_ganadora or nombre_ganadora in alt.get('titulo', ''):
+        datos_alternativa = alt
+        break
+
+# Extraemos la información para mostrarla en el Panel de Referencia
+obj_ref = datos_alternativa.get('titulo', 'PENDIENTE DE SELECCIÓN').upper()
+res_ref = datos_alternativa.get('resumen', 'No se encontró resumen.')
+act_ref = datos_alternativa.get('actividades', 'No se encontraron actividades vinculadas.')
 
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_final():
@@ -134,37 +133,22 @@ def generar_grafo_final():
         s.attr(rank='same'); s.node("L_OG")
         if obj_gen: s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
-    # ... Resto de la lógica de dibujo jerárquico se mantiene igual ...
-    # (Fines Directos, Indirectos y Medios con la misma estructura profesional)
-    f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_FD")
-        for i, item in enumerate(f_dir):
-            s.node(f"FD{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
-            dot.edge("OG", f"FD{i}")
-
-    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_FI")
-        for i, item in enumerate(f_ind):
-            s.node(f"FI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
-            for j, p_data in enumerate(f_dir):
-                if item.get('padre') == p_data.get('texto'): dot.edge(f"FD{j}", f"FI{i}")
-
-    m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_MD")
-        for i, item in enumerate(m_dir):
-            s.node(f"MD{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
-            dot.edge(f"MD{i}", "OG")
-
-    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node("L_MI")
-        for i, item in enumerate(m_ind):
-            s.node(f"MI{i}", limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
-            for j, p_data in enumerate(m_dir):
-                if item.get('padre') == p_data.get('texto'): dot.edge(f"MI{i}", f"MD{j}")
+    for tipo, p_key, h_tipo in [("Fines Directos", "FD", "Fines Indirectos"), ("Medios Directos", "MD", "Medios Indirectos")]:
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        with dot.subgraph() as s:
+            s.attr(rank='same'); s.node(f"L_{p_key}")
+            for i, it in enumerate(items):
+                n_id = f"{p_key}{i}"
+                s.node(n_id, limpiar(it['texto']), fillcolor=CONFIG_OBJ[tipo]["color"], fontcolor='white' if "Fin" in tipo else 'black', color='none')
+                if "Fin" in tipo: dot.edge("OG", n_id)
+                else: dot.edge(n_id, "OG")
+                
+                h_items = [h for h in datos.get(h_tipo, []) if h.get('padre') == it.get('texto')]
+                for j, h in enumerate(h_items):
+                    h_id = f"{h_tipo[:2]}{i}_{j}"
+                    dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_tipo]["color"], fontcolor='white', color='none', fontsize='10')
+                    if "Fin" in tipo: dot.edge(n_id, h_id)
+                    else: dot.edge(h_id, n_id)
                 
     return dot
 
@@ -176,8 +160,7 @@ def render_poda_card(seccion, item, idx):
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
     if st.button("🗑️", key=f"poda_btn_{id_u}"):
-        st.session_state['arbol_objetivos_final'][seccion].pop(idx)
-        guardar_datos_nube(); st.rerun()
+        st.session_state['arbol_objetivos_final'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -193,15 +176,12 @@ with st.sidebar:
 tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
-    if not hay_datos: st.info("Importe el árbol del Paso 5 para visualizar.")
-    else:
-        g_f = generar_grafo_final()
-        if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
+    g_f = generar_grafo_final()
+    if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    if not hay_datos: st.info("💡 Importe sus datos para realizar la poda.")
-    else:
-        # --- BLOQUE DE REFERENCIA ESTRATÉGICA CON AUTODETECCIÓN ---
+    if hay_datos:
+        # PANEL DE REFERENCIA CON RASTREO AUTOMÁTICO
         st.subheader("📌 Referencia: Estrategia Seleccionada")
         st.markdown(f"""
         <div class="resumen-estrategico">
@@ -216,35 +196,30 @@ with tab2:
         """, unsafe_allow_html=True)
 
         st.subheader("📋 Panel de Poda")
-        st.warning("Solo lectura: Use la papelera para descartar lo que no aporte a la estrategia superior.")
-
         def mostrar_seccion_final(tipo_padre, tipo_hijo):
-            datos_sec = st.session_state['arbol_objetivos_final'].get(tipo_padre, [])
-            padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
-            if not padres_con_idx: return
-            
+            padres = [(idx, p) for idx, p in enumerate(st.session_state['arbol_objetivos_final'].get(tipo_padre, [])) if p.get('texto')]
+            if not padres: return
             st.write(f"**{tipo_padre}**")
             hijos = st.session_state['arbol_objetivos_final'].get(tipo_hijo, [])
-            h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
+            h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres]
             max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
 
-            # Lógica de filas (Espejo de Hoja 5)
             if "Fin" in tipo_padre:
                 for h_idx in range(max_h - 1, -1, -1):
-                    cols = st.columns(len(padres_con_idx))
+                    cols = st.columns(len(padres))
                     for p_col, col in enumerate(cols):
                         with col:
                             if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
                             else: st.empty()
-                cols_p = st.columns(len(padres_con_idx))
-                for i, (idx_o, p_d) in enumerate(padres_con_idx):
+                cols_p = st.columns(len(padres))
+                for i, (idx_o, p_d) in enumerate(padres):
                     with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
             else:
-                cols_p = st.columns(len(padres_con_idx))
-                for i, (idx_o, p_d) in enumerate(padres_con_idx):
+                cols_p = st.columns(len(padres))
+                for i, (idx_o, p_d) in enumerate(padres):
                     with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
                 for h_idx in range(max_h):
-                    cols = st.columns(len(padres_con_idx))
+                    cols = st.columns(len(padres))
                     for p_col, col in enumerate(cols):
                         with col:
                             if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
