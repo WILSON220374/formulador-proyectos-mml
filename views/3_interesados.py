@@ -110,19 +110,14 @@ c_add, c_del, c_space = st.columns([1, 1, 4])
 
 with c_add:
     if st.button("➕ Agregar Actor"):
-        # Creamos una fila vacía
         new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
-        # Concatenamos
         st.session_state['df_interesados'] = pd.concat([df_clean, new_row], ignore_index=True)
         guardar_datos_nube()
         st.rerun()
 
 # --- TABLA AG-GRID ---
 gb = GridOptionsBuilder.from_dataframe(df_clean)
-
-# HABILITAMOS SELECCIÓN (Checkboxes a la izquierda)
 gb.configure_selection(selection_mode="multiple", use_checkbox=True)
-
 gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True, wrapText=True, autoHeight=True)
 gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True, wrapText=True, autoHeight=True)
 gb.configure_column("POSICIÓN", headerName="🚩 Posición", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_pos}, width=140)
@@ -162,25 +157,38 @@ grid_response = AgGrid(
     fit_columns_on_grid_load=True, theme='streamlit', allow_unsafe_jscode=True
 )
 
-# Lógica de Eliminación (Depende de lo seleccionado en la grid)
+# LÓGICA DE ELIMINACIÓN CORREGIDA (Blindada contra errores)
 with c_del:
     if st.button("🗑️ Eliminar"):
         sel_rows = grid_response['selected_rows']
-        if sel_rows:
-            # Convertimos a DF para facilitar filtrado
-            df_sel = pd.DataFrame(sel_rows)
-            # Filtramos el DF original para quitar los seleccionados
-            # (Usamos el índice si es consistente, o filtramos por contenido)
-            # La forma más segura aquí es reconstruir excluyendo los índices seleccionados si aggrid devuelve índice
-            # Pero aggrid devuelve los datos. Haremos un filtrado simple.
+        
+        # 1. Verificación segura: ¿Existen filas seleccionadas?
+        if sel_rows is not None and len(sel_rows) > 0:
             
-            # Estrategia: Recorremos df_clean y conservamos solo los que NO están en sel_rows
-            indices_a_borrar = [row['_selectedRowNodeInfo']['nodeRowIndex'] for row in sel_rows]
-            df_nuevo = df_clean.drop(indices_a_borrar).reset_index(drop=True)
+            # 2. Convertimos a DataFrame si no lo es, para estandarizar
+            if isinstance(sel_rows, pd.DataFrame):
+                df_sel = sel_rows
+            else:
+                df_sel = pd.DataFrame(sel_rows)
             
-            st.session_state['df_interesados'] = df_nuevo
-            guardar_datos_nube()
-            st.rerun()
+            # 3. Borrado por coincidencia exacta (Anti-Join)
+            # Esto funciona aunque no tengamos índices, compara el contenido
+            
+            # Aseguramos que usamos solo las columnas que existen en ambos
+            cols_comunes = [c for c in df_clean.columns if c in df_sel.columns]
+            
+            if cols_comunes:
+                # Merge con indicador para encontrar las filas que están en el original pero NO en la selección
+                # 'left_only' significa: "Está en mi tabla original, pero no en la que quiero borrar"
+                df_merged = df_clean.merge(df_sel[cols_comunes], on=cols_comunes, how='left', indicator=True)
+                df_nuevo = df_merged[df_merged['_merge'] == 'left_only'].drop(columns=['_merge'])
+                
+                # Restauramos los tipos de datos si es necesario y guardamos
+                st.session_state['df_interesados'] = df_nuevo
+                guardar_datos_nube()
+                st.rerun()
+            else:
+                st.warning("No se pudo identificar las filas para borrar.")
 
 col_btn, col_rest = st.columns([1, 10])
 with col_btn:
