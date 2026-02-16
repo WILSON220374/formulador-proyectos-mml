@@ -70,7 +70,6 @@ with col_img:
     if os.path.exists("unnamed-1.jpg"): st.image("unnamed-1.jpg", use_container_width=True)
 
 st.divider()
-st.write("Conteos reales en memoria:", {k: len(v) for k, v in st.session_state['arbol_tarjetas'].items()})
 
 # --- CAPA 3: MOTOR DE DIBUJO CON GUÍA LATERAL (ESTILO PROFESIONAL) ---
 def generar_grafo_problemas():
