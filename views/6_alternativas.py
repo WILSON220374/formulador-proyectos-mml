@@ -8,7 +8,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- ESTILOS CSS (DISEÑO UNIFICADO Y COMPACTO) ---
+# --- ESTILOS CSS (DISEÑO UNIFICADO) ---
 st.markdown("""
     <style>
     /* Colchón inferior para que no se corte el final */
@@ -44,19 +44,10 @@ st.markdown("""
         color: white;
     }
     
-    /* --- AJUSTE CLAVE: REDUCIR ESPACIO ENTRE TABLA Y BOTÓN --- */
-    
-    /* 1. Quitamos margen abajo a la tabla AgGrid */
+    /* Ajuste AgGrid */
     .ag-root-wrapper { 
         border-radius: 8px; 
         border: 1px solid #eee; 
-        margin-bottom: 0px !important; 
-    }
-    
-    /* 2. Subimos los botones con margen negativo para pegarlos al elemento anterior */
-    div.stButton { 
-        margin-top: -20px !important; 
-        margin-bottom: 0px !important; 
     }
     
     .compact-divider { margin: 10px 0px !important; border-top: 1px solid #eee; }
@@ -90,17 +81,24 @@ with col_img:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE (Ag-Grid Auto-Height)
+# 1. EVALUACIÓN DE RELEVANCIA Y ALCANCE
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
-# Leyenda compacta
-st.markdown("""
-    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.85rem; color: #444;">
-        <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
-        <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">⬜ Descartada</span>
-    </div>
-""", unsafe_allow_html=True)
+# --- BARRA DE HERRAMIENTAS (LEYENDA + BOTÓN) ---
+col_leyenda, col_boton = st.columns([3, 1], vertical_alignment="bottom")
+
+with col_leyenda:
+    st.markdown("""
+        <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.85rem; color: #444;">
+            <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
+            <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">⬜ Descartada</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col_boton:
+    # EL BOTÓN AHORA ESTÁ ARRIBA
+    btn_guardar_seleccion = st.button("💾 Guardar Selección", use_container_width=True)
 
 # Sincronización de datos
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
@@ -138,13 +136,11 @@ else:
 df_work = st.session_state['df_evaluacion_alternativas'].copy()
 
 gb = GridOptionsBuilder.from_dataframe(df_work)
-# Columnas de texto con AJUSTE AUTOMÁTICO (Wrap Text)
 gb.configure_column("OBJETIVO", headerName="🎯 Objetivo Específico", wrapText=True, autoHeight=True, width=300)
 gb.configure_column("ACTIVIDAD", headerName="🛠️ Actividad", wrapText=True, autoHeight=True, width=400)
 gb.configure_column("ENFOQUE", headerName="¿Enfoque?", editable=True, width=110)
 gb.configure_column("ALCANCE", headerName="¿Alcance?", editable=True, width=110)
 
-# Colores condicionales
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data.ENFOQUE === true && params.data.ALCANCE === true) {
@@ -154,7 +150,6 @@ function(params) {
     }
 };
 """)
-# domLayout='autoHeight' CLAVE PARA ELIMINAR ESPACIO
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
 
@@ -174,7 +169,8 @@ grid_response = AgGrid(
     allow_unsafe_jscode=True
 )
 
-if st.button("💾 Guardar Selección"):
+# LÓGICA DE GUARDADO (Aunque el botón está visualmente arriba, la lógica se ejecuta aquí)
+if btn_guardar_seleccion:
     df_editado = pd.DataFrame(grid_response['data'])
     if not df_editado.empty:
         df_editado["ENFOQUE"] = df_editado["ENFOQUE"].astype(bool)
@@ -183,8 +179,6 @@ if st.button("💾 Guardar Selección"):
         guardar_datos_nube()
         st.rerun()
 
-# Espacio manual mínimo en lugar de Divider grande
-st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
