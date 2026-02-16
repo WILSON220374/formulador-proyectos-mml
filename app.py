@@ -43,7 +43,6 @@ if not st.session_state['autenticado']:
             border-radius: 12px !important; 
             margin-top: 25px; 
         }
-        /* Alineación vertical para que se vea centrado */
         [data-testid="stVerticalBlock"] {
             display: flex;
             flex-direction: column;
@@ -52,17 +51,14 @@ if not st.session_state['autenticado']:
         </style>
     """, unsafe_allow_html=True)
 
-    # COLUMNAS INVERTIDAS: [Imagen Grande (1.8), Formulario (1.2)]
     col_img, col_form = st.columns([1.8, 1.2], gap="large")
 
-    # 1. COLUMNA IZQUIERDA: IMAGEN
     with col_img:
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True) 
         else:
             st.info("Carga la imagen 'unnamed.jpg' en la carpeta raíz.")
 
-    # 2. COLUMNA DERECHA: FORMULARIO
     with col_form:
         st.markdown('<div class="titulo-acceso">Acceso Grupal<br>Posgrado</div>', unsafe_allow_html=True)
         
@@ -76,7 +72,6 @@ if not st.session_state['autenticado']:
             if st.button("INGRESAR AL SISTEMA", use_container_width=True, type="primary"):
                 try:
                     db = conectar_db()
-                    # Validación exacta para tu base de datos
                     res = db.table("proyectos").select("*").eq("user_id", u).eq("password", p).execute()
                     if res.data:
                         st.session_state['autenticado'] = True
@@ -89,7 +84,7 @@ if not st.session_state['autenticado']:
                     st.error("Error de conexión.")
     st.stop()
 
-# --- SIDEBAR Y NAVEGACIÓN (Se mantiene tu lógica original) ---
+# --- SIDEBAR Y NAVEGACIÓN ---
 with st.sidebar:
     st.header(f"👷 {st.session_state['usuario_id']}")
     
@@ -114,8 +109,11 @@ with st.sidebar:
         st.session_state['autenticado'] = False
         st.rerun()
 
+# --- DEFINICIÓN DE PÁGINAS POR SECCIONES ---
 pg = st.navigation({
-    "Configuración": [st.Page("views/0_equipo.py", title="Equipo", icon="👥")],
+    "Configuración": [
+        st.Page("views/0_equipo.py", title="Equipo", icon="👥")
+    ],
     "Fase I: Identificación": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
@@ -127,6 +125,9 @@ pg = st.navigation({
         st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
+    ],
+    "El Problema": [  # <--- NUEVA SECCIÓN CREADA
+        st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
     ]
 })
 pg.run()
