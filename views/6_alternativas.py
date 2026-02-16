@@ -44,12 +44,22 @@ st.markdown("""
         color: white;
     }
     
-    /* Ajuste para reducir espacios entre elementos (Compacto) */
-    div.stButton { margin-bottom: 0px !important; }
-    .compact-divider { margin: 10px 0px !important; border-top: 1px solid #eee; }
+    /* --- AJUSTE CLAVE: REDUCIR ESPACIO ENTRE TABLA Y BOTÓN --- */
     
-    /* Ajuste AgGrid */
-    .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; }
+    /* 1. Quitamos margen abajo a la tabla AgGrid */
+    .ag-root-wrapper { 
+        border-radius: 8px; 
+        border: 1px solid #eee; 
+        margin-bottom: 0px !important; 
+    }
+    
+    /* 2. Subimos los botones con margen negativo para pegarlos al elemento anterior */
+    div.stButton { 
+        margin-top: -20px !important; 
+        margin-bottom: 0px !important; 
+    }
+    
+    .compact-divider { margin: 10px 0px !important; border-top: 1px solid #eee; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -86,7 +96,7 @@ st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
 # Leyenda compacta
 st.markdown("""
-    <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; font-size: 0.85rem; color: #444;">
+    <div style="display: flex; gap: 10px; margin-bottom: 5px; align-items: center; font-size: 0.85rem; color: #444;">
         <span style="background-color: #F0FDF4; border: 1px solid #BBF7D0; padding: 2px 8px; border-radius: 4px;">✅ Seleccionada</span>
         <span style="background-color: #FEF2F2; border: 1px solid #FECACA; padding: 2px 8px; border-radius: 4px;">⬜ Descartada</span>
     </div>
