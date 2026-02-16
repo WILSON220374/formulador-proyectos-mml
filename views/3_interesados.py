@@ -44,9 +44,9 @@ st.markdown("""
     /* Cuadrantes */
     .quadrant-box {
         border-radius: 12px; padding: 15px;
-        display: flex; flex-direction: column; gap: 4px; /* Menos espacio entre items */
+        display: flex; flex-direction: column; gap: 4px; 
         height: 100%; min-height: 220px;
-        box-shadow: inset 0 0 20px rgba(0,0,0,0.02); /* Sombra interna muy suave */
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.02); 
     }
     
     .q-title {
@@ -61,7 +61,7 @@ st.markdown("""
         align-items: center;
         gap: 8px;
         padding: 2px 0;
-        border-bottom: 1px solid rgba(0,0,0,0.05); /* Línea separadora muy sutil */
+        border-bottom: 1px solid rgba(0,0,0,0.05); 
     }
     </style>
 """, unsafe_allow_html=True)
@@ -113,7 +113,7 @@ gb.configure_column("PODER", headerName="⚡ Poder", editable=True, cellEditor='
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", editable=False, wrapText=True, autoHeight=True, width=200)
 
-# 2. COLORES INTELIGENTES POR ESTRATEGIA
+# Colores por Estrategia
 jscode_row_style = JsCode("""
 function(params) {
     var est = params.data.ESTRATEGIA;
@@ -168,7 +168,7 @@ if btn_guardar:
 st.write("")
 st.divider()
 
-# --- MAPA DE INFLUENCIA ---
+# --- MAPA DE INFLUENCIA (DISEÑO LISTA LIMPIA) ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
@@ -199,7 +199,6 @@ if tiene_datos:
         
         return html_items
 
-    # 2. CONSTRUCCIÓN DE MATRIZ (Título corregido)
     html_matrix = f"""
 <div class="matrix-container">
 <div class="axis-y">PODER</div>
@@ -239,13 +238,25 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL ---
+# --- ANÁLISIS FINAL (CON AUTO-AJUSTE Y MARGEN INFERIOR) ---
 st.subheader("📝 Análisis de Participantes")
+
+# Cálculo de altura dinámica: 
+# Base 150px + 25px por cada línea de texto que encuentres.
+num_lineas = analisis_txt.count('\n') + 1
+altura_dinamica = max(150, num_lineas * 25 + 50)
+
 analisis_actual = st.text_area(
-    "Analisis", value=analisis_txt, height=200, 
-    key="txt_analisis_final_panel", label_visibility="collapsed",
+    "Analisis", 
+    value=analisis_txt, 
+    height=altura_dinamica,  # <--- AQUÍ ESTÁ EL TRUCO DEL AUTO-AJUSTE
+    key="txt_analisis_final_panel", 
+    label_visibility="collapsed",
     placeholder="Escriba aquí el análisis cualitativo..."
 )
+
+# ESPACIO DE "COLCHÓN" AL FINAL (Padding)
+st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) 
 
 if analisis_actual != analisis_txt:
     st.session_state['analisis_participantes'] = analisis_actual
