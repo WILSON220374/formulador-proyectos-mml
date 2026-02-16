@@ -61,7 +61,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 5. Árbol de Objetivos</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Estructura jerárquica con etiquetas de guía simétricas.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Estructura jerárquica con guía lateral de niveles.</div>', unsafe_allow_html=True)
     
     hay_datos = any(st.session_state.get('arbol_objetivos', {}).values())
     st.progress(1.0 if hay_datos else 0.0)
@@ -79,7 +79,7 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO CORREGIDO ---
+# --- MOTOR DE DIBUJO CORREGIDO (SIN DUPLICADOS) ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -92,7 +92,6 @@ def generar_grafo_objetivos():
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
-    # MAPEO SEGURO DE CLAVES
     MAPA_LLAVES = {
         "MI": "Medios Indirectos",
         "MD": "Medios Directos",
@@ -101,23 +100,21 @@ def generar_grafo_objetivos():
         "FI": "Fines Indirectos"
     }
 
-    # Crear etiquetas de guía a los lados
+    # Definir solo etiquetas de la izquierda
     for niv, full_key in MAPA_LLAVES.items():
         conf = CONFIG_OBJ[full_key]
         dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
-        dot.node(f"R_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
 
-    # Alineación vertical de las guías
-    niveles_list = ["MI", "MD", "OG", "FD", "FI"]
-    for i in range(len(niveles_list)-1):
-        dot.edge(f"L_{niveles_list[i]}", f"L_{niveles_list[i+1]}", style='invis')
-        dot.edge(f"R_{niveles_list[i]}", f"R_{niveles_list[i+1]}", style='invis')
+    # Enlace invisible para mantener la columna vertical de guías
+    niv_list = ["MI", "MD", "OG", "FD", "FI"]
+    for i in range(len(niv_list)-1):
+        dot.edge(f"L_{niv_list[i]}", f"L_{niv_list[i+1]}", style='invis')
 
     # 1. OBJETIVO GENERAL
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_OG"); s.node("R_OG")
+        s.node("L_OG")
         if obj_gen:
             s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
@@ -125,7 +122,7 @@ def generar_grafo_objetivos():
     f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_FD"); s.node("R_FD")
+        s.node("L_FD")
         for i, item in enumerate(f_dir):
             node_id = f"FD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
@@ -134,7 +131,7 @@ def generar_grafo_objetivos():
     f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_FI"); s.node("R_FI")
+        s.node("L_FI")
         for i, item in enumerate(f_ind):
             node_id = f"FI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
@@ -146,7 +143,7 @@ def generar_grafo_objetivos():
     m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_MD"); s.node("R_MD")
+        s.node("L_MD")
         for i, item in enumerate(m_dir):
             node_id = f"MD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
@@ -155,7 +152,7 @@ def generar_grafo_objetivos():
     m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_MI"); s.node("R_MI")
+        s.node("L_MI")
         for i, item in enumerate(m_ind):
             node_id = f"MI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
