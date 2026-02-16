@@ -61,7 +61,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 5. Árbol de Objetivos</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Transformación de problemas en estados positivos.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Visualización profesional y edición sincronizada.</div>', unsafe_allow_html=True)
     
     hay_datos = any(st.session_state.get('arbol_objetivos', {}).values())
     st.progress(1.0 if hay_datos else 0.0)
@@ -79,7 +79,7 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO ---
+# --- MOTOR DE DIBUJO CON SUBGRAFOS PARA ALINEACIÓN VERTICAL ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -92,31 +92,70 @@ def generar_grafo_objetivos():
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
+    # Definir etiquetas de guía a la izquierda
     for tipo in CONFIG_OBJ:
         conf = CONFIG_OBJ[tipo]
         dot.node(f"L_{tipo[:2]}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='12', fontname='Arial Bold', style='none')
 
-    obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
-    if obj_gen:
-        dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
+    # Enlaces invisibles para forzar columna vertical de etiquetas
+    dot.edge("L_Me", "L_Ob", style='invis')
+    dot.edge("L_Ob", "L_Fi", style='invis')
 
-    for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
-        items = [it for it in datos.get(tipo, []) if it.get('texto')]
-        for i, item in enumerate(items):
-            node_id = f"{tipo[:2]}{i}"
-            dot.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ[tipo]["color"], fontcolor='white' if "Fin" in tipo else 'black', color='none')
-            if "Fin" in tipo: dot.edge("OG", node_id)
-            else: dot.edge(node_id, "OG")
-            
-            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
-            for j, h in enumerate(hijos):
-                h_id = f"{h_tipo[:2]}{i}_{j}"
-                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_tipo]["color"], fontcolor='white', color='none', fontsize='10')
-                if "Fin" in tipo: dot.edge(node_id, h_id)
-                else: dot.edge(h_id, node_id)
+    # 1. NIVEL OBJETIVO GENERAL
+    obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node("L_Ob") # Etiqueta de este nivel
+        if obj_gen:
+            s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
+
+    # 2. NIVELES DE FINES (Hacia arriba)
+    f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
+    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
+
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node("L_Fi") # Etiqueta de Fines Directos
+        for i, item in enumerate(f_dir):
+            node_id = f"FD{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
+            dot.edge("OG", node_id)
+
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node("L_Fi_I", "FINES\nINDIRECTOS", shape='plaintext', fontcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontsize='12', style='none')
+        for i, item in enumerate(f_ind):
+            node_id = f"FI{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
+            for j, p_data in enumerate(f_dir):
+                if item.get('padre') == p_data.get('texto'):
+                    dot.edge(f"FD{j}", node_id)
+
+    # 3. NIVELES DE MEDIOS (Hacia abajo)
+    m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
+    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
+
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node("L_Me") # Etiqueta de Objetivos Específicos
+        for i, item in enumerate(m_dir):
+            node_id = f"MD{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
+            dot.edge(node_id, "OG")
+
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node("L_Me_I", "ACTIVIDADES", shape='plaintext', fontcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontsize='12', style='none')
+        for i, item in enumerate(m_ind):
+            node_id = f"MI{i}"
+            s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
+            for j, p_data in enumerate(m_dir):
+                if item.get('padre') == p_data.get('texto'):
+                    dot.edge(node_id, f"MD{j}")
+                
     return dot
 
-# --- RENDERIZADO DE TARJETA CON ACTUALIZACIÓN EN CASCADA ---
+# --- RENDERIZADO DE TARJETA ---
 def render_card_obj(seccion, item, idx, seccion_hijos=None):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
@@ -131,12 +170,9 @@ def render_card_obj(seccion, item, idx, seccion_hijos=None):
     
     if nuevo_texto and nuevo_texto.upper() != texto_viejo.upper():
         nuevo_fmt = nuevo_texto.upper().strip()
-        # AJUSTE 1: Actualizar el campo 'padre' de todos los hijos vinculados
         if seccion_hijos:
             for h in st.session_state['arbol_objetivos'].get(seccion_hijos, []):
-                if h.get('padre') == texto_viejo:
-                    h['padre'] = nuevo_fmt
-        
+                if h.get('padre') == texto_viejo: h['padre'] = nuevo_fmt
         st.session_state['arbol_objetivos'][seccion][idx]['texto'] = nuevo_fmt
         guardar_datos_nube()
 
@@ -164,7 +200,6 @@ with tab1:
 with tab2:
     if hay_datos:
         def mostrar_seccion_jerarquica(tipo_padre, tipo_hijo):
-            # AJUSTE 2: Obtener padres con sus índices originales de la base de datos
             padres_data = st.session_state['arbol_objetivos'].get(tipo_padre, [])
             padres_con_idx = [(idx, p) for idx, p in enumerate(padres_data) if isinstance(p, dict) and p.get('texto')]
             if not padres_con_idx: return
@@ -174,7 +209,6 @@ with tab2:
             hijos_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos_full) if h.get('padre') == p_data.get('texto')] for _, p_data in padres_con_idx]
             max_h = max([len(lista) for lista in hijos_por_p]) if hijos_por_p else 0
 
-            # Dibujo por filas (Efectos hacia arriba, Medios hacia abajo)
             if "Fin" in tipo_padre:
                 for h_idx in range(max_h - 1, -1, -1):
                     cols = st.columns(len(padres_con_idx))
