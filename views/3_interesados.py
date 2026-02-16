@@ -22,6 +22,9 @@ st.markdown("""
     }
     div.stButton > button:hover { background-color: #153075; color: white; }
     
+    /* Botones de Acción (Agregar/Eliminar) */
+    .stButton button { width: 100%; }
+    
     /* MATRIZ DE INTERESADOS (GRID) */
     .matrix-container {
         display: grid;
@@ -102,8 +105,24 @@ else:
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
 opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
+# --- CONTROLES DE GESTIÓN (AGREGAR / BORRAR) ---
+c_add, c_del, c_space = st.columns([1, 1, 4])
+
+with c_add:
+    if st.button("➕ Agregar Actor"):
+        # Creamos una fila vacía
+        new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
+        # Concatenamos
+        st.session_state['df_interesados'] = pd.concat([df_clean, new_row], ignore_index=True)
+        guardar_datos_nube()
+        st.rerun()
+
 # --- TABLA AG-GRID ---
 gb = GridOptionsBuilder.from_dataframe(df_clean)
+
+# HABILITAMOS SELECCIÓN (Checkboxes a la izquierda)
+gb.configure_selection(selection_mode="multiple", use_checkbox=True)
+
 gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True, wrapText=True, autoHeight=True)
 gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True, wrapText=True, autoHeight=True)
 gb.configure_column("POSICIÓN", headerName="🚩 Posición", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_pos}, width=140)
@@ -113,7 +132,6 @@ gb.configure_column("PODER", headerName="⚡ Poder", editable=True, cellEditor='
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", editable=False, wrapText=True, autoHeight=True, width=200)
 
-# Colores por Estrategia
 jscode_row_style = JsCode("""
 function(params) {
     var est = params.data.ESTRATEGIA;
@@ -144,9 +162,29 @@ grid_response = AgGrid(
     fit_columns_on_grid_load=True, theme='streamlit', allow_unsafe_jscode=True
 )
 
+# Lógica de Eliminación (Depende de lo seleccionado en la grid)
+with c_del:
+    if st.button("🗑️ Eliminar"):
+        sel_rows = grid_response['selected_rows']
+        if sel_rows:
+            # Convertimos a DF para facilitar filtrado
+            df_sel = pd.DataFrame(sel_rows)
+            # Filtramos el DF original para quitar los seleccionados
+            # (Usamos el índice si es consistente, o filtramos por contenido)
+            # La forma más segura aquí es reconstruir excluyendo los índices seleccionados si aggrid devuelve índice
+            # Pero aggrid devuelve los datos. Haremos un filtrado simple.
+            
+            # Estrategia: Recorremos df_clean y conservamos solo los que NO están en sel_rows
+            indices_a_borrar = [row['_selectedRowNodeInfo']['nodeRowIndex'] for row in sel_rows]
+            df_nuevo = df_clean.drop(indices_a_borrar).reset_index(drop=True)
+            
+            st.session_state['df_interesados'] = df_nuevo
+            guardar_datos_nube()
+            st.rerun()
+
 col_btn, col_rest = st.columns([1, 10])
 with col_btn:
-    btn_guardar = st.button("💾", help="Guardar Cambios")
+    btn_guardar = st.button("💾 Guardar Cambios", help="Guardar Cambios de la Tabla")
 
 def calcular_estrategia(row):
     p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
@@ -168,7 +206,7 @@ if btn_guardar:
 st.write("")
 st.divider()
 
-# --- MAPA DE INFLUENCIA (DISEÑO LISTA LIMPIA) ---
+# --- MAPA DE INFLUENCIA ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
@@ -238,24 +276,21 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL (CON AUTO-AJUSTE Y MARGEN INFERIOR) ---
+# --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
 
-# Cálculo de altura dinámica: 
-# Base 150px + 25px por cada línea de texto que encuentres.
 num_lineas = analisis_txt.count('\n') + 1
 altura_dinamica = max(150, num_lineas * 25 + 50)
 
 analisis_actual = st.text_area(
     "Analisis", 
     value=analisis_txt, 
-    height=altura_dinamica,  # <--- AQUÍ ESTÁ EL TRUCO DEL AUTO-AJUSTE
+    height=altura_dinamica,
     key="txt_analisis_final_panel", 
     label_visibility="collapsed",
     placeholder="Escriba aquí el análisis cualitativo..."
 )
 
-# ESPACIO DE "COLCHÓN" AL FINAL (Padding)
 st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) 
 
 if analisis_actual != analisis_txt:
