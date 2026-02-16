@@ -65,6 +65,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- INICIALIZACIÓN DE LA ESTRUCTURA "POLIZÓN" ---
+# Verificamos si existe la "caja fuerte" del árbol. Si no, la creamos.
+if 'arbol_objetivos_final' not in st.session_state:
+    st.session_state['arbol_objetivos_final'] = {}
+
+# Verificamos si dentro del árbol ya existe nuestro espacio reservado para la referencia.
+# Si no existe, lo creamos vacío. Esto asegura que viajen juntos.
+if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
+    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
+        "nombre": "",
+        "objetivo": "",
+        "especificos": "",
+        "actividades": ""
+    }
+
+# Atajo para facilitar la lectura del código (referencia local)
+ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
+
 # --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
@@ -72,7 +90,9 @@ with col_t:
     st.markdown('<div class="subtitulo-gris">Diligenciamiento manual y poda definitiva de componentes.</div>', unsafe_allow_html=True)
     
     datos_final = st.session_state.get('arbol_objetivos_final', {})
-    hay_datos = any(datos_final.values()) if datos_final else False
+    # Calculamos si hay datos reales (ignorando nuestra referencia manual)
+    claves_reales = [k for k in datos_final.keys() if k != 'referencia_manual']
+    hay_datos = any(datos_final[k] for k in claves_reales) if claves_reales else False
     st.progress(1.0 if hay_datos else 0.0)
 
 with col_img:
@@ -89,10 +109,30 @@ CONFIG_OBJ = {
     "Medios Indirectos": {"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
+# --- FUNCIONES DE ACTUALIZACIÓN SEGURA ---
+# Estas funciones se ejecutan cada vez que escribes algo, forzando el guardado dentro del Árbol
+def actualizar_nombre():
+    st.session_state['arbol_objetivos_final']['referencia_manual']['nombre'] = st.session_state.temp_nombre
+    guardar_datos_nube()
+
+def actualizar_objetivo():
+    st.session_state['arbol_objetivos_final']['referencia_manual']['objetivo'] = st.session_state.temp_objetivo
+    guardar_datos_nube()
+
+def actualizar_especificos():
+    st.session_state['arbol_objetivos_final']['referencia_manual']['especificos'] = st.session_state.temp_especificos
+    guardar_datos_nube()
+
+def actualizar_actividades():
+    st.session_state['arbol_objetivos_final']['referencia_manual']['actividades'] = st.session_state.temp_actividades
+    guardar_datos_nube()
+
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_final():
     datos = st.session_state.get('arbol_objetivos_final', {})
-    if not any(datos.values()): return None
+    # Filtramos para que el motor gráfico no se confunda con nuestros datos de referencia
+    claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
+    if not any(datos.get(k) for k in claves_graficas): return None
     
     dot = graphviz.Digraph(format='png')
     dot.attr(label='\nÁRBOL DE OBJETIVOS FINAL\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
@@ -142,7 +182,11 @@ def render_poda_card(seccion, item, idx):
 with st.sidebar:
     st.header("⚙️ Herramientas")
     if st.button("♻️ Importar Paso 5", use_container_width=True, type="primary"):
-        st.session_state['arbol_objetivos_final'] = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
+        # Al importar, copiamos el árbol PERO protegemos nuestra referencia manual
+        referencia_backup = copy.deepcopy(st.session_state['arbol_objetivos_final'].get('referencia_manual', {}))
+        nuevo_arbol = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
+        nuevo_arbol['referencia_manual'] = referencia_backup # Restauramos la referencia
+        st.session_state['arbol_objetivos_final'] = nuevo_arbol
         guardar_datos_nube(); st.rerun()
     st.divider()
     grafo = generar_grafo_final()
@@ -157,16 +201,18 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- NUEVO SISTEMA DE PEGADO SIMPLE ---
+        # --- NUEVO SISTEMA DE PEGADO SIMPLE (Persistente) ---
         st.subheader("📌 Alternativa Seleccionada")
         
+        # Usamos claves temporales (key=temp_...) y callbacks (on_change=actualizar_...)
+        # Esto conecta directamente los inputs con la estructura segura dentro del árbol
         col1, col2 = st.columns(2)
         with col1:
-            nom_val = st.text_input("Nombre de la Alternativa:", value=st.session_state.get('p7_nom_alt', ''), key="p7_nom_alt", on_change=guardar_datos_nube)
-            obj_val = st.text_area("Objetivo General:", value=st.session_state.get('p7_obj_gen', ''), key="p7_obj_gen", on_change=guardar_datos_nube)
+            st.text_input("Nombre de la Alternativa:", value=ref_data['nombre'], key="temp_nombre", on_change=actualizar_nombre)
+            st.text_area("Objetivo General:", value=ref_data['objetivo'], key="temp_objetivo", on_change=actualizar_objetivo)
         with col2:
-            esp_val = st.text_area("Objetivos Específicos:", value=st.session_state.get('p7_obj_esp', ''), key="p7_obj_esp", on_change=guardar_datos_nube)
-            act_val = st.text_area("Actividades Clave:", value=st.session_state.get('p7_activ', ''), key="p7_activ", on_change=guardar_datos_nube)
+            st.text_area("Objetivos Específicos:", value=ref_data['especificos'], key="temp_especificos", on_change=actualizar_especificos)
+            st.text_area("Actividades Clave:", value=ref_data['actividades'], key="temp_actividades", on_change=actualizar_actividades)
 
         st.divider()
 
