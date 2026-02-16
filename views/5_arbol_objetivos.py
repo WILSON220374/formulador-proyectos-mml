@@ -61,7 +61,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 5. Árbol de Objetivos</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Visualización profesional y edición sincronizada.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Estructura jerárquica con alineación simétrica de etiquetas.</div>', unsafe_allow_html=True)
     
     hay_datos = any(st.session_state.get('arbol_objetivos', {}).values())
     st.progress(1.0 if hay_datos else 0.0)
@@ -79,7 +79,7 @@ CONFIG_OBJ = {
     "Medios Indirectos":{"color": "#D35400", "label": "ACTIVIDADES"}
 }
 
-# --- MOTOR DE DIBUJO CON SUBGRAFOS PARA ALINEACIÓN VERTICAL ---
+# --- MOTOR DE DIBUJO CON ALINEACIÓN TOTAL ---
 def generar_grafo_objetivos():
     datos = st.session_state.get('arbol_objetivos', {})
     if not any(datos.values()): return None
@@ -92,38 +92,43 @@ def generar_grafo_objetivos():
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
 
-    # Definir etiquetas de guía a la izquierda
-    for tipo in CONFIG_OBJ:
+    # Definir todas las etiquetas de guía (izquierda y derecha)
+    niveles = ["MI", "MD", "OG", "FD", "FI"]
+    for niv in niveles:
+        tipo = [k for k in CONFIG_OBJ if niv in k[:2] or (niv=="OG" and "General" in k)][0]
         conf = CONFIG_OBJ[tipo]
-        dot.node(f"L_{tipo[:2]}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='12', fontname='Arial Bold', style='none')
+        # Etiquetas Izquierda
+        dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
+        # Etiquetas Derecha (Para simetría)
+        dot.node(f"R_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
 
-    # Enlaces invisibles para forzar columna vertical de etiquetas
-    dot.edge("L_Me", "L_Ob", style='invis')
-    dot.edge("L_Ob", "L_Fi", style='invis')
+    # Enlace invisible maestro para alinear TODAS las etiquetas en columna
+    for i in range(len(niveles)-1):
+        dot.edge(f"L_{niveles[i]}", f"L_{niveles[i+1]}", style='invis')
+        dot.edge(f"R_{niveles[i]}", f"R_{niveles[i+1]}", style='invis')
 
     # 1. NIVEL OBJETIVO GENERAL
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_Ob") # Etiqueta de este nivel
+        s.node("L_OG"); s.node("R_OG")
         if obj_gen:
             s.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
 
-    # 2. NIVELES DE FINES (Hacia arriba)
+    # 2. NIVELES DE FINES
     f_dir = [it for it in datos.get("Fines Directos", []) if it.get('texto')]
-    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
-
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_Fi") # Etiqueta de Fines Directos
+        s.node("L_FD"); s.node("R_FD")
         for i, item in enumerate(f_dir):
             node_id = f"FD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Directos"]["color"], fontcolor='white', color='none')
             dot.edge("OG", node_id)
 
+    f_ind = [it for it in datos.get("Fines Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_Fi_I", "FINES\nINDIRECTOS", shape='plaintext', fontcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontsize='12', style='none')
+        s.node("L_FI"); s.node("R_FI")
         for i, item in enumerate(f_ind):
             node_id = f"FI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Fines Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
@@ -131,21 +136,20 @@ def generar_grafo_objetivos():
                 if item.get('padre') == p_data.get('texto'):
                     dot.edge(f"FD{j}", node_id)
 
-    # 3. NIVELES DE MEDIOS (Hacia abajo)
+    # 3. NIVELES DE MEDIOS
     m_dir = [it for it in datos.get("Medios Directos", []) if it.get('texto')]
-    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
-
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_Me") # Etiqueta de Objetivos Específicos
+        s.node("L_MD"); s.node("R_MD")
         for i, item in enumerate(m_dir):
             node_id = f"MD{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Directos"]["color"], fontcolor='black', color='none')
             dot.edge(node_id, "OG")
 
+    m_ind = [it for it in datos.get("Medios Indirectos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node("L_Me_I", "ACTIVIDADES", shape='plaintext', fontcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontsize='12', style='none')
+        s.node("L_MI"); s.node("R_MI")
         for i, item in enumerate(m_ind):
             node_id = f"MI{i}"
             s.node(node_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ["Medios Indirectos"]["color"], fontcolor='white', color='none', fontsize='10')
