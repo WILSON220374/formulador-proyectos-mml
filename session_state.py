@@ -31,81 +31,83 @@ def inicializar_session():
             "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
             "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
         }
-
-    # --- [NUEVO] INICIALIZAR HOJA 10 ---
-    if 'descripcion_problema' not in st.session_state:
-        st.session_state['descripcion_problema'] = {
-            'tabla_datos': {},
-            'redaccion_narrativa': "",
-            'antecedentes': ""
-        }
-
-    if 'df_interesados' not in st.session_state: st.session_state['df_interesados'] = pd.DataFrame()
+    
+    if 'df_interesados' not in st.session_state:
+        st.session_state['df_interesados'] = pd.DataFrame(columns=['Actor/Interesado', 'Relación', 'Poder', 'Interés', 'Estrategia'])
+    
     if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
     
-    if 'arbol_tarjetas' not in st.session_state: 
-        st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
-    if 'arbol_objetivos' not in st.session_state: 
-        st.session_state['arbol_objetivos'] = {"Fin Último": [], "Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [], "Medios Directos": [], "Medios Indirectos": []}
-    
-    if 'df_evaluacion_alternativas' not in st.session_state: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame()
-    if 'df_relaciones_objetivos' not in st.session_state: st.session_state['df_relaciones_objetivos'] = pd.DataFrame()
-    if 'lista_alternativas' not in st.session_state: st.session_state['lista_alternativas'] = []
     if 'ponderacion_criterios' not in st.session_state: st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
-    if 'df_calificaciones' not in st.session_state: st.session_state['df_calificaciones'] = pd.DataFrame()
-    if 'arbol_objetivos_final' not in st.session_state: st.session_state['arbol_objetivos_final'] = {}
-    if 'arbol_problemas_final' not in st.session_state: st.session_state['arbol_problemas_final'] = {}
-
-def limpiar_datos_arbol(arbol_dict):
-    if not isinstance(arbol_dict, dict): return arbol_dict
-    arbol_limpio = {}
-    for nivel, tarjetas in arbol_dict.items():
-        if isinstance(tarjetas, list):
-            arbol_limpio[nivel] = [
-                t for t in tarjetas 
-                if isinstance(t, dict) and t.get('texto') and 
-                str(t.get('texto')).strip().upper() != "NONE" and 
-                len(str(t.get('texto')).strip()) > 1
-            ]
-        else:
-            arbol_limpio[nivel] = tarjetas
-    return arbol_limpio
-
-def cargar_datos_nube(user_id):
-    try:
-        db = conectar_db()
-        res = db.table("proyectos").select("*").eq("user_id", user_id).execute()
+    
+    if 'arbol_tarjetas' not in st.session_state:
+        st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [{"id": "pc-0", "texto": ""}], "Causas Directas": [], "Causas Indirectas": []}
+    
+    if 'arbol_objetivos' not in st.session_state:
+        st.session_state['arbol_objetivos'] = {"Fines Indirectos": [], "Fines Directos": [], "Objetivo General": [{"id": "og-0", "texto": ""}], "Efectos Directos": [], "Efectos Indirectos": []}
+    
+    if 'lista_alternativas' not in st.session_state: st.session_state['lista_alternativas'] = []
+    
+    if 'df_evaluacion_alternativas' not in st.session_state:
+        st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(columns=['Alternativa'])
         
+    if 'df_calificaciones' not in st.session_state:
+        st.session_state['df_calificaciones'] = pd.DataFrame()
+
+    if 'df_relaciones_objetivos' not in st.session_state:
+        st.session_state['df_relaciones_objetivos'] = pd.DataFrame(columns=['Objetivo', 'Relación', 'Impacto'])
+
+    if 'arbol_objetivos_final' not in st.session_state:
+        st.session_state['arbol_objetivos_final'] = {}
+
+    if 'arbol_problemas_final' not in st.session_state:
+        st.session_state['arbol_problemas_final'] = {}
+
+    if 'descripcion_problema' not in st.session_state:
+        st.session_state['descripcion_problema'] = {'tabla_datos': {}, 'redaccion_narrativa': "", 'antecedentes': ""}
+
+    # --- [NUEVO] INICIALIZACIÓN FASE IV: ANÁLISIS DE OBJETIVOS ---
+    if 'analisis_objetivos' not in st.session_state:
+        st.session_state['analisis_objetivos'] = {'tabla_indicadores': {}}
+
+def limpiar_datos_arbol(datos):
+    datos_limpios = {}
+    for seccion, tarjetas in datos.items():
+        if isinstance(tarjetas, list):
+            datos_limpios[seccion] = [t for t in tarjetas if isinstance(t, dict) and t.get('texto')]
+        else:
+            datos_limpios[seccion] = tarjetas
+    return datos_limpios
+
+def cargar_datos_nube():
+    if not st.session_state.get('usuario_id'): return
+    try:
+        supabase = conectar_db()
+        res = supabase.table("proyectos").select("data").eq("id", st.session_state['usuario_id']).execute()
         if res.data:
-            row = res.data[0]
-            d = row.get('datos', {}) 
-            if not d: d = {}
-
-            st.session_state['integrantes'] = d.get('integrantes', [])
-            st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
-            st.session_state['descripcion_zona'] = d.get('zona', st.session_state['descripcion_zona'])
-            
-            # --- [NUEVO] CARGAR HOJA 10 ---
-            st.session_state['descripcion_problema'] = d.get('desc_problema', st.session_state['descripcion_problema'])
-
-            st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
-            st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(d.get('arbol_p', st.session_state['arbol_tarjetas']))
-            st.session_state['arbol_objetivos'] = limpiar_datos_arbol(d.get('arbol_o', st.session_state['arbol_objetivos']))
-            st.session_state['lista_alternativas'] = d.get('alternativas', [])
-            st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
-            st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
-            
-            if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
-            if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
-            if 'rel_obj' in d: st.session_state['df_relaciones_objetivos'] = pd.DataFrame(d['rel_obj'])
-            if 'calificaciones' in d: st.session_state['df_calificaciones'] = pd.DataFrame(d['calificaciones'])
+            data = res.data[0]['data']
+            st.session_state['integrantes'] = data.get('integrantes', [])
+            st.session_state['datos_problema'] = data.get('diagnostico', {})
+            st.session_state['descripcion_zona'] = data.get('zona', {})
+            st.session_state['descripcion_problema'] = data.get('desc_problema', {'tabla_datos': {}, 'redaccion_narrativa': "", 'antecedentes': ""})
+            st.session_state['analisis_objetivos'] = data.get('analisis_obj', {'tabla_indicadores': {}})
+            st.session_state['df_interesados'] = pd.DataFrame(data.get('interesados', {}))
+            st.session_state['analisis_participantes'] = data.get('analisis_txt', "")
+            st.session_state['arbol_tarjetas'] = data.get('arbol_p', {})
+            st.session_state['arbol_objetivos'] = data.get('arbol_o', {})
+            st.session_state['lista_alternativas'] = data.get('alternativas', [])
+            st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(data.get('eval_alt', {}))
+            st.session_state['df_relaciones_objetivos'] = pd.DataFrame(data.get('rel_obj', {}))
+            st.session_state['ponderacion_criterios'] = data.get('pesos_eval', {})
+            st.session_state['df_calificaciones'] = pd.DataFrame(data.get('calificaciones', {}))
+            st.session_state['arbol_objetivos_final'] = data.get('arbol_f', {})
+            st.session_state['arbol_problemas_final'] = data.get('arbol_p_final', {})
     except Exception as e:
-        st.error(f"Error al cargar: {e}")
+        st.error(f"Error al cargar datos: {e}")
 
 def guardar_datos_nube():
+    if not st.session_state.get('usuario_id'): return
     try:
-        db = conectar_db()
+        supabase = conectar_db()
         st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(st.session_state['arbol_tarjetas'])
         st.session_state['arbol_objetivos'] = limpiar_datos_arbol(st.session_state['arbol_objetivos'])
 
@@ -113,10 +115,8 @@ def guardar_datos_nube():
             "integrantes": st.session_state['integrantes'],
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['descripcion_zona'],
-            
-            # --- [NUEVO] GUARDAR HOJA 10 ---
             "desc_problema": st.session_state['descripcion_problema'],
-
+            "analisis_obj": st.session_state['analisis_objetivos'],
             "interesados": st.session_state['df_interesados'].to_dict(),
             "analisis_txt": st.session_state['analisis_participantes'],
             "arbol_p": st.session_state['arbol_tarjetas'],
@@ -127,8 +127,9 @@ def guardar_datos_nube():
             "pesos_eval": st.session_state['ponderacion_criterios'],
             "calificaciones": st.session_state['df_calificaciones'].to_dict(),
             "arbol_f": st.session_state['arbol_objetivos_final'],
-            "arbol_p_f": st.session_state['arbol_problemas_final']
+            "arbol_p_final": st.session_state['arbol_problemas_final']
         }
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
+        supabase.table("proyectos").upsert({"id": st.session_state['usuario_id'], "data": paquete}).execute()
     except Exception as e:
-        st.error(f"Error al guardar: {e}")
+        print(f"Error crítico: {e}")
+        st.error(f"Error al guardar en la nube: {e}")
