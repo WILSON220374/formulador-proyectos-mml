@@ -7,7 +7,24 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- CONFIGURACIÓN DE ALMACENAMIENTO (SOLO CAMPOS SOLICITADOS) ---
+# --- BLOQUE DE AUTO-REPARACIÓN DE MEMORIA (CRÍTICO) ---
+# Este bloque detecta si tienes datos viejos y agrega los campos que faltan para evitar el KeyError
+if 'descripcion_zona' in st.session_state:
+    datos = st.session_state['descripcion_zona']
+    # Lista de todos los campos que tu formulario necesita ahora
+    campos_requeridos = [
+        "problema_central", "departamento", "provincia", "municipio", 
+        "barrio_vereda", "latitud", "longitud", 
+        "limites_geograficos", "limites_administrativos", "otros_limites", 
+        "accesibilidad", 
+        "poblacion_referencia", "poblacion_afectada", "poblacion_objetivo",
+        "pie_mapa", "pie_foto1", "pie_foto2"
+    ]
+    for campo in campos_requeridos:
+        if campo not in datos:
+            datos[campo] = "" # Si falta, lo crea vacío
+
+# --- CONFIGURACIÓN DE ALMACENAMIENTO ---
 if 'descripcion_zona' not in st.session_state:
     st.session_state['descripcion_zona'] = {
         # 1. Problema Central
@@ -112,37 +129,37 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
 
 # 1. PROBLEMA CENTRAL
 st.markdown('<div class="form-header">PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
-st.text_area("Descripción del Problema Central:", value=zona_data['problema_central'], key="temp_problema_central", 
-             height=calc_altura(zona_data['problema_central']), on_change=update_field, args=("problema_central",))
+st.text_area("Descripción del Problema Central:", value=zona_data.get('problema_central', ''), key="temp_problema_central", 
+             height=calc_altura(zona_data.get('problema_central', '')), on_change=update_field, args=("problema_central",))
 
 # 2. LOCALIZACIÓN
 st.markdown('<div class="form-header">LOCALIZACIÓN</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
-with c1: st.text_input("Departamento:", value=zona_data['departamento'], key="temp_departamento", on_change=update_field, args=("departamento",))
-with c2: st.text_input("Provincia:", value=zona_data['provincia'], key="temp_provincia", on_change=update_field, args=("provincia",))
-with c3: st.text_input("Municipio:", value=zona_data['municipio'], key="temp_municipio", on_change=update_field, args=("municipio",))
-with c4: st.text_input("Barrio o Vereda:", value=zona_data['barrio_vereda'], key="temp_barrio_vereda", on_change=update_field, args=("barrio_vereda",))
+with c1: st.text_input("Departamento:", value=zona_data.get('departamento', ''), key="temp_departamento", on_change=update_field, args=("departamento",))
+with c2: st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="temp_provincia", on_change=update_field, args=("provincia",))
+with c3: st.text_input("Municipio:", value=zona_data.get('municipio', ''), key="temp_municipio", on_change=update_field, args=("municipio",))
+with c4: st.text_input("Barrio o Vereda:", value=zona_data.get('barrio_vereda', ''), key="temp_barrio_vereda", on_change=update_field, args=("barrio_vereda",))
 
 st.caption("Coordenadas:")
 c_lat, c_lon = st.columns(2)
-with c_lat: st.text_input("Latitud:", value=zona_data['latitud'], key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
-with c_lon: st.text_input("Longitud:", value=zona_data['longitud'], key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
+with c_lat: st.text_input("Latitud:", value=zona_data.get('latitud', ''), key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
+with c_lon: st.text_input("Longitud:", value=zona_data.get('longitud', ''), key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
 
 # 3. DEFINICIÓN DE LÍMITES
 st.markdown('<div class="form-header">DEFINICIÓN DE LÍMITES</div>', unsafe_allow_html=True)
-st.text_area("Límites Geográficos:", value=zona_data['limites_geograficos'], key="temp_limites_geograficos", 
-             height=calc_altura(zona_data['limites_geograficos']), on_change=update_field, args=("limites_geograficos",))
+st.text_area("Límites Geográficos:", value=zona_data.get('limites_geograficos', ''), key="temp_limites_geograficos", 
+             height=calc_altura(zona_data.get('limites_geograficos', '')), on_change=update_field, args=("limites_geograficos",))
 
-st.text_area("Límites Administrativos:", value=zona_data['limites_administrativos'], key="temp_limites_administrativos", 
-             height=calc_altura(zona_data['limites_administrativos']), on_change=update_field, args=("limites_administrativos",))
+st.text_area("Límites Administrativos:", value=zona_data.get('limites_administrativos', ''), key="temp_limites_administrativos", 
+             height=calc_altura(zona_data.get('limites_administrativos', '')), on_change=update_field, args=("limites_administrativos",))
 
-st.text_area("Otros Límites:", value=zona_data['otros_limites'], key="temp_otros_limites", 
-             height=calc_altura(zona_data['otros_limites']), on_change=update_field, args=("otros_limites",))
+st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="temp_otros_limites", 
+             height=calc_altura(zona_data.get('otros_limites', '')), on_change=update_field, args=("otros_limites",))
 
 # 4. CONDICIONES DE ACCESIBILIDAD
 st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsafe_allow_html=True)
-st.text_area("Existencia y estado de las vías de acceso:", value=zona_data['accesibilidad'], key="temp_accesibilidad", 
-             height=calc_altura(zona_data['accesibilidad']), on_change=update_field, args=("accesibilidad",))
+st.text_area("Existencia y estado de las vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", 
+             height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
 # 5. MAPA DEL ÁREA Y FOTOS
 st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
@@ -177,13 +194,13 @@ with col_f2:
 
 # 6. POBLACIÓN
 st.markdown('<div class="form-header">POBLACIÓN</div>', unsafe_allow_html=True)
-st.text_area("POBLACIÓN DE REFERENCIA:", value=zona_data['poblacion_referencia'], key="temp_poblacion_referencia", 
-             height=calc_altura(zona_data['poblacion_referencia']), on_change=update_field, args=("poblacion_referencia",))
+st.text_area("POBLACIÓN DE REFERENCIA:", value=zona_data.get('poblacion_referencia', ''), key="temp_poblacion_referencia", 
+             height=calc_altura(zona_data.get('poblacion_referencia', '')), on_change=update_field, args=("poblacion_referencia",))
 
-st.text_area("POBLACIÓN AFECTADA:", value=zona_data['poblacion_afectada'], key="temp_poblacion_afectada", 
-             height=calc_altura(zona_data['poblacion_afectada']), on_change=update_field, args=("poblacion_afectada",))
+st.text_area("POBLACIÓN AFECTADA:", value=zona_data.get('poblacion_afectada', ''), key="temp_poblacion_afectada", 
+             height=calc_altura(zona_data.get('poblacion_afectada', '')), on_change=update_field, args=("poblacion_afectada",))
 
-st.text_area("POBLACIÓN OBJETIVO:", value=zona_data['poblacion_objetivo'], key="temp_poblacion_objetivo", 
-             height=calc_altura(zona_data['poblacion_objetivo']), on_change=update_field, args=("poblacion_objetivo",))
+st.text_area("POBLACIÓN OBJETIVO:", value=zona_data.get('poblacion_objetivo', ''), key="temp_poblacion_objetivo", 
+             height=calc_altura(zona_data.get('poblacion_objetivo', '')), on_change=update_field, args=("poblacion_objetivo",))
 
 st.success("✅ Formulario configurado según la estructura solicitada.")
