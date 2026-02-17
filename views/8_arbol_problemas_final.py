@@ -9,11 +9,10 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- BLOQUE DE SANEAMIENTO Y MIGRACIÓN ---
+# --- SANEAMIENTO DE DATOS ---
 if 'arbol_problemas_final' not in st.session_state:
     st.session_state['arbol_problemas_final'] = {}
 
-# Estructura para la Matriz de Marco Lógico
 if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
     st.session_state['arbol_problemas_final']['referencia_manual_prob'] = {
         "problema_central": "", "causas_directas": [], "causas_indirectas": []
@@ -21,64 +20,16 @@ if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
 
 ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
 
-# Conversión de seguridad: Si hay texto viejo, lo pasamos a lista automáticamente
-for clave in ['causas_directas', 'causas_indirectas']:
-    if isinstance(ref_prob.get(clave), str):
-        texto_viejo = ref_prob[clave]
-        if texto_viejo.strip():
-            items = [l.strip().lstrip('*-•').strip() for l in texto_viejo.split('\n') if l.strip()]
-            ref_prob[clave] = items
-        else:
-            ref_prob[clave] = []
+# --- FUNCIONES DE GESTIÓN ---
+def sincronizar_desde_poda():
+    datos_arbol = st.session_state['arbol_problemas_final']
+    ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
+    pp = datos_arbol.get("Problema Principal", [])
+    if pp: ref["problema_central"] = pp[0].get("texto", "")
+    ref["causas_directas"] = [c.get("texto") for c in datos_arbol.get("Causas Directas", []) if c.get("texto")]
+    ref["causas_indirectas"] = [c.get("texto") for c in datos_arbol.get("Causas Indirectas", []) if c.get("texto")]
+    guardar_datos_nube()
 
-# --- DISEÑO PROFESIONAL (CSS) ---
-st.markdown("""
-    <style>
-    .block-container { padding-bottom: 10rem !important; }
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-
-    .list-item-prob {
-        background-color: #fef2f2;
-        border: 1px solid #fee2e2;
-        padding: 8px 12px;
-        border-radius: 8px;
-        margin-bottom: 5px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 14px;
-        color: #991b1b;
-    }
-    
-    .list-header { font-weight: 700; color: #1E3A8A; margin-top: 10px; margin-bottom: 5px; }
-
-    .poda-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0 0 10px 10px;
-        padding: 15px;
-        text-align: center;
-        font-size: 14px;
-        font-weight: 700;
-        color: #1e293b;
-        min-height: 80px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 5px;
-    }
-
-    .main .stButton button {
-        border: none !important;
-        background: transparent !important;
-        color: #ef4444 !important;
-        font-size: 1.1rem !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- FUNCIONES DE GESTIÓN (CALLBACKS SEGUROS) ---
 def agregar_item_prob(clave_lista, clave_temporal):
     nuevo_texto = st.session_state.get(clave_temporal, "").strip()
     if nuevo_texto:
@@ -95,20 +46,26 @@ def actualizar_prob_central():
     st.session_state['arbol_problemas_final']['referencia_manual_prob']['problema_central'] = st.session_state.temp_prob_central
     guardar_datos_nube()
 
-def sincronizar_desde_poda():
-    """Extrae automáticamente los datos de las tarjetas vigentes en el panel inferior."""
-    datos_arbol = st.session_state['arbol_problemas_final']
-    ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
-    
-    # 1. Problema Central
-    pp = datos_arbol.get("Problema Principal", [])
-    if pp: ref["problema_central"] = pp[0].get("texto", "")
-    
-    # 2. Causas Directas e Indirectas
-    ref["causas_directas"] = [c.get("texto") for c in datos_arbol.get("Causas Directas", []) if c.get("texto")]
-    ref["causas_indirectas"] = [c.get("texto") for c in datos_arbol.get("Causas Indirectas", []) if c.get("texto")]
-    
-    guardar_datos_nube()
+# --- DISEÑO PROFESIONAL ---
+st.markdown("""
+    <style>
+    .block-container { padding-bottom: 10rem !important; }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+    .list-item-prob {
+        background-color: #fef2f2; border: 1px solid #fee2e2;
+        padding: 8px 12px; border-radius: 8px; margin-bottom: 5px;
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 14px; color: #991b1b;
+    }
+    .poda-card {
+        background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;
+        padding: 15px; text-align: center; font-size: 14px; font-weight: 700;
+        color: #1e293b; min-height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;
+    }
+    .main .stButton button { border: none !important; background: transparent !important; color: #ef4444 !important; font-size: 1.1rem !important; }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- ENCABEZADO CON BARRA DE PROGRESO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
@@ -116,12 +73,10 @@ with col_t:
     st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico de problemas.</div>', unsafe_allow_html=True)
     
-    # Cálculo dinámico de progreso
-    progreso_items = [ref_prob.get('problema_central'), ref_prob.get('causas_directas'), ref_prob.get('causas_indirectas')]
     puntos = 0
-    if progreso_items[0] and progreso_items[0].strip(): puntos += 1
-    if progreso_items[1]: puntos += 1
-    if progreso_items[2]: puntos += 1
+    if ref_prob.get('problema_central', '').strip(): puntos += 1
+    if ref_prob.get('causas_directas'): puntos += 1
+    if ref_prob.get('causas_indirectas'): puntos += 1
     st.progress(puntos / 3)
 
 with col_img:
@@ -148,7 +103,9 @@ def generar_grafo_problemas():
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
     prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
-    for tipo, p_id, h_tipo in [("Efectos Directos", \"PP\", \"Efectos Indirectos\"), (\"Causas Directas\", \"PP\", \"Causas Indirectas\")]:
+    
+    # CORRECCIÓN DE SINTAXIS AQUÍ:
+    for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
             n_id = f"{tipo[:2]}{i}"
@@ -210,7 +167,7 @@ with tab2:
     col_izq, col_der = st.columns(2)
     
     with col_izq:
-        st.markdown("<div class='list-header'>Causas Directas</div>", unsafe_allow_html=True)
+        st.markdown("**Causas Directas**")
         for i, item in enumerate(ref_prob['causas_directas']):
             c1, c2 = st.columns([0.85, 0.15])
             with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
@@ -221,7 +178,7 @@ with tab2:
         with ci2: st.button("➕", key="btn_add_cd", on_click=agregar_item_prob, args=('causas_directas', 'new_cd'))
 
     with col_der:
-        st.markdown("<div class='list-header'>Causas Indirectas</div>", unsafe_allow_html=True)
+        st.markdown("**Causas Indirectas**")
         for i, item in enumerate(ref_prob['causas_indirectas']):
             c1, c2 = st.columns([0.85, 0.15])
             with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
