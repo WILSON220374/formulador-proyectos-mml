@@ -10,6 +10,19 @@ inicializar_session()
 if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
     st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
 
+# --- ESTILOS CSS GLOBALES (SOLO TÍTULOS DE FASE EN NEGRILLA) ---
+st.markdown("""
+    <style>
+    /* Selecciona específicamente los títulos de las secciones en el menú lateral */
+    div[data-testid="stSidebarNavItems"] > ul > li > div > span {
+        font-weight: 900 !important;
+        color: #1E3A8A !important;
+        font-size: 14px !important;
+        text-transform: uppercase;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- LÓGICA DE ACCESO (LOGIN) - IMAGEN IZQUIERDA / FORMULARIO DERECHA ---
 if not st.session_state['autenticado']:
     st.markdown("""
@@ -126,7 +139,7 @@ pg = st.navigation({
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ],
-    "El Problema": [  # <--- NUEVA SECCIÓN CREADA
+    "Fase III: Análisis del Problema": [  # <--- NOMBRE ACTUALIZADO
         st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
     ]
 })
