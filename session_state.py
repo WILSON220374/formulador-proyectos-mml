@@ -6,7 +6,7 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 def inicializar_session():
-    # --- AJUSTE VISUAL (Mantengo tu estilo) ---
+    # --- AJUSTE VISUAL ---
     st.markdown("""
         <style>
         header[data-testid="stHeader"] { display: none !important; }
@@ -22,7 +22,7 @@ def inicializar_session():
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     
-    # --- HOJA 9 (Mantengo 'datos_zona' como lo tienes en tu archivo) ---
+    # --- HOJA 9 ---
     if 'datos_zona' not in st.session_state: 
         st.session_state['datos_zona'] = {
             "problema_central": "", "departamento": "", "provincia": "", "municipio": "", 
@@ -33,10 +33,12 @@ def inicializar_session():
             "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
         }
 
-    # --- AJUSTE 1: MEMORIA PARA HOJA 10 ---
+    # --- INSERCIÓN 1: MEMORIA HOJA 10 ---
     if 'descripcion_problema' not in st.session_state:
         st.session_state['descripcion_problema'] = {
-            "desc_central": "", "desc_causas": "", "desc_efectos": ""
+            "tabla_datos": {},
+            "redaccion_narrativa": "",
+            "antecedentes": ""
         }
 
     if 'df_interesados' not in st.session_state: st.session_state['df_interesados'] = pd.DataFrame()
@@ -83,10 +85,10 @@ def cargar_datos_nube(user_id):
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['datos_zona'] = d.get('zona', st.session_state['datos_zona'])
-
-            # --- AJUSTE 2: CARGA DATOS HOJA 10 ---
-            st.session_state['descripcion_problema'] = d.get('desc_p', st.session_state['descripcion_problema'])
             
+            # --- INSERCIÓN 2: CARGAR HOJA 10 ---
+            st.session_state['descripcion_problema'] = d.get('desc_p', st.session_state['descripcion_problema'])
+
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
             st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(d.get('arbol_p', st.session_state['arbol_tarjetas']))
             st.session_state['arbol_objetivos'] = limpiar_datos_arbol(d.get('arbol_o', st.session_state['arbol_objetivos']))
@@ -112,22 +114,6 @@ def guardar_datos_nube():
             "integrantes": st.session_state['integrantes'],
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['datos_zona'],
-
-            # --- AJUSTE 3: GUARDADO DATOS HOJA 10 ---
-            "desc_p": st.session_state['descripcion_problema'],
             
-            "interesados": st.session_state['df_interesados'].to_dict(),
-            "analisis_txt": st.session_state['analisis_participantes'],
-            "arbol_p": st.session_state['arbol_tarjetas'],
-            "arbol_o": st.session_state['arbol_objetivos'],
-            "alternativas": st.session_state['lista_alternativas'],
-            "eval_alt": st.session_state['df_evaluacion_alternativas'].to_dict(),
-            "rel_obj": st.session_state['df_relaciones_objetivos'].to_dict(),
-            "pesos_eval": st.session_state['ponderacion_criterios'],
-            "calificaciones": st.session_state['df_calificaciones'].to_dict(),
-            "arbol_f": st.session_state['arbol_objetivos_final'],
-            "arbol_p_f": st.session_state['arbol_problemas_final']
-        }
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
-    except Exception as e:
-        st.error(f"Error al guardar: {e}")
+            # --- INSERCIÓN 3: GUARDAR HOJA 10 ---
+            "desc_p": st.session_state['descripcion
