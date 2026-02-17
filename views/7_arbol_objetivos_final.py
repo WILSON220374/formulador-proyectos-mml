@@ -10,7 +10,6 @@ from session_state import inicializar_session, guardar_datos_nube
 inicializar_session()
 
 # --- BLOQUE DE MIGRACIÓN DE DATOS (AUTO-REPARACIÓN) ---
-# Este bloque convierte tus textos antiguos en listas modernas sin borrar nada.
 if 'arbol_objetivos_final' not in st.session_state:
     st.session_state['arbol_objetivos_final'] = {}
 
@@ -21,13 +20,11 @@ if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
 
 ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
 
-# Conversión: Si el sistema encuentra que 'especificos' es un texto (formato viejo),
-# lo divide por saltos de línea y lo convierte en lista (formato nuevo).
+# Conversión de seguridad: Texto a Lista
 for clave in ['especificos', 'actividades']:
     if isinstance(ref_data.get(clave), str):
         texto_viejo = ref_data[clave]
         if texto_viejo.strip():
-            # Intentamos separar por líneas o asteriscos para salvar la info
             items = [linea.strip().lstrip('*-•').strip() for linea in texto_viejo.split('\n') if linea.strip()]
             ref_data[clave] = items
         else:
@@ -40,7 +37,6 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estilo para las tarjetas de listas dinámicas */
     .list-item {
         background-color: #f8fafc;
         border: 1px solid #e2e8f0;
@@ -61,7 +57,6 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Tarjeta Modo Poda (Solo lectura) */
     .poda-card {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
@@ -84,29 +79,22 @@ st.markdown("""
         color: #ef4444 !important;
         font-size: 1.1rem !important;
     }
-    
-    /* Botón de agregar pequeño */
-    .btn-add {
-        color: #1E3A8A !important;
-        font-weight: bold !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- FUNCIONES DE GESTIÓN DE LISTAS ---
+# --- FUNCIONES DE GESTIÓN (CALLBACKS SEGUROS) ---
+# Al usar estas funciones en 'on_click', evitamos el error de StreamlitAPIException
 def agregar_item(clave_lista, clave_temporal):
     nuevo_texto = st.session_state.get(clave_temporal, "").strip()
     if nuevo_texto:
-        # Permite pegar múltiples líneas y agregarlas de una vez
         nuevos_items = [l.strip().lstrip('*-•').strip() for l in nuevo_texto.split('\n') if l.strip()]
         st.session_state['arbol_objetivos_final']['referencia_manual'][clave_lista].extend(nuevos_items)
-        st.session_state[clave_temporal] = "" # Limpiar input
+        st.session_state[clave_temporal] = "" # Limpiar input es seguro aquí porque ocurre ANTES del renderizado
         guardar_datos_nube()
 
 def eliminar_item(clave_lista, indice):
     st.session_state['arbol_objetivos_final']['referencia_manual'][clave_lista].pop(indice)
     guardar_datos_nube()
-    st.rerun()
 
 def actualizar_campo_simple(clave):
     st.session_state['arbol_objetivos_final']['referencia_manual'][clave] = st.session_state[f"temp_{clave}"]
@@ -190,18 +178,21 @@ def render_poda_card(seccion, item, idx):
     color_barra = CONFIG_OBJ.get(seccion, {}).get("color", "#ccc")
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
-    if st.button("🗑️", key=f"poda_btn_{id_u}"):
-        st.session_state['arbol_objetivos_final'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
+    # Callback para poda
+    st.button("🗑️", key=f"poda_btn_{id_u}", on_click=lambda: (st.session_state['arbol_objetivos_final'][seccion].pop(idx), guardar_datos_nube()))
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
-    if st.button("♻️ Importar Paso 5", use_container_width=True, type="primary"):
+    
+    def importar_paso_5():
         ref_bk = copy.deepcopy(st.session_state['arbol_objetivos_final'].get('referencia_manual', {}))
         nuevo = copy.deepcopy(st.session_state.get('arbol_objetivos', {}))
         nuevo['referencia_manual'] = ref_bk
         st.session_state['arbol_objetivos_final'] = nuevo
-        guardar_datos_nube(); st.rerun()
+        guardar_datos_nube()
+        
+    st.button("♻️ Importar Paso 5", use_container_width=True, type="primary", on_click=importar_paso_5)
     st.divider()
     grafo = generar_grafo_final()
     if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_final.png", use_container_width=True)
@@ -218,7 +209,7 @@ with tab2:
         st.subheader("📌 Alternativa Seleccionada")
         st.info("La estructuración en listas facilita la creación automática de la Matriz de Marco Lógico.")
 
-        # --- SECCIÓN SUPERIOR: TEXTOS SIMPLES (Columna Izquierda) ---
+        # --- SECCIÓN SUPERIOR: TEXTOS SIMPLES ---
         col_izq, col_der = st.columns(2)
         with col_izq:
             st.markdown("**Nombre de la Alternativa**")
@@ -228,7 +219,7 @@ with tab2:
             st.text_area("Obj. General", value=ref_data['objetivo'], label_visibility="collapsed", key="temp_objetivo", 
                          height=calc_altura(ref_data['objetivo']), on_change=actualizar_campo_simple, args=("objetivo",))
 
-        # --- SECCIÓN INFERIOR: LISTAS DINÁMICAS (Columna Derecha) ---
+        # --- SECCIÓN INFERIOR: LISTAS DINÁMICAS (Corregido) ---
         with col_der:
             # 1. OBJETIVOS ESPECÍFICOS
             st.markdown("<div class='list-header'>Objetivos Específicos (Componentes)</div>", unsafe_allow_html=True)
@@ -239,14 +230,16 @@ with tab2:
                     c1, c2 = st.columns([0.9, 0.1])
                     with c1: st.markdown(f"<div class='list-item'>• {item}</div>", unsafe_allow_html=True)
                     with c2: 
-                        if st.button("🗑️", key=f"del_esp_{i}"): eliminar_item('especificos', i)
+                        # Callback directo en el botón
+                        st.button("🗑️", key=f"del_esp_{i}", on_click=eliminar_item, args=('especificos', i))
             
             # Input para agregar nuevo
             c_in, c_btn = st.columns([0.85, 0.15])
             with c_in: 
                 st.text_area("Nuevo Obj", label_visibility="collapsed", key="new_esp", placeholder="Escriba aquí...", height=68)
             with c_btn: 
-                if st.button("➕", key="btn_add_esp"): agregar_item('especificos', 'new_esp')
+                # Callback directo en el botón
+                st.button("➕", key="btn_add_esp", on_click=agregar_item, args=('especificos', 'new_esp'))
 
             st.divider()
 
@@ -259,14 +252,16 @@ with tab2:
                     c1, c2 = st.columns([0.9, 0.1])
                     with c1: st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
                     with c2: 
-                        if st.button("🗑️", key=f"del_act_{i}"): eliminar_item('actividades', i)
+                        # Callback directo en el botón
+                        st.button("🗑️", key=f"del_act_{i}", on_click=eliminar_item, args=('actividades', i))
             
             # Input para agregar nueva
             c_in_a, c_btn_a = st.columns([0.85, 0.15])
             with c_in_a: 
                 st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Escriba aquí...", height=68)
             with c_btn_a: 
-                if st.button("➕", key="btn_add_act"): agregar_item('actividades', 'new_act')
+                # Callback directo en el botón
+                st.button("➕", key="btn_add_act", on_click=agregar_item, args=('actividades', 'new_act'))
 
         st.divider()
 
