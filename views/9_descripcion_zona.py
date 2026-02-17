@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import os
 import uuid
 from PIL import Image
@@ -12,7 +12,8 @@ if 'descripcion_zona' not in st.session_state:
     st.session_state['descripcion_zona'] = {
         # Localización
         "departamento": "", "provincia": "", "municipio": "", 
-        "vereda_corregimiento": "", "coordenadas": "",
+        "vereda_corregimiento": "", 
+        "latitud": "", "longitud": "", # <--- COORDENADAS SEPARADAS
         # Características Físicas
         "clima_temperatura": "", "altitud": "", "topografia_suelos": "", "hidrografia": "",
         # Aspectos Socioambientales
@@ -51,7 +52,7 @@ st.markdown("""
         border: none !important; background: transparent !important;
         color: #ef4444 !important; font-size: 1.2rem !important; margin-top: -10px !important;
     }
-    /* Ajuste para que los text_area se vean más limpios */
+    /* Estilo limpio para áreas de texto */
     div[data-testid="stTextArea"] textarea {
         background-color: #f8fafc;
     }
@@ -60,10 +61,10 @@ st.markdown("""
 
 # --- FUNCIÓN INTELIGENTE: CALCULAR ALTURA DINÁMICA ---
 def calc_altura(texto):
-    # Calcula aprox 80 caracteres por línea visual + saltos de línea reales
-    # Base mínima de 100px para que no se vea muy pequeño
+    # Calcula aprox 90 caracteres por línea visual + saltos de línea reales
+    # Base mínima de 100px para comodidad
     if not texto: return 100
-    lineas = str(texto).count('\n') + (len(str(texto)) // 80) + 1
+    lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
     return max(100, lineas * 25)
 
 # --- ENCABEZADO ---
@@ -106,7 +107,7 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
 
 # --- FORMULARIO ---
 
-# 1. LOCALIZACIÓN GEOGRÁFICA (Ajustado con Provincia y Coordenadas)
+# 1. LOCALIZACIÓN GEOGRÁFICA
 st.markdown('<div class="form-header">📍 1. Localización Geográfica</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 with c1: st.text_input("Departamento:", value=zona_data['departamento'], key="temp_departamento", on_change=update_field, args=("departamento",))
@@ -114,10 +115,15 @@ with c2: st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="
 with c3: st.text_input("Municipio:", value=zona_data['municipio'], key="temp_municipio", on_change=update_field, args=("municipio",))
 with c4: st.text_input("Barrio / Vereda:", value=zona_data['vereda_corregimiento'], key="temp_vereda_corregimiento", on_change=update_field, args=("vereda_corregimiento",))
 
-# Fila completa para Coordenadas
-st.text_input("Coordenadas:", value=zona_data.get('coordenadas', ''), placeholder="Ej: Latitud: 5.715, Longitud: -72.933", key="temp_coordenadas", on_change=update_field, args=("coordenadas",))
+# --- COORDENADAS SEPARADAS ---
+st.markdown("**Coordenadas Geográficas:**")
+c_lat, c_lon = st.columns(2)
+with c_lat:
+    st.text_input("Latitud:", value=zona_data.get('latitud', ''), placeholder="Ej: 5.715", key="temp_latitud", on_change=update_field, args=("latitud",))
+with c_lon:
+    st.text_input("Longitud:", value=zona_data.get('longitud', ''), placeholder="Ej: -72.933", key="temp_longitud", on_change=update_field, args=("longitud",))
 
-# 2. CARACTERÍSTICAS FÍSICAS (Con Auto-Ajuste de Altura)
+# 2. CARACTERÍSTICAS FÍSICAS
 st.markdown('<div class="form-header">⛰️ 2. Características Físicas y Ambientales</div>', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 with c1:
@@ -131,7 +137,7 @@ with c2:
                  height=calc_altura(zona_data['hidrografia']), on_change=update_field, args=("hidrografia",))
     st.text_input("Uso del Suelo:", value=zona_data['uso_suelo'], key="temp_uso_suelo", on_change=update_field, args=("uso_suelo",))
 
-# 3. ASPECTOS SOCIOECONÓMICOS (Con Auto-Ajuste de Altura)
+# 3. ASPECTOS SOCIOECONÓMICOS
 st.markdown('<div class="form-header">👥 3. Aspectos Socioeconómicos</div>', unsafe_allow_html=True)
 st.text_area("Población Beneficiaria:", value=zona_data['poblacion_beneficiaria'], key="temp_poblacion_beneficiaria", 
              height=calc_altura(zona_data['poblacion_beneficiaria']), on_change=update_field, args=("poblacion_beneficiaria",))
