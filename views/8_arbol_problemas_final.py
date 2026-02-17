@@ -13,26 +13,21 @@ inicializar_session()
 if 'arbol_problemas_final' not in st.session_state:
     st.session_state['arbol_problemas_final'] = {}
 
-# Estructura para la Matriz de Marco Lógico (Referencia estructurada)
 if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
     st.session_state['arbol_problemas_final']['referencia_manual_prob'] = {
         "problema_central": "", "causas_directas": [], "causas_indirectas": []
     }
 
-# --- FUNCIONES DE GESTIÓN Y SINCRONIZACIÓN ---
+ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
+
+# --- FUNCIONES DE GESTIÓN ---
 def sincronizar_desde_poda():
-    """Extrae automáticamente los datos de las tarjetas vigentes en el panel inferior."""
     datos_arbol = st.session_state['arbol_problemas_final']
     ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
-    
-    # 1. Problema Central
     pp = datos_arbol.get("Problema Principal", [])
     if pp: ref["problema_central"] = pp[0].get("texto", "")
-    
-    # 2. Causas Directas e Indirectas
     ref["causas_directas"] = [c.get("texto") for c in datos_arbol.get("Causas Directas", []) if c.get("texto")]
     ref["causas_indirectas"] = [c.get("texto") for c in datos_arbol.get("Causas Indirectas", []) if c.get("texto")]
-    
     guardar_datos_nube()
 
 def agregar_item_prob(clave_lista, clave_temporal):
@@ -72,17 +67,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO ---
+# --- ENCABEZADO CON BARRA DE PROGRESO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico de problemas.</div>', unsafe_allow_html=True)
+    
+    # Cálculo dinámico de progreso (basado en la tabla de problemas)
+    progreso_items = [
+        ref_prob.get('problema_central'),
+        ref_prob.get('causas_directas'),
+        ref_prob.get('causas_indirectas')
+    ]
+    puntos = 0
+    if progreso_items[0] and progreso_items[0].strip(): puntos += 1
+    if progreso_items[1]: puntos += 1
+    if progreso_items[2]: puntos += 1
+    st.progress(puntos / 3)
 
 with col_img:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
+# --- CONFIGURACIÓN GRAFOS ---
 CONFIG_PROB = {
     "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\nINDIRECTOS"},
     "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\nDIRECTOS"},
@@ -91,7 +99,6 @@ CONFIG_PROB = {
     "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\nINDIRECTAS"}
 }
 
-# --- MOTOR DE DIBUJO ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_problemas_final', {})
     claves_graficas = [k for k in datos.keys() if k not in ['referencia_manual', 'referencia_manual_prob']]
@@ -99,12 +106,9 @@ def generar_grafo_problemas():
     dot = graphviz.Digraph(format='png')
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
-    
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
-
     prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
-
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
@@ -120,7 +124,6 @@ def generar_grafo_problemas():
                 else: dot.edge(h_id, n_id)
     return dot
 
-# --- RENDERIZADO DE TARJETA MODO PODA ---
 def render_poda_card(seccion, item, idx):
     if not isinstance(item, dict): return
     id_u = item.get('id_unico', str(uuid.uuid4()))
@@ -129,7 +132,7 @@ def render_poda_card(seccion, item, idx):
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
     st.button("🗑️", key=f"poda_btn_{id_u}", on_click=lambda: (st.session_state['arbol_problemas_final'][seccion].pop(idx), guardar_datos_nube()))
 
-# --- SIDEBAR (REINTEGRADO IMPORTAR P4) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
     def importar_p4():
@@ -149,12 +152,15 @@ with tab1:
     if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    st.subheader("📌 Problemas a resolver")
-    col_btn, _ = st.columns([0.3, 0.7])
-    with col_btn:
-        st.button("🔄 Sincronizar con Árbol", use_container_width=True, type="primary", on_click=sincronizar_desde_poda)
+    # FILA DE TÍTULO Y BOTÓN (Restaurado frente a frente)
+    col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
+    with col_title:
+        st.markdown("### 📌 Problemas a resolver")
+    with col_sync:
+        st.button("🔄 Sincronizar con Árbol", key="btn_sync_top", type="primary", use_container_width=True, on_click=sincronizar_desde_poda)
 
-    ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
+    st.info("Estructure aquí el diagnóstico definitivo. Use el botón superior para traer los datos del árbol automáticamente.")
+
     col_izq, col_der = st.columns(2)
     with col_izq:
         st.markdown("**Problema Central**")
@@ -163,22 +169,22 @@ with tab2:
     with col_der:
         st.markdown("**Causas Directas**")
         for i, item in enumerate(ref_prob['causas_directas']):
-            c1, c2 = st.columns([0.9, 0.1])
+            c1, c2 = st.columns([0.85, 0.15])
             with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
             with c2: st.button("🗑️", key=f"del_cd_{i}", on_click=eliminar_item_prob, args=('causas_directas', i))
         
-        ci1, ci2 = st.columns([0.85, 0.15])
+        ci1, ci2 = st.columns([0.8, 0.2])
         with ci1: st.text_area("Nueva CD", label_visibility="collapsed", key="new_cd", placeholder="Agregar causa...", height=68)
         with ci2: st.button("➕", key="btn_add_cd", on_click=agregar_item_prob, args=('causas_directas', 'new_cd'))
 
         st.divider()
         st.markdown("**Causas Indirectas**")
         for i, item in enumerate(ref_prob['causas_indirectas']):
-            c1, c2 = st.columns([0.9, 0.1])
+            c1, c2 = st.columns([0.85, 0.15])
             with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
             with c2: st.button("🗑️", key=f"del_ci_{i}", on_click=eliminar_item_prob, args=('causas_indirectas', i))
         
-        cii1, cii2 = st.columns([0.85, 0.15])
+        cii1, cii2 = st.columns([0.8, 0.2])
         with cii1: st.text_area("Nueva CI", label_visibility="collapsed", key="new_ci", placeholder="Agregar causa...", height=68)
         with cii2: st.button("➕", key="btn_add_ci", on_click=agregar_item_prob, args=('causas_indirectas', 'new_ci'))
 
