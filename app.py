@@ -23,7 +23,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- LÓGICA DE ACCESO (LOGIN) - IMAGEN IZQUIERDA / FORMULARIO DERECHA ---
+# --- LÓGICA DE ACCESO (LOGIN) ---
 if not st.session_state['autenticado']:
     st.markdown("""
         <style>
@@ -50,7 +50,7 @@ if not st.session_state['autenticado']:
     col_img, col_login = st.columns([1.2, 1], gap="large")
     
     with col_img:
-        st.write("") # Espaciador
+        st.write("") 
         if os.path.exists("unnamed.jpg"):
             st.image("unnamed.jpg", use_container_width=True)
         else:
@@ -74,7 +74,7 @@ if not st.session_state['autenticado']:
                     st.error("Por favor, ingrese un ID válido.")
     st.stop()
 
-# --- SIDEBAR (CONFIGURACIÓN Y CERRAR SESIÓN) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown(f"### 🚀 Proyecto: **{st.session_state.get('usuario_id', 'N/A')}**")
     st.write("---")
@@ -86,7 +86,7 @@ with st.sidebar:
         st.session_state['autenticado'] = False
         st.rerun()
 
-# --- DEFINICIÓN DE PÁGINAS POR SECCIONES ---
+# --- DEFINICIÓN DE PÁGINAS (ESTRUCTURA ORIGINAL + FASE IV) ---
 pg = st.navigation({
     "Configuración": [
         st.Page("views/0_equipo.py", title="Equipo", icon="👥")
