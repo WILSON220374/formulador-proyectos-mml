@@ -13,12 +13,10 @@ inicializar_session()
 if 'arbol_problemas_final' not in st.session_state:
     st.session_state['arbol_problemas_final'] = {}
 
-# --- FUNCIÓN DE EXTRACCIÓN AUTOMÁTICA (EL CORAZÓN DEL CAMBIO) ---
+# --- FUNCIÓN DE EXTRACCIÓN AUTOMÁTICA ---
 def obtener_resumen_diagnostico():
-    """Lee el estado actual de las tarjetas y genera el resumen para la tabla superior."""
+    """Lee el estado actual de las tarjetas y genera el resumen limpio."""
     datos = st.session_state['arbol_problemas_final']
-    
-    # Extraemos textos limpios de cada nivel
     resumen = {
         "problema_central": "",
         "efectos_indirectos": [],
@@ -26,33 +24,26 @@ def obtener_resumen_diagnostico():
         "causas_directas": [],
         "causas_indirectas": []
     }
-    
     pp = datos.get("Problema Principal", [])
     if pp: resumen["problema_central"] = pp[0].get("texto", "")
-    
     resumen["efectos_indirectos"] = [t.get("texto") for t in datos.get("Efectos Indirectos", []) if t.get("texto")]
     resumen["efectos_directos"] = [t.get("texto") for t in datos.get("Efectos Directos", []) if t.get("texto")]
     resumen["causas_directas"] = [t.get("texto") for t in datos.get("Causas Directas", []) if t.get("texto")]
     resumen["causas_indirectas"] = [t.get("texto") for t in datos.get("Causas Indirectas", []) if t.get("texto")]
-    
     return resumen
 
 def eliminar_tarjeta_poda(seccion, idx):
-    """Elimina una tarjeta y sus descendientes con guardado automático."""
+    """Elimina tarjeta y descendientes con guardado automático."""
     datos = st.session_state['arbol_problemas_final']
     item_a_borrar = datos[seccion].pop(idx)
     texto_padre = item_a_borrar.get("texto")
-
-    # Eliminación en cascada
     if seccion == "Causas Directas":
         if "Causas Indirectas" in datos:
             datos["Causas Indirectas"] = [h for h in datos["Causas Indirectas"] if h.get("padre") != texto_padre]
     elif seccion == "Efectos Directos":
         if "Efectos Indirectos" in datos:
             datos["Efectos Indirectos"] = [h for h in datos["Efectos Indirectos"] if h.get("padre") != texto_padre]
-
     guardar_datos_nube()
-    # No hace falta llamar a otra función, al recargar Streamlit, obtener_resumen_diagnostico() hará el resto
 
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
@@ -63,7 +54,8 @@ st.markdown("""
     .resumen-card {
         background-color: #f8fafc; border: 1px solid #e2e8f0;
         padding: 10px 15px; border-radius: 10px; margin-bottom: 8px;
-        font-size: 13px; color: #334155; border-left: 5px solid #1E3A8A;
+        font-size: 13px; color: #1e293b; border-left: 5px solid #1E3A8A;
+        font-weight: 500;
     }
     .poda-card {
         background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;
@@ -75,17 +67,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO Y PROGRESO ---
+# --- ENCABEZADO ---
 resumen_actual = obtener_resumen_diagnostico()
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Diagnóstico automático y definitivo del proyecto.</div>', unsafe_allow_html=True)
-    
-    # Barra de progreso basada en los 5 niveles
-    niveles = [resumen_actual["problema_central"], resumen_actual["efectos_directos"], resumen_actual["efectos_indirectos"], resumen_actual["causas_directas"], resumen_actual["causas_indirectas"]]
+    st.markdown('<div class="subtitulo-gris">Resumen ejecutivo y ajuste definitivo del diagnóstico.</div>', unsafe_allow_html=True)
+    niveles = [resumen_actual["problema_central"], resumen_actual["efectos_directos"], resumen_actual["causas_directas"]]
     puntos = len([n for n in niveles if n])
-    st.progress(puntos / 5)
+    st.progress(puntos / 3)
 
 with col_img:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -94,11 +84,11 @@ st.divider()
 
 # --- CONFIGURACIÓN GRAFOS ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\\nINDIRECTOS"},
-    "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\\nDIRECTOS"},
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA\\nCENTRAL"},
-    "Causas Directas":    {"color": "#FFFFBA", "label": "CAUSAS\\nDIRECTAS"},
-    "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\\nINDIRECTAS"}
+    "Efectos Indirectos": {"color": "#B3D9FF"},
+    "Efectos Directos":   {"color": "#80BFFF"},
+    "Problema Principal": {"color": "#FFB3BA"},
+    "Causas Directas":    {"color": "#FFFFBA"},
+    "Causas Indirectas":  {"color": "#FFDFBA"}
 }
 
 def generar_grafo_problemas():
@@ -108,8 +98,8 @@ def generar_grafo_problemas():
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
-    prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
-    if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
+    pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
+    if pp: dot.node("PP", limpiar(pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
@@ -137,8 +127,7 @@ def render_poda_card(seccion, item, idx):
 with st.sidebar:
     st.header("⚙️ Herramientas")
     def importar_p4():
-        origen = st.session_state.get('arbol_tarjetas', {})
-        st.session_state['arbol_problemas_final'] = copy.deepcopy(origen)
+        st.session_state['arbol_problemas_final'] = copy.deepcopy(st.session_state.get('arbol_tarjetas', {}))
         guardar_datos_nube()
     st.button("♻️ Importar desde Paso 4", use_container_width=True, type="primary", on_click=importar_p4)
     st.divider()
@@ -154,37 +143,36 @@ with tab1:
 
 with tab2:
     st.markdown("### 📌 Resumen del Diagnóstico Definitivo")
-    st.info("Esta tabla se actualiza automáticamente al modificar el panel de tarjetas inferior.")
+    st.info("La tabla se sincroniza automáticamente con el panel de acción inferior.")
 
     # 1. PROBLEMA CENTRAL
-    st.markdown('<div class="header-tabla">🔴 Problema Central</div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-tabla">🔴 PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="resumen-card">{resumen_actual["problema_central"].upper() if resumen_actual["problema_central"] else "SIN DEFINIR"}</div>', unsafe_allow_html=True)
 
-    # 2. CAUSAS (Lado a Lado)
+    # 2. CAUSAS
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        st.markdown('<div class="header-tabla">🟡 Causas Directas</div>', unsafe_allow_html=True)
+        st.markdown('<div class="header-tabla">🟡 CAUSAS DIRECTAS</div>', unsafe_allow_html=True)
         for c in resumen_actual["causas_directas"]:
-            st.markdown(f'<div class="resumen-card">C.D: {c}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="resumen-card">{c}</div>', unsafe_allow_html=True)
     with col_c2:
-        st.markdown('<div class="header-tabla">🟠 Causas Indirectas</div>', unsafe_allow_html=True)
+        st.markdown('<div class="header-tabla">🟠 CAUSAS INDIRECTAS</div>', unsafe_allow_html=True)
         for c in resumen_actual["causas_indirectas"]:
-            st.markdown(f'<div class="resumen-card">C.I: {c}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="resumen-card">{c}</div>', unsafe_allow_html=True)
 
-    # 3. EFECTOS (Debajo de las Causas)
+    # 3. EFECTOS
     col_e1, col_e2 = st.columns(2)
     with col_e1:
-        st.markdown('<div class="header-tabla">🔵 Efectos Directos</div>', unsafe_allow_html=True)
+        st.markdown('<div class="header-tabla">🔵 EFECTOS DIRECTOS</div>', unsafe_allow_html=True)
         for e in resumen_actual["efectos_directos"]:
-            st.markdown(f'<div class="resumen-card">E.D: {e}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="resumen-card">{e}</div>', unsafe_allow_html=True)
     with col_e2:
-        st.markdown('<div class="header-tabla">🔵 Efectos Indirectos</div>', unsafe_allow_html=True)
+        st.markdown('<div class="header-tabla">🔵 EFECTOS INDIRECTOS</div>', unsafe_allow_html=True)
         for e in resumen_actual["efectos_indirectos"]:
-            st.markdown(f'<div class="resumen-card">E.I: {e}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="resumen-card">{e}</div>', unsafe_allow_html=True)
 
     st.divider()
     st.subheader("📋 Panel de Poda (Acción)")
-    st.caption("Cualquier cambio realizado aquí se reflejará instantáneamente en la tabla superior.")
     
     def mostrar_seccion_final(tipo_padre, tipo_hijo):
         datos_sec = st.session_state['arbol_problemas_final'].get(tipo_padre, [])
@@ -194,14 +182,12 @@ with tab2:
         hijos = st.session_state['arbol_problemas_final'].get(tipo_hijo, [])
         h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
         max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
-        
         if "Efectos" in tipo_padre:
             for h_idx in range(max_h - 1, -1, -1):
                 cols = st.columns(len(padres_con_idx))
                 for p_col, col in enumerate(cols):
                     with col:
                         if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
-                        else: st.empty()
             cols_p = st.columns(len(padres_con_idx))
             for i, (idx_o, p_d) in enumerate(padres_con_idx):
                 with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
@@ -214,7 +200,6 @@ with tab2:
                 for p_col, col in enumerate(cols):
                     with col:
                         if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
-                        else: st.empty()
 
     mostrar_seccion_final("Efectos Directos", "Efectos Indirectos")
     st.markdown("---")
