@@ -21,7 +21,18 @@ def inicializar_session():
     
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
-    if 'datos_zona' not in st.session_state: st.session_state['datos_zona'] = {}
+    
+    # --- CORRECCIÓN AQUÍ: Unificamos a 'descripcion_zona' con su estructura completa ---
+    if 'descripcion_zona' not in st.session_state: 
+        st.session_state['descripcion_zona'] = {
+            "problema_central": "", "departamento": "", "provincia": "", "municipio": "", 
+            "barrio_vereda": "", "latitud": "", "longitud": "",
+            "limites_geograficos": "", "limites_administrativos": "", "otros_limites": "",
+            "accesibilidad": "", "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
+            "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
+            "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
+        }
+
     if 'df_interesados' not in st.session_state: st.session_state['df_interesados'] = pd.DataFrame()
     if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
     
@@ -40,15 +51,10 @@ def inicializar_session():
     if 'arbol_problemas_final' not in st.session_state: st.session_state['arbol_problemas_final'] = {}
 
 def limpiar_datos_arbol(arbol_dict):
-    """
-    FUNCION FILTRO: Elimina registros vacíos, 'None' o textos basura de los árboles.
-    """
     if not isinstance(arbol_dict, dict): return arbol_dict
-    
     arbol_limpio = {}
     for nivel, tarjetas in arbol_dict.items():
         if isinstance(tarjetas, list):
-            # Solo conservamos tarjetas que sean diccionarios, tengan texto real y no sean 'None'
             arbol_limpio[nivel] = [
                 t for t in tarjetas 
                 if isinstance(t, dict) and t.get('texto') and 
@@ -71,13 +77,13 @@ def cargar_datos_nube(user_id):
 
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
-            st.session_state['datos_zona'] = d.get('zona', {})
-            st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
             
-            # --- APLICAMOS LIMPIEZA AL CARGAR ---
+            # --- CARGA CORREGIDA ---
+            st.session_state['descripcion_zona'] = d.get('zona', st.session_state['descripcion_zona'])
+            
+            st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
             st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(d.get('arbol_p', st.session_state['arbol_tarjetas']))
             st.session_state['arbol_objetivos'] = limpiar_datos_arbol(d.get('arbol_o', st.session_state['arbol_objetivos']))
-            
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
@@ -93,16 +99,16 @@ def cargar_datos_nube(user_id):
 def guardar_datos_nube():
     try:
         db = conectar_db()
-        
-        # --- APLICAMOS LIMPIEZA ANTES DE GUARDAR ---
-        # Esto asegura que la base de datos se desinfecte de los 'None'
         st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(st.session_state['arbol_tarjetas'])
         st.session_state['arbol_objetivos'] = limpiar_datos_arbol(st.session_state['arbol_objetivos'])
 
         paquete = {
             "integrantes": st.session_state['integrantes'],
             "diagnostico": st.session_state['datos_problema'],
-            "zona": st.session_state['datos_zona'],
+            
+            # --- GUARDADO CORREGIDO ---
+            "zona": st.session_state['descripcion_zona'],
+            
             "interesados": st.session_state['df_interesados'].to_dict(),
             "analisis_txt": st.session_state['analisis_participantes'],
             "arbol_p": st.session_state['arbol_tarjetas'],
