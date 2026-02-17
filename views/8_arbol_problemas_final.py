@@ -20,7 +20,7 @@ if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
 
 ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
 
-# --- FUNCIONES DE GESTIÓN ---
+# --- FUNCIONES DE GESTIÓN (CON ELIMINACIÓN EN CASCADA) ---
 def sincronizar_desde_poda():
     datos_arbol = st.session_state['arbol_problemas_final']
     ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
@@ -45,6 +45,26 @@ def eliminar_item_prob(clave_lista, indice):
 def actualizar_prob_central():
     st.session_state['arbol_problemas_final']['referencia_manual_prob']['problema_central'] = st.session_state.temp_prob_central
     guardar_datos_nube()
+
+def eliminar_tarjeta_poda(seccion, idx):
+    """Elimina una tarjeta y sus descendientes (eliminación en cascada)."""
+    datos = st.session_state['arbol_problemas_final']
+    item_a_borrar = datos[seccion].pop(idx)
+    texto_padre = item_a_borrar.get("texto")
+
+    # Si borramos una Causa Directa, borramos sus Causas Indirectas
+    if seccion == "Causas Directas":
+        if "Causas Indirectas" in datos:
+            datos["Causas Indirectas"] = [h for h in datos["Causas Indirectas"] if h.get("padre") != texto_padre]
+    
+    # Si borramos un Efecto Directo, borramos sus Efectos Indirectos
+    elif seccion == "Efectos Directos":
+        if "Efectos Indirectos" in datos:
+            datos["Efectos Indirectos"] = [h for h in datos["Efectos Indirectos"] if h.get("padre") != texto_padre]
+
+    guardar_datos_nube()
+    # Sincronizamos automáticamente la tabla para que coincida con el gráfico
+    sincronizar_desde_poda()
 
 # --- DISEÑO PROFESIONAL ---
 st.markdown("""
@@ -104,7 +124,6 @@ def generar_grafo_problemas():
     prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
     
-    # CORRECCIÓN DE SINTAXIS AQUÍ:
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
@@ -126,7 +145,8 @@ def render_poda_card(seccion, item, idx):
     color_barra = CONFIG_PROB.get(seccion, {}).get("color", "#ccc")
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
-    st.button("🗑️", key=f"poda_btn_{id_u}", on_click=lambda: (st.session_state['arbol_problemas_final'][seccion].pop(idx), guardar_datos_nube()))
+    # Cambio a la nueva función de eliminación en cascada
+    st.button("🗑️", key=f"poda_btn_{id_u}", on_click=eliminar_tarjeta_poda, args=(seccion, idx))
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -148,7 +168,6 @@ with tab1:
     if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    # FILA DE TÍTULO Y BOTÓN
     col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
     with col_title:
         st.markdown("### 📌 Problemas a resolver")
@@ -157,15 +176,12 @@ with tab2:
 
     st.info("Estructure aquí el diagnóstico definitivo. Use el botón superior para traer los datos del árbol automáticamente.")
 
-    # 1. PROBLEMA CENTRAL (Ancho completo arriba)
     st.markdown("**Problema Central**")
     st.text_area("PC", value=ref_prob['problema_central'], key="temp_prob_central", label_visibility="collapsed", height=100, on_change=actualizar_prob_central)
     
     st.divider()
 
-    # 2. CAUSAS ENFRENTADAS (Dos columnas debajo)
     col_izq, col_der = st.columns(2)
-    
     with col_izq:
         st.markdown("**Causas Directas**")
         for i, item in enumerate(ref_prob['causas_directas']):
