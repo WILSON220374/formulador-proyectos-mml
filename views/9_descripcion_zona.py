@@ -60,6 +60,10 @@ st.markdown("""
         border: 1px solid #ef4444 !important; background: transparent !important;
         color: #ef4444 !important; font-size: 0.9rem !important; margin-top: 5px !important; width: 100%;
     }
+    .btn-import {
+        border: 1px solid #1E3A8A !important; background-color: #f0f9ff !important;
+        color: #1E3A8A !important; font-size: 0.8rem !important; margin-top: 20px !important;
+    }
     .sub-header { font-weight: 700; color: #1E3A8A; margin-bottom: 5px; display: block; }
     div[data-testid="stNumberInput"] input { background-color: #f0f9ff; font-weight: bold; text-align: center; }
     </style>
@@ -70,10 +74,8 @@ def calc_altura(texto):
     lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
     return max(80, lineas * 25)
 
-# --- FUNCIÓN OPCIÓN A: VISUALIZACIÓN SIMÉTRICA (CROP/COVER) ---
 def mostrar_imagen_simetrica(ruta_imagen, altura_px):
-    if not ruta_imagen or not os.path.exists(ruta_imagen):
-        return
+    if not ruta_imagen or not os.path.exists(ruta_imagen): return
     with open(ruta_imagen, "rb") as f:
         data = base64.b64encode(f.read()).decode("utf-8")
     html_code = f"""
@@ -89,6 +91,17 @@ def update_field(key):
     if temp_key in st.session_state:
         st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
         guardar_datos_nube()
+
+def importar_problema_h8():
+    """Trae el Problema Central de la Hoja 8 si existe."""
+    # Accede a la estructura definida en views/8_arbol_problemas_final.py
+    prob_h8 = st.session_state.get('arbol_problemas_final', {}).get('referencia_manual_prob', {}).get('problema_central', "")
+    if prob_h8:
+        st.session_state['descripcion_zona']['problema_central'] = prob_h8
+        guardar_datos_nube()
+        st.rerun()
+    else:
+        st.toast("⚠️ No se encontró Problema Central en la Hoja 8.", icon="❗")
 
 def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
     if uploaded_file is not None:
@@ -113,13 +126,13 @@ def eliminar_imagen(tipo_imagen_key):
     guardar_datos_nube()
     st.rerun()
 
-# --- ENCABEZADO CON BARRA DE AVANCE ---
+# --- ENCABEZADO ---
 col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
     
-    # Cálculo dinámico del progreso
+    # Progreso dinámico
     campos_interes = [
         zona_data.get('problema_central'), zona_data.get('departamento'), zona_data.get('provincia'),
         zona_data.get('municipio'), zona_data.get('barrio_vereda'), zona_data.get('latitud'),
@@ -129,8 +142,7 @@ with col_t:
         zona_data.get('ruta_mapa'), zona_data.get('ruta_foto1'), zona_data.get('ruta_foto2')
     ]
     llenados = len([c for c in campos_interes if (isinstance(c, str) and c.strip() != "") or (isinstance(c, (int, float)) and c > 0) or (c is not None and not isinstance(c, (str, int, float)))])
-    progreso = llenados / len(campos_interes) if campos_interes else 0
-    st.progress(progreso)
+    st.progress(llenados / len(campos_interes) if campos_interes else 0)
 
 with col_img_head:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -138,9 +150,17 @@ with col_img_head:
 st.divider()
 
 # --- FORMULARIO ---
-st.markdown('<div class="form-header">PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
+
+# 1. PROBLEMA CENTRAL
+col_h, col_btn = st.columns([0.7, 0.3], vertical_alignment="center")
+with col_h:
+    st.markdown('<div class="form-header">PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
+with col_btn:
+    st.button("🔄 Traer de Hoja 8", key="btn_h8", on_click=importar_problema_h8, use_container_width=True)
+
 st.text_area("Descripción del Problema Central:", value=zona_data.get('problema_central', ''), key="temp_problema_central", height=calc_altura(zona_data.get('problema_central', '')), on_change=update_field, args=("problema_central",))
 
+# 2. LOCALIZACIÓN
 st.markdown('<div class="form-header">LOCALIZACIÓN</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
 with c1: st.text_input("Departamento:", value=zona_data.get('departamento', ''), key="temp_departamento", on_change=update_field, args=("departamento",))
@@ -153,14 +173,17 @@ c_lat, c_lon = st.columns(2)
 with c_lat: st.text_input("Latitud:", value=zona_data.get('latitud', ''), key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
 with c_lon: st.text_input("Longitud:", value=zona_data.get('longitud', ''), key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
 
+# 3. DEFINICIÓN DE LÍMITES
 st.markdown('<div class="form-header">DEFINICIÓN DE LÍMITES</div>', unsafe_allow_html=True)
 st.text_area("Límites Geográficos:", value=zona_data.get('limites_geograficos', ''), key="temp_limites_geograficos", height=calc_altura(zona_data.get('limites_geograficos', '')), on_change=update_field, args=("limites_geograficos",))
 st.text_area("Límites Administrativos:", value=zona_data.get('limites_administrativos', ''), key="temp_limites_administrativos", height=calc_altura(zona_data.get('limites_administrativos', '')), on_change=update_field, args=("limites_administrativos",))
 st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="temp_otros_limites", height=calc_altura(zona_data.get('otros_limites', '')), on_change=update_field, args=("otros_limites",))
 
+# 4. ACCESIBILIDAD
 st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsafe_allow_html=True)
 st.text_area("Existencia y estado de las vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
+# 5. MAPA Y FOTOS
 st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
@@ -171,6 +194,7 @@ else:
     up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
     if up_mapa: manejar_subida_imagen(up_mapa, "mapa")
 
+st.write("")
 col_f1, col_f2 = st.columns(2)
 with col_f1:
     st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
@@ -182,19 +206,18 @@ with col_f1:
         up_f1 = st.file_uploader("Cargar Foto 1", type=['png', 'jpg', 'jpeg'], key="up_foto1", label_visibility="collapsed")
         if up_f1: manejar_subida_imagen(up_f1, "foto1")
 with col_f2:
-    st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
-    ruta_f2 = zona_data.get("ruta_foto2")
+    st.markdown('<span class=\"sub-header\">FOTO 2</span>', unsafe_allow_html=True)
+    ruta_f2 = zona_data.get(\"ruta_foto2\")
     if ruta_f2 and os.path.exists(ruta_f2):
         mostrar_imagen_simetrica(ruta_f2, 300)
-        if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"): eliminar_imagen("foto2")
+        if st.button(\"🗑️ Eliminar Foto 2\", key=\"btn_del_f2\"): eliminar_imagen(\"foto2\")
     else:
-        up_f2 = st.file_uploader("Cargar Foto 2", type=['png', 'jpg', 'jpeg'], key="up_foto2", label_visibility="collapsed")
-        if up_f2: manejar_subida_imagen(up_f2, "foto2")
+        up_f2 = st.file_uploader(\"Cargar Foto 2\", type=['png', 'jpg', 'jpeg'], key=\"up_foto2\", label_visibility=\"collapsed\")
+        if up_f2: manejar_subida_imagen(up_f2, \"foto2\")
 
+# 6. POBLACIÓN
 st.markdown('<div class="form-header">POBLACIÓN</div>', unsafe_allow_html=True)
 c1, c2, c3 = st.columns(3)
-with c1: st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_referencia', 0)), key="temp_poblacion_referencia", on_change=update_field, args=("poblacion_referencia",))
-with c2: st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_afectada', 0)), key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
-with c3: st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
-
-st.success("✅ Barra de avance integrada y funcionando.")
+with c1: st.number_input(\"POBLACIÓN DE REFERENCIA:\", min_value=0, step=1, format=\"%d\", value=int(zona_data.get('poblacion_referencia', 0)), key=\"temp_poblacion_referencia\", on_change=update_field, args=(\"poblacion_referencia\",))
+with c2: st.number_input(\"POBLACIÓN AFECTADA:\", min_value=0, step=1, format=\"%d\", value=int(zona_data.get('poblacion_afectada', 0)), key=\"temp_poblacion_afectada\", on_change=update_field, args=(\"poblacion_afectada\",))
+with c3: st.number_input(\"POBLACIÓN OBJETIVO:\", min_value=0, step=1, format=\"%d\", value=int(zona_data.get('poblacion_objetivo', 0)), key=\"temp_poblacion_objetivo\", on_change=update_field, args=(\"poblacion_objetivo\",))
