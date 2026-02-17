@@ -9,6 +9,30 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
+# --- BLOQUE DE MIGRACIÓN DE DATOS (AUTO-REPARACIÓN) ---
+# Este bloque convierte tus textos antiguos en listas modernas sin borrar nada.
+if 'arbol_objetivos_final' not in st.session_state:
+    st.session_state['arbol_objetivos_final'] = {}
+
+if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
+    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
+        "nombre": "", "objetivo": "", "especificos": [], "actividades": []
+    }
+
+ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
+
+# Conversión: Si el sistema encuentra que 'especificos' es un texto (formato viejo),
+# lo divide por saltos de línea y lo convierte en lista (formato nuevo).
+for clave in ['especificos', 'actividades']:
+    if isinstance(ref_data.get(clave), str):
+        texto_viejo = ref_data[clave]
+        if texto_viejo.strip():
+            # Intentamos separar por líneas o asteriscos para salvar la info
+            items = [linea.strip().lstrip('*-•').strip() for linea in texto_viejo.split('\n') if linea.strip()]
+            ref_data[clave] = items
+        else:
+            ref_data[clave] = []
+
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
@@ -16,14 +40,25 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
-    /* Estilo para las cajas de visualización de texto limpio */
-    .texto-limpio {
-        background-color: transparent;
-        border: none;
-        padding: 5px 0;
-        font-size: 16px;
+    /* Estilo para las tarjetas de listas dinámicas */
+    .list-item {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
         color: #334155;
-        line-height: 1.5;
+    }
+    
+    .list-header {
+        font-weight: 700;
+        color: #1E3A8A;
+        margin-top: 10px;
+        margin-bottom: 5px;
     }
 
     /* Tarjeta Modo Poda (Solo lectura) */
@@ -47,34 +82,41 @@ st.markdown("""
         border: none !important;
         background: transparent !important;
         color: #ef4444 !important;
-        font-size: 1.2rem !important;
-        margin-top: -10px !important;
+        font-size: 1.1rem !important;
     }
     
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f1f5f9;
-        border-radius: 10px 10px 0 0;
-        padding: 10px 20px;
-        color: #475569;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #1E3A8A !important;
-        color: white !important;
+    /* Botón de agregar pequeño */
+    .btn-add {
+        color: #1E3A8A !important;
+        font-weight: bold !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- INICIALIZACIÓN DE LA ESTRUCTURA "POLIZÓN" ---
-if 'arbol_objetivos_final' not in st.session_state:
-    st.session_state['arbol_objetivos_final'] = {}
+# --- FUNCIONES DE GESTIÓN DE LISTAS ---
+def agregar_item(clave_lista, clave_temporal):
+    nuevo_texto = st.session_state.get(clave_temporal, "").strip()
+    if nuevo_texto:
+        # Permite pegar múltiples líneas y agregarlas de una vez
+        nuevos_items = [l.strip().lstrip('*-•').strip() for l in nuevo_texto.split('\n') if l.strip()]
+        st.session_state['arbol_objetivos_final']['referencia_manual'][clave_lista].extend(nuevos_items)
+        st.session_state[clave_temporal] = "" # Limpiar input
+        guardar_datos_nube()
 
-if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
-    st.session_state['arbol_objetivos_final']['referencia_manual'] = {
-        "nombre": "", "objetivo": "", "especificos": "", "actividades": ""
-    }
+def eliminar_item(clave_lista, indice):
+    st.session_state['arbol_objetivos_final']['referencia_manual'][clave_lista].pop(indice)
+    guardar_datos_nube()
+    st.rerun()
 
-ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
+def actualizar_campo_simple(clave):
+    st.session_state['arbol_objetivos_final']['referencia_manual'][clave] = st.session_state[f"temp_{clave}"]
+    guardar_datos_nube()
+
+# --- FUNCIÓN INTELIGENTE: CALCULAR ALTURA DINÁMICA ---
+def calc_altura(texto):
+    if not texto: return 100
+    lineas = str(texto).count('\n') + (len(str(texto)) // 50) + 1
+    return max(100, lineas * 25)
 
 # --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
@@ -100,30 +142,6 @@ CONFIG_OBJ = {
     "Medios Directos":   {"color": "#F1C40F", "label": "OBJETIVOS\nESPECÍFICOS"},
     "Medios Indirectos": {"color": "#D35400", "label": "ACTIVIDADES"}
 }
-
-# --- FUNCIONES DE ACTUALIZACIÓN SEGURA ---
-def actualizar_nombre():
-    st.session_state['arbol_objetivos_final']['referencia_manual']['nombre'] = st.session_state.temp_nombre
-    guardar_datos_nube()
-
-def actualizar_objetivo():
-    st.session_state['arbol_objetivos_final']['referencia_manual']['objetivo'] = st.session_state.temp_objetivo
-    guardar_datos_nube()
-
-def actualizar_especificos():
-    st.session_state['arbol_objetivos_final']['referencia_manual']['especificos'] = st.session_state.temp_especificos
-    guardar_datos_nube()
-
-def actualizar_actividades():
-    st.session_state['arbol_objetivos_final']['referencia_manual']['actividades'] = st.session_state.temp_actividades
-    guardar_datos_nube()
-
-# --- FUNCIÓN INTELIGENTE: CALCULAR ALTURA DINÁMICA ---
-def calc_altura(texto):
-    # Base mínima de 100px. Calculamos aprox 50 caracteres por línea visual.
-    # Multiplicamos por 25px cada línea estimada.
-    lineas = str(texto).count('\n') + (len(str(texto)) // 50) + 1
-    return max(100, lineas * 25)
 
 # --- MOTOR DE DIBUJO ---
 def generar_grafo_final():
@@ -197,22 +215,58 @@ with tab1:
 
 with tab2:
     if hay_datos:
-        # --- BLOQUE DE REFERENCIA (Con altura dinámica) ---
         st.subheader("📌 Alternativa Seleccionada")
-        
-        # Aplicamos la función calc_altura() en el parámetro height de cada text_area
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text_input("Nombre de la Alternativa:", value=ref_data['nombre'], key="temp_nombre", on_change=actualizar_nombre)
+        st.info("La estructuración en listas facilita la creación automática de la Matriz de Marco Lógico.")
+
+        # --- SECCIÓN SUPERIOR: TEXTOS SIMPLES (Columna Izquierda) ---
+        col_izq, col_der = st.columns(2)
+        with col_izq:
+            st.markdown("**Nombre de la Alternativa**")
+            st.text_input("Nombre", value=ref_data['nombre'], label_visibility="collapsed", key="temp_nombre", on_change=actualizar_campo_simple, args=("nombre",))
             
-            st.text_area("Objetivo General:", value=ref_data['objetivo'], key="temp_objetivo", 
-                         height=calc_altura(ref_data['objetivo']), on_change=actualizar_objetivo)
-        with col2:
-            st.text_area("Objetivos Específicos:", value=ref_data['especificos'], key="temp_especificos", 
-                         height=calc_altura(ref_data['especificos']), on_change=actualizar_especificos)
+            st.markdown("**Objetivo General**")
+            st.text_area("Obj. General", value=ref_data['objetivo'], label_visibility="collapsed", key="temp_objetivo", 
+                         height=calc_altura(ref_data['objetivo']), on_change=actualizar_campo_simple, args=("objetivo",))
+
+        # --- SECCIÓN INFERIOR: LISTAS DINÁMICAS (Columna Derecha) ---
+        with col_der:
+            # 1. OBJETIVOS ESPECÍFICOS
+            st.markdown("<div class='list-header'>Objetivos Específicos (Componentes)</div>", unsafe_allow_html=True)
+            if not ref_data['especificos']:
+                st.caption("No hay objetivos específicos aún.")
+            else:
+                for i, item in enumerate(ref_data['especificos']):
+                    c1, c2 = st.columns([0.9, 0.1])
+                    with c1: st.markdown(f"<div class='list-item'>• {item}</div>", unsafe_allow_html=True)
+                    with c2: 
+                        if st.button("🗑️", key=f"del_esp_{i}"): eliminar_item('especificos', i)
             
-            st.text_area("Actividades Clave:", value=ref_data['actividades'], key="temp_actividades", 
-                         height=calc_altura(ref_data['actividades']), on_change=actualizar_actividades)
+            # Input para agregar nuevo
+            c_in, c_btn = st.columns([0.85, 0.15])
+            with c_in: 
+                st.text_area("Nuevo Obj", label_visibility="collapsed", key="new_esp", placeholder="Escriba aquí...", height=68)
+            with c_btn: 
+                if st.button("➕", key="btn_add_esp"): agregar_item('especificos', 'new_esp')
+
+            st.divider()
+
+            # 2. ACTIVIDADES CLAVE
+            st.markdown("<div class='list-header'>Actividades Clave</div>", unsafe_allow_html=True)
+            if not ref_data['actividades']:
+                st.caption("No hay actividades registradas.")
+            else:
+                for i, item in enumerate(ref_data['actividades']):
+                    c1, c2 = st.columns([0.9, 0.1])
+                    with c1: st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
+                    with c2: 
+                        if st.button("🗑️", key=f"del_act_{i}"): eliminar_item('actividades', i)
+            
+            # Input para agregar nueva
+            c_in_a, c_btn_a = st.columns([0.85, 0.15])
+            with c_in_a: 
+                st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Escriba aquí...", height=68)
+            with c_btn_a: 
+                if st.button("➕", key="btn_add_act"): agregar_item('actividades', 'new_act')
 
         st.divider()
 
