@@ -132,14 +132,14 @@ pg = st.navigation({
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
         st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
     ],
-    "Fase II: Análisis": [
+    "Fase II: Definición de problemas y objetivos": [
         st.Page("views/4_arbol_problemas.py", title="4. Árbol de Problemas", icon="🌳"),
         st.Page("views/5_arbol_objetivos.py", title="5. Árbol de Objetivos", icon="🎯"),
         st.Page("views/6_alternativas.py", title="6. Análisis de Alternativas", icon="⚖️"),
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ],
-    "Fase III: Formulación": [  # <--- NOMBRE AJUSTADO
+    "Fase III: Análisis del problema": [
         st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
         st.Page("views/10_descripcion_problema.py", title="10. Descripción del Problema", icon="📝"), # <--- NUEVA PÁGINA
     ]
