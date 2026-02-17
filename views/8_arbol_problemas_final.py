@@ -1,245 +1,192 @@
 import streamlit as st
-import graphviz
 import os
 import uuid
-import textwrap
-import copy
+import base64
+from PIL import Image
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- SANEAMIENTO DE DATOS ---
-if 'arbol_problemas_final' not in st.session_state:
-    st.session_state['arbol_problemas_final'] = {}
-
-if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
-    st.session_state['arbol_problemas_final']['referencia_manual_prob'] = {
-        "problema_central": "", "causas_directas": [], "causas_indirectas": []
+# --- CONFIGURACIÓN DE ALMACENAMIENTO E INICIALIZACIÓN ---
+if 'descripcion_zona' not in st.session_state:
+    st.session_state['descripcion_zona'] = {
+        "problema_central": "",
+        "departamento": "", "provincia": "", "municipio": "", 
+        "barrio_vereda": "", "latitud": "", "longitud": "",
+        "limites_geograficos": "", "limites_administrativos": "", "otros_limites": "",
+        "accesibilidad": "",
+        "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
+        "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
+        "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
     }
 
-ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
+# --- SINCRONIZACIÓN AUTOMÁTICA SILENCIOSA CON HOJA 8 ---
+# Si el campo está vacío, buscamos en la tabla de referencia de la Hoja 8
+if not st.session_state['descripcion_zona'].get('problema_central'):
+    prob_fuente = st.session_state.get('arbol_problemas_final', {}).get('referencia_manual_prob', {}).get('problema_central', "")
+    if prob_fuente:
+        st.session_state['descripcion_zona']['problema_central'] = prob_fuente
+        # No llamamos a guardar_datos_nube aquí para no saturar, se guardará al editar cualquier campo
 
-# --- FUNCIONES DE GESTIÓN (CON ELIMINACIÓN EN CASCADA) ---
-def sincronizar_desde_poda():
-    datos_arbol = st.session_state['arbol_problemas_final']
-    ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
-    pp = datos_arbol.get("Problema Principal", [])
-    if pp: ref["problema_central"] = pp[0].get("texto", "")
-    ref["causas_directas"] = [c.get("texto") for c in datos_arbol.get("Causas Directas", []) if c.get("texto")]
-    ref["causas_indirectas"] = [c.get("texto") for c in datos_arbol.get("Causas Indirectas", []) if c.get("texto")]
-    guardar_datos_nube()
+# --- BLOQUE DE AUTO-REPARACIÓN DE CAMPOS ---
+datos = st.session_state['descripcion_zona']
+campos_requeridos = [
+    "problema_central", "departamento", "provincia", "municipio", 
+    "barrio_vereda", "latitud", "longitud", 
+    "limites_geograficos", "limites_administrativos", "otros_limites", 
+    "accesibilidad", "poblacion_referencia", "poblacion_afectada", "poblacion_objetivo"
+]
+for campo in campos_requeridos:
+    if campo not in datos:
+        datos[campo] = 0 if "poblacion" in campo else ""
 
-def agregar_item_prob(clave_lista, clave_temporal):
-    nuevo_texto = st.session_state.get(clave_temporal, "").strip()
-    if nuevo_texto:
-        items = [l.strip().lstrip('*-•').strip() for l in nuevo_texto.split('\n') if l.strip()]
-        st.session_state['arbol_problemas_final']['referencia_manual_prob'][clave_lista].extend(items)
-        st.session_state[clave_temporal] = ""
-        guardar_datos_nube()
+zona_data = st.session_state['descripcion_zona']
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
 
-def eliminar_item_prob(clave_lista, indice):
-    st.session_state['arbol_problemas_final']['referencia_manual_prob'][clave_lista].pop(indice)
-    guardar_datos_nube()
-
-def actualizar_prob_central():
-    st.session_state['arbol_problemas_final']['referencia_manual_prob']['problema_central'] = st.session_state.temp_prob_central
-    guardar_datos_nube()
-
-def eliminar_tarjeta_poda(seccion, idx):
-    """Elimina una tarjeta y sus descendientes (eliminación en cascada)."""
-    datos = st.session_state['arbol_problemas_final']
-    item_a_borrar = datos[seccion].pop(idx)
-    texto_padre = item_a_borrar.get("texto")
-
-    # Si borramos una Causa Directa, borramos sus Causas Indirectas
-    if seccion == "Causas Directas":
-        if "Causas Indirectas" in datos:
-            datos["Causas Indirectas"] = [h for h in datos["Causas Indirectas"] if h.get("padre") != texto_padre]
-    
-    # Si borramos un Efecto Directo, borramos sus Efectos Indirectos
-    elif seccion == "Efectos Directos":
-        if "Efectos Indirectos" in datos:
-            datos["Efectos Indirectos"] = [h for h in datos["Efectos Indirectos"] if h.get("padre") != texto_padre]
-
-    guardar_datos_nube()
-    # Sincronizamos automáticamente la tabla para que coincida con el gráfico
-    sincronizar_desde_poda()
-
-# --- DISEÑO PROFESIONAL ---
+# --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 10rem !important; }
+    .block-container { padding-bottom: 5rem !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    .list-item-prob {
-        background-color: #fef2f2; border: 1px solid #fee2e2;
-        padding: 8px 12px; border-radius: 8px; margin-bottom: 5px;
-        display: flex; justify-content: space-between; align-items: center;
-        font-size: 14px; color: #991b1b;
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 25px; }
+    .form-header {
+        background-color: #e0f2fe; color: #1E3A8A; font-weight: 800; font-size: 1.1rem;
+        padding: 10px; border-radius: 5px; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #1E3A8A;
     }
-    .poda-card {
-        background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;
-        padding: 15px; text-align: center; font-size: 14px; font-weight: 700;
-        color: #1e293b; min-height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;
+    .main .stButton button {
+        border: 1px solid #ef4444 !important; background: transparent !important;
+        color: #ef4444 !important; font-size: 0.9rem !important; margin-top: 5px !important; width: 100%;
     }
-    .main .stButton button { border: none !important; background: transparent !important; color: #ef4444 !important; font-size: 1.1rem !important; }
+    .sub-header { font-weight: 700; color: #1E3A8A; margin-bottom: 5px; display: block; }
+    div[data-testid="stNumberInput"] input { background-color: #f0f9ff; font-weight: bold; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON BARRA DE PROGRESO ---
-col_t, col_img = st.columns([4, 1], vertical_alignment="center")
-with col_t:
-    st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico de problemas.</div>', unsafe_allow_html=True)
-    
-    puntos = 0
-    if ref_prob.get('problema_central', '').strip(): puntos += 1
-    if ref_prob.get('causas_directas'): puntos += 1
-    if ref_prob.get('causas_indirectas'): puntos += 1
-    st.progress(puntos / 3)
+def calc_altura(texto):
+    if not texto: return 100
+    lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
+    return max(80, lineas * 25)
 
-with col_img:
+def mostrar_imagen_simetrica(ruta_imagen, altura_px):
+    if not ruta_imagen or not os.path.exists(ruta_imagen): return
+    with open(ruta_imagen, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+    html_code = f"""
+    <div style="width: 100%; height: {altura_px}px; overflow: hidden; border-radius: 8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px;">
+        <img src="data:image/jpeg;base64,{data}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+    </div>
+    """
+    st.markdown(html_code, unsafe_allow_html=True)
+
+# --- FUNCIONES DE LÓGICA ---
+def update_field(key):
+    temp_key = f"temp_{key}"
+    if temp_key in st.session_state:
+        st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
+        guardar_datos_nube()
+
+def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
+    if uploaded_file is not None:
+        file_ext = os.path.splitext(uploaded_file.name)[1]
+        unique_filename = f"{tipo_imagen_key}_{uuid.uuid4()}{file_ext}"
+        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
+        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = file_path
+        guardar_datos_nube()
+        st.rerun()
+
+def eliminar_imagen(tipo_imagen_key):
+    ruta = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
+    if ruta and os.path.exists(ruta):
+        try: os.remove(ruta)
+        except: pass
+    st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = None
+    guardar_datos_nube()
+    st.rerun()
+
+# --- ENCABEZADO ---
+col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
+
+with col_img_head:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
-# --- CONFIGURACIÓN GRAFOS ---
-CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\nINDIRECTOS"},
-    "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\nDIRECTOS"},
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA\nCENTRAL"},
-    "Causas Directas":    {"color": "#FFFFBA", "label": "CAUSAS\nDIRECTAS"},
-    "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\nINDIRECTAS"}
-}
+# --- FORMULARIO ---
 
-def generar_grafo_problemas():
-    datos = st.session_state.get('arbol_problemas_final', {})
-    claves_graficas = [k for k in datos.keys() if k not in ['referencia_manual', 'referencia_manual_prob']]
-    if not any(datos.get(k) for k in claves_graficas): return None
-    dot = graphviz.Digraph(format='png')
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
-    dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
-    def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
-    prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
-    if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
-    
-    for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
-        items = [it for it in datos.get(tipo, []) if it.get('texto')]
-        for i, item in enumerate(items):
-            n_id = f"{tipo[:2]}{i}"
-            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
-            if "Efecto" in tipo: dot.edge("PP", n_id)
-            else: dot.edge(n_id, "PP")
-            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
-            for j, h in enumerate(hijos):
-                h_id = f"{h_tipo[:2]}{i}_{j}"
-                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
-                if "Efecto" in tipo: dot.edge(n_id, h_id)
-                else: dot.edge(h_id, n_id)
-    return dot
+# 1. PROBLEMA CENTRAL (Sincronizado Automáticamente)
+st.markdown('<div class="form-header">PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
+st.text_area("Descripción del Problema Central:", 
+             value=st.session_state['descripcion_zona']['problema_central'], 
+             key="temp_problema_central", 
+             height=calc_altura(st.session_state['descripcion_zona']['problema_central']), 
+             on_change=update_field, 
+             args=("problema_central",))
 
-def render_poda_card(seccion, item, idx):
-    if not isinstance(item, dict): return
-    id_u = item.get('id_unico', str(uuid.uuid4()))
-    color_barra = CONFIG_PROB.get(seccion, {}).get("color", "#ccc")
-    st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
-    # Cambio a la nueva función de eliminación en cascada
-    st.button("🗑️", key=f"poda_btn_{id_u}", on_click=eliminar_tarjeta_poda, args=(seccion, idx))
+# 2. LOCALIZACIÓN
+st.markdown('<div class="form-header">LOCALIZACIÓN</div>', unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+with c1: st.text_input("Departamento:", value=zona_data.get('departamento', ''), key="temp_departamento", on_change=update_field, args=("departamento",))
+with c2: st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="temp_provincia", on_change=update_field, args=("provincia",))
+with c3: st.text_input("Municipio:", value=zona_data.get('municipio', ''), key="temp_municipio", on_change=update_field, args=("municipio",))
+with c4: st.text_input("Barrio o Vereda:", value=zona_data.get('barrio_vereda', ''), key="temp_barrio_vereda", on_change=update_field, args=("barrio_vereda",))
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.header("⚙️ Herramientas")
-    def importar_p4():
-        origen = st.session_state.get('arbol_tarjetas', {})
-        st.session_state['arbol_problemas_final'] = copy.deepcopy(origen)
-        guardar_datos_nube()
-    st.button("♻️ Importar desde Paso 4", use_container_width=True, type="primary", on_click=importar_p4)
-    st.divider()
-    grafo = generar_grafo_problemas()
-    if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_final.png", use_container_width=True)
+st.caption("Coordenadas:")
+clat, clon = st.columns(2)
+with clat: st.text_input("Latitud:", value=zona_data.get('latitud', ''), key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
+with clon: st.text_input("Longitud:", value=zona_data.get('longitud', ''), key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
 
-# --- PANEL PRINCIPAL ---
-tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
+# 3. DEFINICIÓN DE LÍMITES
+st.markdown('<div class="form-header">DEFINICIÓN DE LÍMITES</div>', unsafe_allow_html=True)
+st.text_area("Límites Geográficos:", value=zona_data.get('limites_geograficos', ''), key="temp_limites_geograficos", height=calc_altura(zona_data.get('limites_geograficos', '')), on_change=update_field, args=("limites_geograficos",))
+st.text_area("Límites Administrativos:", value=zona_data.get('limites_administrativos', ''), key="temp_limites_administrativos", height=calc_altura(zona_data.get('limites_administrativos', '')), on_change=update_field, args=("limites_administrativos",))
+st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="temp_otros_limites", height=calc_altura(zona_data.get('otros_limites', '')), on_change=update_field, args=("otros_limites",))
 
-with tab1:
-    g_f = generar_grafo_problemas()
-    if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
+# 4. CONDICIONES DE ACCESIBILIDAD
+st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsafe_allow_html=True)
+st.text_area("Vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
-with tab2:
-    col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
-    with col_title:
-        st.markdown("### 📌 Problemas a resolver")
-    with col_sync:
-        st.button("🔄 Sincronizar con Árbol", key="btn_sync_top", type="primary", use_container_width=True, on_click=sincronizar_desde_poda)
+# 5. MAPA Y FOTOS
+st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
 
-    st.info("Estructure aquí el diagnóstico definitivo. Use el botón superior para traer los datos del árbol automáticamente.")
+st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
+ruta_mapa = zona_data.get("ruta_mapa")
+if ruta_mapa and os.path.exists(ruta_mapa):
+    mostrar_imagen_simetrica(ruta_mapa, 400)
+    if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"): eliminar_imagen("mapa")
+else:
+    up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
+    if up_mapa: manejar_subida_imagen(up_mapa, "mapa")
 
-    st.markdown("**Problema Central**")
-    st.text_area("PC", value=ref_prob['problema_central'], key="temp_prob_central", label_visibility="collapsed", height=100, on_change=actualizar_prob_central)
-    
-    st.divider()
+st.write("")
+col_f1, col_f2 = st.columns(2)
+with col_f1:
+    st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
+    rf1 = zona_data.get("ruta_foto1")
+    if rf1 and os.path.exists(rf1):
+        mostrar_imagen_simetrica(rf1, 300)
+        if st.button("🗑️ Eliminar Foto 1", key="btn_del_f1"): eliminar_imagen("foto1")
+    else:
+        uf1 = st.file_uploader("Cargar Foto 1", type=['png', 'jpg', 'jpeg'], key="up_foto1", label_visibility="collapsed")
+        if uf1: manejar_subida_imagen(uf1, "foto1")
+with col_f2:
+    st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
+    rf2 = zona_data.get("ruta_foto2")
+    if rf2 and os.path.exists(rf2):
+        mostrar_imagen_simetrica(rf2, 300)
+        if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"): eliminar_imagen("foto2")
+    else:
+        uf2 = st.file_uploader("Cargar Foto 2", type=['png', 'jpg', 'jpeg'], key="up_foto2", label_visibility="collapsed")
+        if uf2: manejar_subida_imagen(uf2, "foto2")
 
-    col_izq, col_der = st.columns(2)
-    with col_izq:
-        st.markdown("**Causas Directas**")
-        for i, item in enumerate(ref_prob['causas_directas']):
-            c1, c2 = st.columns([0.85, 0.15])
-            with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
-            with c2: st.button("🗑️", key=f"del_cd_{i}", on_click=eliminar_item_prob, args=('causas_directas', i))
-        
-        ci1, ci2 = st.columns([0.8, 0.2])
-        with ci1: st.text_area("Nueva CD", label_visibility="collapsed", key="new_cd", placeholder="Agregar causa...", height=68)
-        with ci2: st.button("➕", key="btn_add_cd", on_click=agregar_item_prob, args=('causas_directas', 'new_cd'))
-
-    with col_der:
-        st.markdown("**Causas Indirectas**")
-        for i, item in enumerate(ref_prob['causas_indirectas']):
-            c1, c2 = st.columns([0.85, 0.15])
-            with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
-            with c2: st.button("🗑️", key=f"del_ci_{i}", on_click=eliminar_item_prob, args=('causas_indirectas', i))
-        
-        cii1, cii2 = st.columns([0.8, 0.2])
-        with cii1: st.text_area("Nueva CI", label_visibility="collapsed", key="new_ci", placeholder="Agregar causa...", height=68)
-        with cii2: st.button("➕", key="btn_add_ci", on_click=agregar_item_prob, args=('causas_indirectas', 'new_ci'))
-
-    st.divider()
-    st.subheader("📋 Panel de Poda")
-    
-    def mostrar_seccion_final(tipo_padre, tipo_hijo):
-        datos_sec = st.session_state['arbol_problemas_final'].get(tipo_padre, [])
-        padres_con_idx = [(idx, p) for idx, p in enumerate(datos_sec) if p.get('texto')]
-        if not padres_con_idx: return
-        st.write(f"**{tipo_padre}**")
-        hijos = st.session_state['arbol_problemas_final'].get(tipo_hijo, [])
-        h_por_p = [[(idx_h, h) for idx_h, h in enumerate(hijos) if h.get('padre') == p_d.get('texto')] for _, p_d in padres_con_idx]
-        max_h = max([len(l) for l in h_por_p]) if h_por_p else 0
-        
-        if "Efectos" in tipo_padre:
-            for h_idx in range(max_h - 1, -1, -1):
-                cols = st.columns(len(padres_con_idx))
-                for p_col, col in enumerate(cols):
-                    with col:
-                        if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
-                        else: st.empty()
-            cols_p = st.columns(len(padres_con_idx))
-            for i, (idx_o, p_d) in enumerate(padres_con_idx):
-                with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
-        else:
-            cols_p = st.columns(len(padres_con_idx))
-            for i, (idx_o, p_d) in enumerate(padres_con_idx):
-                with cols_p[i]: render_poda_card(tipo_padre, p_d, idx_o)
-            for h_idx in range(max_h):
-                cols = st.columns(len(padres_con_idx))
-                for p_col, col in enumerate(cols):
-                    with col:
-                        if h_idx < len(h_por_p[p_col]): render_poda_card(tipo_hijo, h_por_p[p_col][h_idx][1], h_por_p[p_col][h_idx][0])
-                        else: st.empty()
-
-    mostrar_seccion_final("Efectos Directos", "Efectos Indirectos")
-    st.markdown("---")
-    pp_f = st.session_state['arbol_problemas_final'].get("Problema Principal", [])
-    if pp_f: render_poda_card("Problema Principal", pp_f[0], 0)
-    st.markdown("---")
-    mostrar_seccion_final("Causas Directas", "Causas Indirectas")
+# 6. POBLACIÓN
+st.markdown('<div class="form-header">POBLACIÓN</div>', unsafe_allow_html=True)
+c1, c2, c3 = st.columns(3)
+with c1: st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, value=int(zona_data.get('poblacion_referencia', 0)), key="temp_poblacion_referencia", on_change=update_field, args=("poblacion_referencia",))
+with c2: st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, value=int(zona_data.get('poblacion_afectada', 0)), key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
+with c3: st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
