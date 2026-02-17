@@ -10,47 +10,57 @@ inicializar_session()
 if 'integrantes' in st.session_state and isinstance(st.session_state['integrantes'], list):
     st.session_state['integrantes'] = [p for p in st.session_state['integrantes'] if p is not None and isinstance(p, dict)]
 
-# --- LÓGICA DE ACCESO (LOGIN) - IMAGEN IZQUIERDA / FORMULARIO DERECHA ---
-if not st.session_state['autenticado']:
-    st.markdown("""
-        <style>
-        .titulo-acceso { 
-            font-size: 32px !important; 
-            font-weight: 800 !important; 
-            color: #4F8BFF; 
-            text-align: left; 
-            margin-bottom: 15px; 
-            margin-top: 10px;
-        }
-        .label-mediana { 
-            font-size: 16px !important; 
-            font-weight: bold; 
-            color: #1E3A8A; 
-            margin-bottom: 5px !important; 
-            margin-top: 10px !important; 
-            display: block; 
-        }
-        input { 
-            font-size: 18px !important; 
-            height: 45px !important; 
-            border-radius: 10px !important; 
-        }
-        div.stButton > button { 
-            font-size: 20px !important; 
-            height: 50px !important; 
-            font-weight: bold !important; 
-            background-color: #4F8BFF !important; 
-            border-radius: 12px !important; 
-            margin-top: 25px; 
-        }
-        [data-testid="stVerticalBlock"] {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+# --- ESTILOS CSS (DISEÑO) ---
+st.markdown("""
+    <style>
+    /* 1. Títulos del Menú Lateral en Negrita y Azul */
+    div[data-testid="stSidebarNav"] span {
+        font-weight: 900 !important;  /* Super Negrita */
+        font-size: 15px !important;
+        color: #1E3A8A !important;    /* Azul oscuro */
+        text-transform: uppercase;    /* Opcional: Mayúsculas para más impacto */
+    }
 
+    /* 2. Estilos del Login */
+    .titulo-acceso { 
+        font-size: 32px !important; 
+        font-weight: 800 !important; 
+        color: #4F8BFF; 
+        text-align: left; 
+        margin-bottom: 15px; 
+        margin-top: 10px;
+    }
+    .label-mediana { 
+        font-size: 16px !important; 
+        font-weight: bold; 
+        color: #1E3A8A; 
+        margin-bottom: 5px !important; 
+        margin-top: 10px !important; 
+        display: block; 
+    }
+    input { 
+        font-size: 18px !important; 
+        height: 45px !important; 
+        border-radius: 10px !important; 
+    }
+    div.stButton > button { 
+        font-size: 20px !important; 
+        height: 50px !important; 
+        font-weight: bold !important; 
+        background-color: #4F8BFF !important; 
+        border-radius: 12px !important; 
+        margin-top: 25px; 
+    }
+    [data-testid="stVerticalBlock"] {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- LÓGICA DE ACCESO (LOGIN) ---
+if not st.session_state['autenticado']:
     col_img, col_form = st.columns([1.8, 1.2], gap="large")
 
     with col_img:
@@ -126,7 +136,7 @@ pg = st.navigation({
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ],
-    "El Problema": [  # <--- NUEVA SECCIÓN CREADA
+    "Fase III: Análisis del Problema": [  # <--- NOMBRE AJUSTADO AQUÍ
         st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
     ]
 })
