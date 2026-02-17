@@ -13,91 +13,79 @@ inicializar_session()
 if 'arbol_problemas_final' not in st.session_state:
     st.session_state['arbol_problemas_final'] = {}
 
-if 'referencia_manual_prob' not in st.session_state['arbol_problemas_final']:
-    st.session_state['arbol_problemas_final']['referencia_manual_prob'] = {
-        "problema_central": "", "causas_directas": [], "causas_indirectas": []
+# --- FUNCIÓN DE EXTRACCIÓN AUTOMÁTICA (EL CORAZÓN DEL CAMBIO) ---
+def obtener_resumen_diagnostico():
+    """Lee el estado actual de las tarjetas y genera el resumen para la tabla superior."""
+    datos = st.session_state['arbol_problemas_final']
+    
+    # Extraemos textos limpios de cada nivel
+    resumen = {
+        "problema_central": "",
+        "efectos_indirectos": [],
+        "efectos_directos": [],
+        "causas_directas": [],
+        "causas_indirectas": []
     }
-
-ref_prob = st.session_state['arbol_problemas_final']['referencia_manual_prob']
-
-# --- FUNCIONES DE GESTIÓN (CON ELIMINACIÓN EN CASCADA) ---
-def sincronizar_desde_poda():
-    datos_arbol = st.session_state['arbol_problemas_final']
-    ref = st.session_state['arbol_problemas_final']['referencia_manual_prob']
-    pp = datos_arbol.get("Problema Principal", [])
-    if pp: ref["problema_central"] = pp[0].get("texto", "")
-    ref["causas_directas"] = [c.get("texto") for c in datos_arbol.get("Causas Directas", []) if c.get("texto")]
-    ref["causas_indirectas"] = [c.get("texto") for c in datos_arbol.get("Causas Indirectas", []) if c.get("texto")]
-    guardar_datos_nube()
-
-def agregar_item_prob(clave_lista, clave_temporal):
-    nuevo_texto = st.session_state.get(clave_temporal, "").strip()
-    if nuevo_texto:
-        items = [l.strip().lstrip('*-•').strip() for l in nuevo_texto.split('\n') if l.strip()]
-        st.session_state['arbol_problemas_final']['referencia_manual_prob'][clave_lista].extend(items)
-        st.session_state[clave_temporal] = ""
-        guardar_datos_nube()
-
-def eliminar_item_prob(clave_lista, indice):
-    st.session_state['arbol_problemas_final']['referencia_manual_prob'][clave_lista].pop(indice)
-    guardar_datos_nube()
-
-def actualizar_prob_central():
-    st.session_state['arbol_problemas_final']['referencia_manual_prob']['problema_central'] = st.session_state.temp_prob_central
-    guardar_datos_nube()
+    
+    pp = datos.get("Problema Principal", [])
+    if pp: resumen["problema_central"] = pp[0].get("texto", "")
+    
+    resumen["efectos_indirectos"] = [t.get("texto") for t in datos.get("Efectos Indirectos", []) if t.get("texto")]
+    resumen["efectos_directos"] = [t.get("texto") for t in datos.get("Efectos Directos", []) if t.get("texto")]
+    resumen["causas_directas"] = [t.get("texto") for t in datos.get("Causas Directas", []) if t.get("texto")]
+    resumen["causas_indirectas"] = [t.get("texto") for t in datos.get("Causas Indirectas", []) if t.get("texto")]
+    
+    return resumen
 
 def eliminar_tarjeta_poda(seccion, idx):
-    """Elimina una tarjeta y sus descendientes (eliminación en cascada)."""
+    """Elimina una tarjeta y sus descendientes con guardado automático."""
     datos = st.session_state['arbol_problemas_final']
     item_a_borrar = datos[seccion].pop(idx)
     texto_padre = item_a_borrar.get("texto")
 
-    # Si borramos una Causa Directa, borramos sus Causas Indirectas
+    # Eliminación en cascada
     if seccion == "Causas Directas":
         if "Causas Indirectas" in datos:
             datos["Causas Indirectas"] = [h for h in datos["Causas Indirectas"] if h.get("padre") != texto_padre]
-    
-    # Si borramos un Efecto Directo, borramos sus Efectos Indirectos
     elif seccion == "Efectos Directos":
         if "Efectos Indirectos" in datos:
             datos["Efectos Indirectos"] = [h for h in datos["Efectos Indirectos"] if h.get("padre") != texto_padre]
 
     guardar_datos_nube()
-    # Sincronizamos automáticamente la tabla para que coincida con el gráfico
-    sincronizar_desde_poda()
+    # No hace falta llamar a otra función, al recargar Streamlit, obtener_resumen_diagnostico() hará el resto
 
-# --- DISEÑO PROFESIONAL ---
+# --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
     .block-container { padding-bottom: 10rem !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    .list-item-prob {
-        background-color: #fef2f2; border: 1px solid #fee2e2;
-        padding: 8px 12px; border-radius: 8px; margin-bottom: 5px;
-        display: flex; justify-content: space-between; align-items: center;
-        font-size: 14px; color: #991b1b;
+    .resumen-card {
+        background-color: #f8fafc; border: 1px solid #e2e8f0;
+        padding: 10px 15px; border-radius: 10px; margin-bottom: 8px;
+        font-size: 13px; color: #334155; border-left: 5px solid #1E3A8A;
     }
     .poda-card {
         background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0 0 10px 10px;
         padding: 15px; text-align: center; font-size: 14px; font-weight: 700;
         color: #1e293b; min-height: 80px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;
     }
+    .header-tabla { font-weight: 800; color: #1E3A8A; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
     .main .stButton button { border: none !important; background: transparent !important; color: #ef4444 !important; font-size: 1.1rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON BARRA DE PROGRESO ---
+# --- ENCABEZADO Y PROGRESO ---
+resumen_actual = obtener_resumen_diagnostico()
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🌳 8. Árbol de Problemas Final</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Ajuste definitivo del diagnóstico de problemas.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Diagnóstico automático y definitivo del proyecto.</div>', unsafe_allow_html=True)
     
-    puntos = 0
-    if ref_prob.get('problema_central', '').strip(): puntos += 1
-    if ref_prob.get('causas_directas'): puntos += 1
-    if ref_prob.get('causas_indirectas'): puntos += 1
-    st.progress(puntos / 3)
+    # Barra de progreso basada en los 5 niveles
+    niveles = [resumen_actual["problema_central"], resumen_actual["efectos_directos"], resumen_actual["efectos_indirectos"], resumen_actual["causas_directas"], resumen_actual["causas_indirectas"]]
+    puntos = len([n for n in niveles if n])
+    st.progress(puntos / 5)
 
 with col_img:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -106,24 +94,22 @@ st.divider()
 
 # --- CONFIGURACIÓN GRAFOS ---
 CONFIG_PROB = {
-    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\nINDIRECTOS"},
-    "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\nDIRECTOS"},
-    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA\nCENTRAL"},
-    "Causas Directas":    {"color": "#FFFFBA", "label": "CAUSAS\nDIRECTAS"},
-    "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\nINDIRECTAS"}
+    "Efectos Indirectos": {"color": "#B3D9FF", "label": "EFECTOS\\nINDIRECTOS"},
+    "Efectos Directos":   {"color": "#80BFFF", "label": "EFECTOS\\nDIRECTOS"},
+    "Problema Principal": {"color": "#FFB3BA", "label": "PROBLEMA\\nCENTRAL"},
+    "Causas Directas":    {"color": "#FFFFBA", "label": "CAUSAS\\nDIRECTAS"},
+    "Causas Indirectas":  {"color": "#FFDFBA", "label": "CAUSAS\\nINDIRECTAS"}
 }
 
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_problemas_final', {})
-    claves_graficas = [k for k in datos.keys() if k not in ['referencia_manual', 'referencia_manual_prob']]
-    if not any(datos.get(k) for k in claves_graficas): return None
+    if not any(datos.get(k) for k in CONFIG_PROB.keys()): return None
     dot = graphviz.Digraph(format='png')
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
     prob_pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if prob_pp: dot.node("PP", limpiar(prob_pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
-    
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
@@ -145,7 +131,6 @@ def render_poda_card(seccion, item, idx):
     color_barra = CONFIG_PROB.get(seccion, {}).get("color", "#ccc")
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
-    # Cambio a la nueva función de eliminación en cascada
     st.button("🗑️", key=f"poda_btn_{id_u}", on_click=eliminar_tarjeta_poda, args=(seccion, idx))
 
 # --- SIDEBAR ---
@@ -168,44 +153,38 @@ with tab1:
     if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
-    with col_title:
-        st.markdown("### 📌 Problemas a resolver")
-    with col_sync:
-        st.button("🔄 Sincronizar con Árbol", key="btn_sync_top", type="primary", use_container_width=True, on_click=sincronizar_desde_poda)
+    st.markdown("### 📌 Resumen del Diagnóstico Definitivo")
+    st.info("Esta tabla se actualiza automáticamente al modificar el panel de tarjetas inferior.")
 
-    st.info("Estructure aquí el diagnóstico definitivo. Use el botón superior para traer los datos del árbol automáticamente.")
+    # 1. PROBLEMA CENTRAL
+    st.markdown('<div class="header-tabla">🔴 Problema Central</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="resumen-card">{resumen_actual["problema_central"].upper() if resumen_actual["problema_central"] else "SIN DEFINIR"}</div>', unsafe_allow_html=True)
 
-    st.markdown("**Problema Central**")
-    st.text_area("PC", value=ref_prob['problema_central'], key="temp_prob_central", label_visibility="collapsed", height=100, on_change=actualizar_prob_central)
-    
-    st.divider()
+    # 2. CAUSAS (Lado a Lado)
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        st.markdown('<div class="header-tabla">🟡 Causas Directas</div>', unsafe_allow_html=True)
+        for c in resumen_actual["causas_directas"]:
+            st.markdown(f'<div class="resumen-card">C.D: {c}</div>', unsafe_allow_html=True)
+    with col_c2:
+        st.markdown('<div class="header-tabla">🟠 Causas Indirectas</div>', unsafe_allow_html=True)
+        for c in resumen_actual["causas_indirectas"]:
+            st.markdown(f'<div class="resumen-card">C.I: {c}</div>', unsafe_allow_html=True)
 
-    col_izq, col_der = st.columns(2)
-    with col_izq:
-        st.markdown("**Causas Directas**")
-        for i, item in enumerate(ref_prob['causas_directas']):
-            c1, c2 = st.columns([0.85, 0.15])
-            with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
-            with c2: st.button("🗑️", key=f"del_cd_{i}", on_click=eliminar_item_prob, args=('causas_directas', i))
-        
-        ci1, ci2 = st.columns([0.8, 0.2])
-        with ci1: st.text_area("Nueva CD", label_visibility="collapsed", key="new_cd", placeholder="Agregar causa...", height=68)
-        with ci2: st.button("➕", key="btn_add_cd", on_click=agregar_item_prob, args=('causas_directas', 'new_cd'))
-
-    with col_der:
-        st.markdown("**Causas Indirectas**")
-        for i, item in enumerate(ref_prob['causas_indirectas']):
-            c1, c2 = st.columns([0.85, 0.15])
-            with c1: st.markdown(f"<div class='list-item-prob'>• {item}</div>", unsafe_allow_html=True)
-            with c2: st.button("🗑️", key=f"del_ci_{i}", on_click=eliminar_item_prob, args=('causas_indirectas', i))
-        
-        cii1, cii2 = st.columns([0.8, 0.2])
-        with cii1: st.text_area("Nueva CI", label_visibility="collapsed", key="new_ci", placeholder="Agregar causa...", height=68)
-        with cii2: st.button("➕", key="btn_add_ci", on_click=agregar_item_prob, args=('causas_indirectas', 'new_ci'))
+    # 3. EFECTOS (Debajo de las Causas)
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        st.markdown('<div class="header-tabla">🔵 Efectos Directos</div>', unsafe_allow_html=True)
+        for e in resumen_actual["efectos_directos"]:
+            st.markdown(f'<div class="resumen-card">E.D: {e}</div>', unsafe_allow_html=True)
+    with col_e2:
+        st.markdown('<div class="header-tabla">🔵 Efectos Indirectos</div>', unsafe_allow_html=True)
+        for e in resumen_actual["efectos_indirectos"]:
+            st.markdown(f'<div class="resumen-card">E.I: {e}</div>', unsafe_allow_html=True)
 
     st.divider()
-    st.subheader("📋 Panel de Poda")
+    st.subheader("📋 Panel de Poda (Acción)")
+    st.caption("Cualquier cambio realizado aquí se reflejará instantáneamente en la tabla superior.")
     
     def mostrar_seccion_final(tipo_padre, tipo_hijo):
         datos_sec = st.session_state['arbol_problemas_final'].get(tipo_padre, [])
