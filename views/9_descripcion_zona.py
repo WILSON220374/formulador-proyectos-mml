@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import uuid
+import base64
 from PIL import Image
 from session_state import inicializar_session, guardar_datos_nube
 
@@ -55,12 +56,9 @@ st.markdown("""
         background-color: #e0f2fe; color: #1E3A8A; font-weight: 800; font-size: 1.1rem;
         padding: 10px; border-radius: 5px; margin-top: 25px; margin-bottom: 15px; border-left: 5px solid #1E3A8A;
     }
-    .img-display {
-        border: 2px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 10px;
-    }
     .main .stButton button {
         border: 1px solid #ef4444 !important; background: transparent !important;
-        color: #ef4444 !important; font-size: 0.9rem !important; margin-top: 5px !important;
+        color: #ef4444 !important; font-size: 0.9rem !important; margin-top: 5px !important; width: 100%;
     }
     .sub-header { font-weight: 700; color: #1E3A8A; margin-bottom: 5px; display: block; }
     div[data-testid="stNumberInput"] input { background-color: #f0f9ff; font-weight: bold; text-align: center; }
@@ -72,18 +70,42 @@ def calc_altura(texto):
     lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
     return max(80, lineas * 25)
 
-# --- ENCABEZADO ---
-col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
-with col_t:
-    st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
+# --- FUNCIÓN OPCIÓN A: VISUALIZACIÓN SIMÉTRICA (CROP/COVER) ---
+def mostrar_imagen_simetrica(ruta_imagen, altura_px):
+    """
+    Renderiza la imagen usando HTML/CSS para forzar 'object-fit: cover'.
+    Esto garantiza que la caja tenga siempre la altura_px exacta, 
+    recortando los excesos de la imagen sin deformarla.
+    """
+    if not ruta_imagen or not os.path.exists(ruta_imagen):
+        return
+    
+    # Leemos la imagen y la convertimos a base64 para inyectarla en HTML
+    with open(ruta_imagen, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+    
+    # HTML con CSS para forzar simetría
+    html_code = f"""
+    <div style="
+        width: 100%;
+        height: {altura_px}px;
+        overflow: hidden;
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 5px;
+    ">
+        <img src="data:image/jpeg;base64,{data}" style="
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        ">
+    </div>
+    """
+    st.markdown(html_code, unsafe_allow_html=True)
 
-with col_img_head:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
-
-st.divider()
-
-# --- FUNCIONES ---
+# --- FUNCIONES DE LÓGICA ---
 def update_field(key):
     temp_key = f"temp_{key}"
     if temp_key in st.session_state:
@@ -97,7 +119,7 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
         file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
         with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
         
-        # Borrar anterior si existe
+        # Borrar anterior
         ruta_anterior = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
         if ruta_anterior and os.path.exists(ruta_anterior):
             try: os.remove(ruta_anterior)
@@ -105,7 +127,7 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
 
         st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = file_path
         guardar_datos_nube()
-        st.rerun() # Recargar para ocultar el uploader y mostrar la imagen
+        st.rerun()
 
 def eliminar_imagen(tipo_imagen_key):
     ruta = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
@@ -115,6 +137,17 @@ def eliminar_imagen(tipo_imagen_key):
     st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = None
     guardar_datos_nube()
     st.rerun()
+
+# --- ENCABEZADO ---
+col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
+
+with col_img_head:
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
 
 # --- FORMULARIO ---
 
@@ -145,28 +178,30 @@ st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="t
 st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsafe_allow_html=True)
 st.text_area("Existencia y estado de las vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
-# 5. MAPA Y FOTOS (LÓGICA CARGAR/VER/BORRAR)
+# 5. MAPA Y FOTOS (SIMÉTRICOS)
 st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
 
-# --- MAPA ---
+# --- MAPA (Altura fija 400px) ---
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
 if ruta_mapa and os.path.exists(ruta_mapa):
-    st.image(ruta_mapa, use_container_width=True)
+    mostrar_imagen_simetrica(ruta_mapa, 400) # <--- Altura Fija Mapa
     if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"):
         eliminar_imagen("mapa")
 else:
     up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
     if up_mapa: manejar_subida_imagen(up_mapa, "mapa")
 
-# --- FOTOS ---
+st.write("") # Espaciador
+
+# --- FOTOS (Altura fija 300px cada una) ---
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
     st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
     ruta_f1 = zona_data.get("ruta_foto1")
     if ruta_f1 and os.path.exists(ruta_f1):
-        st.image(ruta_f1, use_container_width=True)
+        mostrar_imagen_simetrica(ruta_f1, 300) # <--- Altura Fija Foto 1
         if st.button("🗑️ Eliminar Foto 1", key="btn_del_f1"):
             eliminar_imagen("foto1")
     else:
@@ -177,7 +212,7 @@ with col_f2:
     st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
     ruta_f2 = zona_data.get("ruta_foto2")
     if ruta_f2 and os.path.exists(ruta_f2):
-        st.image(ruta_f2, use_container_width=True)
+        mostrar_imagen_simetrica(ruta_f2, 300) # <--- Altura Fija Foto 2
         if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"):
             eliminar_imagen("foto2")
     else:
@@ -191,4 +226,4 @@ with c1: st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, forma
 with c2: st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_afectada', 0)), key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
 with c3: st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
 
-st.success("✅ Imágenes ajustadas: Carga única con opción de eliminar.")
+st.success("✅ Imágenes simétricas (Opción A): Se ajustan automáticamente al marco.")
