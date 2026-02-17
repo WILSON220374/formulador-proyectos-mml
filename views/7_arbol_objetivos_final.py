@@ -20,9 +20,9 @@ if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
 
 ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
 
-# --- FUNCIONES DE GESTIÓN Y SINCRONIZACIÓN ---
+# --- FUNCIONES DE GESTIÓN Y SINCRONIZACIÓN (REPARADAS) ---
 def sincronizar_objetivos_desde_poda():
-    """Extrae automáticamente los datos de las tarjetas vigentes en el panel de poda."""
+    """Actualiza la tabla superior con los datos vigentes del árbol podado."""
     datos_arbol = st.session_state['arbol_objetivos_final']
     ref = st.session_state['arbol_objetivos_final']['referencia_manual']
     
@@ -36,24 +36,24 @@ def sincronizar_objetivos_desde_poda():
     
     guardar_datos_nube()
 
-def eliminar_tarjeta_objetivo_poda(seccion, idx):
-    """Elimina una tarjeta y sus descendientes (eliminación en cascada)."""
+def eliminar_tarjeta_poda(seccion, idx):
+    """Elimina una tarjeta y sus descendientes (Eliminación en Cascada)."""
     datos = st.session_state['arbol_objetivos_final']
     item_a_borrar = datos[seccion].pop(idx)
     texto_padre = item_a_borrar.get("texto")
 
-    # Si borramos un Objetivo Específico, borramos sus Actividades
+    # Si borramos un Objetivo Específico, borramos sus Actividades vinculadas
     if seccion == "Medios Directos":
         if "Medios Indirectos" in datos:
             datos["Medios Indirectos"] = [h for h in datos["Medios Indirectos"] if h.get("padre") != texto_padre]
     
-    # Si borramos un Fin Directo, borramos sus Fines Indirectos
+    # Si borramos un Fin Directo, borramos sus Fines Indirectos vinculados
     elif seccion == "Fines Directos":
         if "Fines Indirectos" in datos:
             datos["Fines Indirectos"] = [h for h in datos["Fines Indirectos"] if h.get("padre") != texto_padre]
 
     guardar_datos_nube()
-    # Sincronizamos automáticamente la tabla para que coincida con el gráfico
+    # Sincronización inmediata para evitar discrepancias
     sincronizar_objetivos_desde_poda()
 
 def agregar_item_lista(clave_lista, clave_temporal):
@@ -93,13 +93,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON PROGRESO ---
+# --- ENCABEZADO CON BARRA DE PROGRESO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🎯 7. Árbol de Objetivos Final</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Estructuración definitiva de la Alternativa Técnica.</div>', unsafe_allow_html=True)
     
-    # Progreso basado en la tabla final
     puntos = 0
     if ref_data.get('objetivo', '').strip(): puntos += 1
     if ref_data.get('especificos'): puntos += 1
@@ -152,7 +151,7 @@ def render_poda_card(seccion, item, idx):
     color_barra = CONFIG_OBJ.get(seccion, {}).get("color", "#ccc")
     st.markdown(f'<div style="background-color: {color_barra}; height: 10px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="poda-card">{str(item.get("texto", "")).upper()}</div>', unsafe_allow_html=True)
-    # Eliminación en cascada
+    # Nombre de función corregido aquí:
     st.button("🗑️", key=f"poda_obj_{id_u}", on_click=eliminar_tarjeta_poda, args=(seccion, idx))
 
 # --- SIDEBAR ---
@@ -177,24 +176,18 @@ with tab1:
     if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
-    # FILA DE TÍTULO Y BOTÓN DE SINCRONIZACIÓN
     col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
     with col_title:
         st.markdown("### 📌 Alternativa Seleccionada")
     with col_sync:
         st.button("🔄 Sincronizar con Árbol", key="sync_obj_top", type="primary", use_container_width=True, on_click=sincronizar_objetivos_desde_poda)
 
-    st.info("Estructure aquí la solución técnica definitiva. Use el botón superior para traer los datos del árbol.")
-
-    # 1. OBJETIVO GENERAL (Ancho completo)
     st.markdown("**Objetivo General**")
     st.text_area("OG", value=ref_data['objetivo'], key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
     
     st.divider()
 
-    # 2. COMPONENTES Y ACTIVIDADES ENFRENTADOS
     col_izq, col_der = st.columns(2)
-    
     with col_izq:
         st.markdown("**Objetivos Específicos (Componentes)**")
         for i, item in enumerate(ref_data['especificos']):
@@ -203,7 +196,7 @@ with tab2:
             with c2: st.button("🗑️", key=f"del_esp_{i}", on_click=eliminar_item_lista, args=('especificos', i))
         
         ei1, ei2 = st.columns([0.8, 0.2])
-        with ei1: st.text_area("Nuevo Esp", label_visibility="collapsed", key="new_esp", placeholder="Nuevo componente...", height=68)
+        with ei1: st.text_area("Nuevo Esp", label_visibility="collapsed", key="new_esp", placeholder="Componente...", height=68)
         with ei2: st.button("➕", key="add_esp", on_click=agregar_item_lista, args=('especificos', 'new_esp'))
 
     with col_der:
@@ -214,7 +207,7 @@ with tab2:
             with c2: st.button("🗑️", key=f"del_act_{i}", on_click=eliminar_item_lista, args=('actividades', i))
         
         ai1, ai2 = st.columns([0.8, 0.2])
-        with ai1: st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Nueva actividad...", height=68)
+        with ai1: st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Actividad...", height=68)
         with ai2: st.button("➕", key="add_act", on_click=agregar_item_lista, args=('actividades', 'new_act'))
 
     st.divider()
