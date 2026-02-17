@@ -37,7 +37,8 @@ def inicializar_session():
     
     if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
     
-    if 'ponderacion_criterios' not in st.session_state: st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
+    if 'ponderacion_criterios' not in st.session_state: 
+        st.session_state['ponderacion_criterios'] = {"COSTO": 25.0, "FACILIDAD": 25.0, "BENEFICIOS": 25.0, "TIEMPO": 25.0}
     
     if 'arbol_tarjetas' not in st.session_state:
         st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [{"id": "pc-0", "texto": ""}], "Causas Directas": [], "Causas Indirectas": []}
@@ -65,9 +66,9 @@ def inicializar_session():
     if 'descripcion_problema' not in st.session_state:
         st.session_state['descripcion_problema'] = {'tabla_datos': {}, 'redaccion_narrativa': "", 'antecedentes': ""}
 
-    # --- [NUEVO] INICIALIZACIÓN FASE IV: ANÁLISIS DE OBJETIVOS ---
-    if 'analisis_objetivos' not in st.session_state:
-        st.session_state['analisis_objetivos'] = {'tabla_indicadores': {}}
+    # --- [NUEVO] INICIALIZACIÓN HOJA 11: INDICADORES ---
+    if 'indicadores' not in st.session_state:
+        st.session_state['indicadores'] = {'tabla_indicadores': {}}
 
 def limpiar_datos_arbol(datos):
     datos_limpios = {}
@@ -89,7 +90,10 @@ def cargar_datos_nube():
             st.session_state['datos_problema'] = data.get('diagnostico', {})
             st.session_state['descripcion_zona'] = data.get('zona', {})
             st.session_state['descripcion_problema'] = data.get('desc_problema', {'tabla_datos': {}, 'redaccion_narrativa': "", 'antecedentes': ""})
-            st.session_state['analisis_objetivos'] = data.get('analisis_obj', {'tabla_indicadores': {}})
+            
+            # Carga de la nueva hoja de Indicadores
+            st.session_state['indicadores'] = data.get('indicadores_f4', {'tabla_indicadores': {}})
+            
             st.session_state['df_interesados'] = pd.DataFrame(data.get('interesados', {}))
             st.session_state['analisis_participantes'] = data.get('analisis_txt', "")
             st.session_state['arbol_tarjetas'] = data.get('arbol_p', {})
@@ -116,7 +120,10 @@ def guardar_datos_nube():
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['descripcion_zona'],
             "desc_problema": st.session_state['descripcion_problema'],
-            "analisis_obj": st.session_state['analisis_objetivos'],
+            
+            # Guardado de la nueva hoja de Indicadores
+            "indicadores_f4": st.session_state['indicadores'],
+            
             "interesados": st.session_state['df_interesados'].to_dict(),
             "analisis_txt": st.session_state['analisis_participantes'],
             "arbol_p": st.session_state['arbol_tarjetas'],
@@ -131,5 +138,4 @@ def guardar_datos_nube():
         }
         supabase.table("proyectos").upsert({"id": st.session_state['usuario_id'], "data": paquete}).execute()
     except Exception as e:
-        print(f"Error crítico: {e}")
         st.error(f"Error al guardar en la nube: {e}")
