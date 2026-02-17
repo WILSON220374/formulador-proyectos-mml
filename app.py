@@ -1,4 +1,4 @@
-iimport streamlit as st
+import streamlit as st
 import os
 from session_state import inicializar_session, conectar_db, cargar_datos_nube, guardar_datos_nube
 
