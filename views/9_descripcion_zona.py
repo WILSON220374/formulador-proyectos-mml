@@ -7,11 +7,12 @@ from session_state import inicializar_session, guardar_datos_nube
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- BLOQUE DE AUTO-REPARACIÓN DE MEMORIA (CRÍTICO) ---
-# Este bloque detecta si tienes datos viejos y agrega los campos que faltan para evitar el KeyError
+# --- BLOQUE DE AUTO-REPARACIÓN Y SANEAMIENTO DE TIPOS ---
+# Esto es CRÍTICO: Convierte textos viejos a números para que number_input no falle
 if 'descripcion_zona' in st.session_state:
     datos = st.session_state['descripcion_zona']
-    # Lista de todos los campos que tu formulario necesita ahora
+    
+    # 1. Asegurar campos faltantes
     campos_requeridos = [
         "problema_central", "departamento", "provincia", "municipio", 
         "barrio_vereda", "latitud", "longitud", 
@@ -22,25 +23,33 @@ if 'descripcion_zona' in st.session_state:
     ]
     for campo in campos_requeridos:
         if campo not in datos:
-            datos[campo] = "" # Si falta, lo crea vacío
+            # Si son de población, inicializar en 0 (número), el resto en "" (texto)
+            if "poblacion" in campo:
+                datos[campo] = 0
+            else:
+                datos[campo] = ""
+
+    # 2. Convertir Población de Texto ("") a Número (0) si ya existía erróneamente
+    claves_poblacion = ["poblacion_referencia", "poblacion_afectada", "poblacion_objetivo"]
+    for k in claves_poblacion:
+        if isinstance(datos[k], str):
+            try:
+                # Intentar convertir texto a número (ej: "500" -> 500)
+                datos[k] = int(datos[k]) if datos[k].strip() else 0
+            except:
+                datos[k] = 0
 
 # --- CONFIGURACIÓN DE ALMACENAMIENTO ---
 if 'descripcion_zona' not in st.session_state:
     st.session_state['descripcion_zona'] = {
-        # 1. Problema Central
         "problema_central": "",
-        # 2. Localización
         "departamento": "", "provincia": "", "municipio": "", 
         "barrio_vereda": "", "latitud": "", "longitud": "",
-        # 3. Definición de Límites
         "limites_geograficos": "", "limites_administrativos": "", "otros_limites": "",
-        # 4. Accesibilidad
         "accesibilidad": "",
-        # 5. Imágenes
         "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
         "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
-        # 6. Población
-        "poblacion_referencia": "", "poblacion_afectada": "", "poblacion_objetivo": ""
+        "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
     }
 
 # Referencia corta
@@ -81,6 +90,12 @@ st.markdown("""
     }
     div[data-testid="stTextArea"] textarea {
         background-color: #f8fafc;
+    }
+    /* Estilo para inputs de número */
+    div[data-testid="stNumberInput"] input {
+        background-color: #f0f9ff;
+        font-weight: bold;
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -192,15 +207,14 @@ with col_f2:
     else: st.markdown('<span style="color:#ccc;">Sin Foto 2</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 6. POBLACIÓN
+# 6. POBLACIÓN (NUMÉRICA)
 st.markdown('<div class="form-header">POBLACIÓN</div>', unsafe_allow_html=True)
-st.text_area("POBLACIÓN DE REFERENCIA:", value=zona_data.get('poblacion_referencia', ''), key="temp_poblacion_referencia", 
-             height=calc_altura(zona_data.get('poblacion_referencia', '')), on_change=update_field, args=("poblacion_referencia",))
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_referencia', 0)), key="temp_poblacion_referencia", on_change=update_field, args=("poblacion_referencia",))
+with c2:
+    st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_afectada', 0)), key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
+with c3:
+    st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
 
-st.text_area("POBLACIÓN AFECTADA:", value=zona_data.get('poblacion_afectada', ''), key="temp_poblacion_afectada", 
-             height=calc_altura(zona_data.get('poblacion_afectada', '')), on_change=update_field, args=("poblacion_afectada",))
-
-st.text_area("POBLACIÓN OBJETIVO:", value=zona_data.get('poblacion_objetivo', ''), key="temp_poblacion_objetivo", 
-             height=calc_altura(zona_data.get('poblacion_objetivo', '')), on_change=update_field, args=("poblacion_objetivo",))
-
-st.success("✅ Formulario configurado según la estructura solicitada.")
+st.success("✅ Formulario configurado: Coordenadas separadas y Población numérica.")
