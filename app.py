@@ -139,8 +139,9 @@ pg = st.navigation({
         st.Page("views/7_arbol_objetivos_final.py", title="7. Árbol de Objetivos Final", icon="🚀"),
         st.Page("views/8_arbol_problemas_final.py", title="8. Árbol de Problemas Final", icon="🌳"),
     ],
-    "Fase III: Análisis del Problema": [  # <--- NOMBRE ACTUALIZADO
+    "Fase III: Formulación": [  # <--- NOMBRE AJUSTADO
         st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
+        st.Page("views/10_descripcion_problema.py", title="10. Descripción del Problema", icon="📝"), # <--- NUEVA PÁGINA
     ]
 })
 pg.run()
