@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import os
 import uuid
 import base64
@@ -157,7 +157,8 @@ st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', 
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
 if ruta_mapa and os.path.exists(ruta_mapa):
-    mostrar_imagen_simetrica(ruta_mapa, 400)
+    # SE MODIFICÓ SOLO ESTA LÍNEA: Altura aumentada a 600px
+    mostrar_imagen_simetrica(ruta_mapa, 600)
     if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"): eliminar_imagen("mapa")
 else:
     up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
