@@ -22,7 +22,6 @@ if 'descripcion_zona' not in st.session_state:
     }
 
 # --- SINCRONIZACIÓN AUTOMÁTICA SILENCIOSA CON HOJA 8 ---
-# Si el campo local está vacío, busca automáticamente en la Hoja 8
 if not st.session_state['descripcion_zona'].get('problema_central'):
     prob_fuente = st.session_state.get('arbol_problemas_final', {}).get('referencia_manual_prob', {}).get('problema_central', "")
     if prob_fuente:
@@ -81,7 +80,6 @@ def mostrar_imagen_simetrica(ruta_imagen, altura_px):
 
 # --- FUNCIÓN DE GUARDADO ROBUSTO ---
 def update_field(key):
-    """Sincroniza el valor del input con el estado global y guarda en la nube."""
     temp_key = f"temp_{key}"
     if temp_key in st.session_state:
         st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
@@ -93,12 +91,10 @@ def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
         unique_filename = f"{tipo_imagen_key}_{uuid.uuid4()}{file_ext}"
         file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
         with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
-        
         ruta_anterior = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
         if ruta_anterior and os.path.exists(ruta_anterior):
             try: os.remove(ruta_anterior)
             except: pass
-
         st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = file_path
         guardar_datos_nube()
         st.rerun()
@@ -112,11 +108,20 @@ def eliminar_imagen(tipo_imagen_key):
     guardar_datos_nube()
     st.rerun()
 
-# --- ENCABEZADO ---
+# --- ENCABEZADO CON BARRA DE AVANCE ---
 col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
+    
+    # Lógica de la barra de progreso
+    campos_interes = [
+        zona_data.get('problema_central'), zona_data.get('departamento'), zona_data.get('municipio'),
+        zona_data.get('limites_geograficos'), zona_data.get('accesibilidad'), 
+        zona_data.get('ruta_mapa'), zona_data.get('poblacion_objetivo')
+    ]
+    llenados = len([c for c in campos_interes if (isinstance(c, str) and c.strip() != "") or (isinstance(c, (int, float)) and c > 0) or (c is not None and not isinstance(c, (str, int, float)))])
+    st.progress(llenados / len(campos_interes) if campos_interes else 0)
 
 with col_img_head:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -158,7 +163,7 @@ st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', 
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
 if ruta_mapa and os.path.exists(ruta_mapa):
-    mostrar_imagen_simetrica(ruta_mapa, 400) # Altura mantenida en 400px
+    mostrar_imagen_simetrica(ruta_mapa, 650) # TAMAÑO AUMENTADO AQUÍ
     if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"): eliminar_imagen("mapa")
 else:
     up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
