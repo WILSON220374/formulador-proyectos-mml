@@ -8,7 +8,6 @@ from session_state import inicializar_session, guardar_datos_nube
 inicializar_session()
 
 # --- BLOQUE DE AUTO-REPARACIÓN Y SANEAMIENTO DE TIPOS ---
-# Esto es CRÍTICO: Convierte textos viejos a números para que number_input no falle
 if 'descripcion_zona' in st.session_state:
     datos = st.session_state['descripcion_zona']
     
@@ -23,18 +22,16 @@ if 'descripcion_zona' in st.session_state:
     ]
     for campo in campos_requeridos:
         if campo not in datos:
-            # Si son de población, inicializar en 0 (número), el resto en "" (texto)
             if "poblacion" in campo:
                 datos[campo] = 0
             else:
                 datos[campo] = ""
 
-    # 2. Convertir Población de Texto ("") a Número (0) si ya existía erróneamente
+    # 2. Convertir Población de Texto a Número
     claves_poblacion = ["poblacion_referencia", "poblacion_afectada", "poblacion_objetivo"]
     for k in claves_poblacion:
         if isinstance(datos[k], str):
             try:
-                # Intentar convertir texto a número (ej: "500" -> 500)
                 datos[k] = int(datos[k]) if datos[k].strip() else 0
             except:
                 datos[k] = 0
@@ -83,6 +80,7 @@ st.markdown("""
         border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;
         text-align: center; background-color: #f8fafc; min-height: 200px;
         display: flex; flex-direction: column; justify-content: center;
+        margin-bottom: 10px;
     }
     .main .stButton button {
         border: none !important; background: transparent !important;
@@ -91,11 +89,16 @@ st.markdown("""
     div[data-testid="stTextArea"] textarea {
         background-color: #f8fafc;
     }
-    /* Estilo para inputs de número */
     div[data-testid="stNumberInput"] input {
         background-color: #f0f9ff;
         font-weight: bold;
         text-align: center;
+    }
+    .sub-header {
+        font-weight: 700;
+        color: #1E3A8A;
+        margin-bottom: 5px;
+        display: block;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -176,35 +179,46 @@ st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsaf
 st.text_area("Existencia y estado de las vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", 
              height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
-# 5. MAPA DEL ÁREA Y FOTOS
+# 5. MAPA DEL ÁREA Y FOTOS (NUEVA DISTRIBUCIÓN)
 st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
-col_mapa, col_f1, col_f2 = st.columns(3)
 
-with col_mapa:
-    st.markdown("**Mapa**")
-    up = st.file_uploader("Cargar Mapa", type=['png', 'jpg'], key="up_mapa", label_visibility="collapsed")
-    if up: manejar_subida_imagen(up, "mapa"); st.rerun()
-    st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
-    if zona_data.get("ruta_mapa") and os.path.exists(zona_data["ruta_mapa"]): st.image(zona_data["ruta_mapa"], use_container_width=True)
-    else: st.markdown('<span style="color:#ccc;">Sin Mapa</span>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# --- MAPA (ARRIBA, ANCHO COMPLETO) ---
+st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
+up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
+if up_mapa: manejar_subida_imagen(up_mapa, "mapa"); st.rerun()
+
+st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
+if zona_data.get("ruta_mapa") and os.path.exists(zona_data["ruta_mapa"]):
+    st.image(zona_data["ruta_mapa"], use_container_width=True)
+else:
+    st.markdown('<span style="color:#ccc;">Sin Mapa</span>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- FOTOS (ABAJO, DOS COLUMNAS) ---
+col_f1, col_f2 = st.columns(2)
 
 with col_f1:
-    st.markdown("**Foto 1**")
-    up = st.file_uploader("Cargar Foto 1", type=['png', 'jpg'], key="up_foto1", label_visibility="collapsed")
-    if up: manejar_subida_imagen(up, "foto1"); st.rerun()
+    st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
+    up_f1 = st.file_uploader("Cargar Foto 1", type=['png', 'jpg', 'jpeg'], key="up_foto1", label_visibility="collapsed")
+    if up_f1: manejar_subida_imagen(up_f1, "foto1"); st.rerun()
+    
     st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
-    if zona_data.get("ruta_foto1") and os.path.exists(zona_data["ruta_foto1"]): st.image(zona_data["ruta_foto1"], use_container_width=True)
-    else: st.markdown('<span style="color:#ccc;">Sin Foto 1</span>', unsafe_allow_html=True)
+    if zona_data.get("ruta_foto1") and os.path.exists(zona_data["ruta_foto1"]):
+        st.image(zona_data["ruta_foto1"], use_container_width=True)
+    else:
+        st.markdown('<span style="color:#ccc;">Sin Foto 1</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_f2:
-    st.markdown("**Foto 2**")
-    up = st.file_uploader("Cargar Foto 2", type=['png', 'jpg'], key="up_foto2", label_visibility="collapsed")
-    if up: manejar_subida_imagen(up, "foto2"); st.rerun()
+    st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
+    up_f2 = st.file_uploader("Cargar Foto 2", type=['png', 'jpg', 'jpeg'], key="up_foto2", label_visibility="collapsed")
+    if up_f2: manejar_subida_imagen(up_f2, "foto2"); st.rerun()
+    
     st.markdown('<div class="img-preview-container">', unsafe_allow_html=True)
-    if zona_data.get("ruta_foto2") and os.path.exists(zona_data["ruta_foto2"]): st.image(zona_data["ruta_foto2"], use_container_width=True)
-    else: st.markdown('<span style="color:#ccc;">Sin Foto 2</span>', unsafe_allow_html=True)
+    if zona_data.get("ruta_foto2") and os.path.exists(zona_data["ruta_foto2"]):
+        st.image(zona_data["ruta_foto2"], use_container_width=True)
+    else:
+        st.markdown('<span style="color:#ccc;">Sin Foto 2</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # 6. POBLACIÓN (NUMÉRICA)
@@ -217,4 +231,4 @@ with c2:
 with c3:
     st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
 
-st.success("✅ Formulario configurado: Coordenadas separadas y Población numérica.")
+st.success("✅ Formulario configurado con la nueva distribución de imágenes.")
