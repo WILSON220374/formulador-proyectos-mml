@@ -98,8 +98,9 @@ render_fila_optimizada("PROBLEMA CENTRAL", pc_txt, "pc", "#FEE2E2", "#991B1B")
 for i, txt in enumerate(lista_causas):
     render_fila_optimizada(f"CAUSA {i+1}", txt, f"causa_{i}", "#FEF3C7", "#92400E")
 
+# CORREGIDO: Llamada correcta a la función
 for i, txt in enumerate(lista_efectos):
-    render_fila_excel_final(f"EFECTO {i+1}", txt, f"efecto_{i}", "#DBEAFE", "#1E40AF")
+    render_fila_optimizada(f"EFECTO {i+1}", txt, f"efecto_{i}", "#DBEAFE", "#1E40AF")
 
 st.divider()
 
