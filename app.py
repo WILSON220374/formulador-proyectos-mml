@@ -142,10 +142,6 @@ pg = st.navigation({
     "Fase III: Análisis del problema": [
         st.Page("views/9_descripcion_zona.py", title="9. Descripción de la Zona", icon="🗺️"),
         st.Page("views/10_descripcion_problema.py", title="10. Descripción del Problema", icon="📝"), # <--- NUEVA PÁGINA
-    ],
-  "Fase IV: Análisis de Objetivos": [
-        st.Page("views/11_indicadores.py", title="11. Indicadores", icon="📈"),
     ]
 })
-
 pg.run()
