@@ -25,7 +25,9 @@ def obtener_resumen_diagnostico():
         "causas_indirectas": []
     }
     pp = datos.get("Problema Principal", [])
-    if pp: resumen["problema_central"] = pp[0].get("texto", "")
+    if pp: 
+        item = pp[0]
+        resumen["problema_central"] = item.get("texto", str(item)) if isinstance(item, dict) else str(item)
     resumen["efectos_indirectos"] = [t.get("texto") for t in datos.get("Efectos Indirectos", []) if t.get("texto")]
     resumen["efectos_directos"] = [t.get("texto") for t in datos.get("Efectos Directos", []) if t.get("texto")]
     resumen["causas_directas"] = [t.get("texto") for t in datos.get("Causas Directas", []) if t.get("texto")]
