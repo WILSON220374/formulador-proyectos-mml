@@ -103,7 +103,7 @@ def generar_grafo_problemas():
     pp = [it for it in datos.get("Problema Principal", []) if (it.get('texto') if isinstance(it, dict) else it)]
     if pp: dot.node("PP", limpiar(pp[0].get('texto', pp[0]) if isinstance(pp[0], dict) else pp[0]), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
-        items = [it for it in datos.get(tipo, []) if it.get('texto')]
+        items = [it for it in datos.get(tipo, []) if (it.get('texto') if isinstance(it, dict) else it)]
         for i, item in enumerate(items):
             n_id = f"{tipo[:2]}{i}"
             dot.node(n_id, limpiar(item.get('texto', item) if isinstance(item, dict) else item), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
