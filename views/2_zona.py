@@ -62,12 +62,13 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE AUTO-AJUSTE ---
-def calcular_altura(texto, min_h=100):
+# --- FUNCIÓN DE AUTO-AJUSTE (COMPACTA) ---
+def calcular_altura(texto, min_h=80):
     if not texto: return min_h
     texto_str = str(texto)
-    lineas = texto_str.count('\n') + (len(texto_str) // 60)
-    return max(min_h, (lineas + 2) * 24)
+    # Calculamos líneas considerando saltos manuales y longitud (aprox 100 caracteres por línea)
+    lineas = texto_str.count('\n') + (len(texto_str) // 100)
+    return max(min_h, (lineas + 1) * 24)
 
 # --- CONTEXTO: PROBLEMA CENTRAL ---
 problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', 'No definido aún.')
@@ -90,59 +91,53 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 2: UBICACIÓN DETALLADA (Restaurado como pediste)
+# BLOQUE 2: UBICACIÓN DETALLADA (UNO DEBAJO DEL OTRO)
 with st.container(border=True):
     st.markdown("##### 🗺️ Ubicación Geográfica")
-    
-    c4, c5 = st.columns(2)
-    with c4:
-        departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá")
-        municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso")
-    with c5:
-        vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte")
-        coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long")
+    departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá")
+    municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso")
+    vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte")
+    coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long")
     
     st.markdown("---")
-    
     st.markdown("##### 🚧 Límites Geográficos")
     val_limites = datos.get('limites', "")
     limites = st.text_area(
-        "Norte, Sur, Oriente, Occidente...", 
+        "Límites Geográficos", 
         value=val_limites, 
         height=calcular_altura(val_limites),
         label_visibility="collapsed",
-        placeholder="Defina los límites territoriales..."
+        placeholder="Norte, Sur, Oriente, Occidente..."
     )
 
 st.write("")
 
-# BLOQUE 3: ECONOMÍA Y VÍAS
+# BLOQUE 3: ECONOMÍA Y VÍAS (UNO DEBAJO DEL OTRO)
 with st.container(border=True):
     st.markdown("##### 💰 Contexto Socioeconómico y Físico")
+    st.markdown("**Principal Actividad Económica**")
+    val_eco = datos.get('economia', "")
+    economia = st.text_area(
+        "Economia", 
+        value=val_eco, 
+        height=calcular_altura(val_eco),
+        label_visibility="collapsed",
+        placeholder="Ej: Agricultura, Minería..."
+    )
     
-    col_a, col_b = st.columns(2, gap="large")
+    st.write("")
+    st.markdown("**División del Territorio / Vías**")
+    val_vias = datos.get('vias', "")
+    vias = st.text_area(
+        "Vias", 
+        value=val_vias, 
+        height=calcular_altura(val_vias),
+        label_visibility="collapsed",
+        placeholder="Descripción de vías y acceso..."
+    )
     
-    with col_a:
-        st.markdown("**Principal Actividad Económica**")
-        val_eco = datos.get('economia', "")
-        economia = st.text_area(
-            "Economia", 
-            value=val_eco, 
-            height=calcular_altura(val_eco),
-            label_visibility="collapsed",
-            placeholder="Ej: Agricultura, Minería..."
-        )
-        
-    with col_b:
-        st.markdown("**División del Territorio / Vías**")
-        val_vias = datos.get('vias', "")
-        vias = st.text_area(
-            "Vias", 
-            value=val_vias, 
-            height=calcular_altura(val_vias),
-            label_visibility="collapsed",
-            placeholder="Descripción de vías y acceso..."
-        )
+    # --- AJUSTE VISUAL: MARGEN INFERIOR ---
+st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
 # --- GUARDADO AUTOMÁTICO ---
 nueva_data = {
