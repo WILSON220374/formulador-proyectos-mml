@@ -133,8 +133,7 @@ with st.container(border=True):
 
 # --- AJUSTE VISUAL: MARGEN INFERIOR ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
-
-# --- GUARDADO AUTOMÁTICO ROBUSTO ---
+# --- GUARDADO AUTOMÁTICO (CORRECCIÓN DE PERSISTENCIA) ---
 nueva_data = {
     'pob_total': int(p_total),
     'pob_urbana': int(p_urbana),
@@ -148,21 +147,21 @@ nueva_data = {
     'vias': str(vias).strip()
 }
 
-# Comparamos campo por campo limpiando espacios y tipos de datos
-cambio_detectado = False
-for k, v in nueva_data.items():
-    valor_nube = datos.get(k)
-    # Normalizamos para comparar manzanas con manzanas
-    if k in ['pob_total', 'pob_urbana', 'pob_rural']:
-        valor_nube_clean = int(valor_nube) if valor_nube is not None else 0
-    else:
-        valor_nube_clean = str(valor_nube).strip() if valor_nube is not None else ""
-    
-    if v != valor_nube_clean:
-        cambio_detectado = True
-        break
+# Comparamos campo por campo para evitar errores con datos técnicos de la nube
+hubo_cambio_real = (
+    nueva_data['pob_total'] != int(datos.get('pob_total', 0)) or
+    nueva_data['pob_urbana'] != int(datos.get('pob_urbana', 0)) or
+    nueva_data['pob_rural'] != int(datos.get('pob_rural', 0)) or
+    nueva_data['departamento'] != str(datos.get('departamento', '')).strip() or
+    nueva_data['municipio'] != str(datos.get('municipio', '')).strip() or
+    nueva_data['vereda'] != str(datos.get('vereda', '')).strip() or
+    nueva_data['coordenadas'] != str(datos.get('coordenadas', '')).strip() or
+    nueva_data['limites'] != str(datos.get('limites', '')).strip() or
+    nueva_data['economia'] != str(datos.get('economia', '')).strip() or
+    nueva_data['vias'] != str(datos.get('vias', '')).strip()
+)
 
-if cambio_detectado:
+if hubo_cambio_real:
     st.session_state['datos_zona'] = nueva_data
     guardar_datos_nube()
     st.rerun()
