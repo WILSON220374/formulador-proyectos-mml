@@ -140,7 +140,7 @@ with st.container(border=True):
 # --- AJUSTE VISUAL: MARGEN INFERIOR ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
-# --- GUARDADO AUTOMÁTICO ---
+# --- GUARDADO AUTOMÁTICO (CORREGIDO Y SEGURO) ---
 nueva_data = {
     'pob_total': p_total,
     'pob_urbana': p_urbana,
@@ -154,7 +154,21 @@ nueva_data = {
     'vias': vias
 }
 
-if nueva_data != datos:
+# Comparamos campo por campo para evitar conflictos con datos técnicos de la nube
+hubo_cambios = (
+    p_total != datos.get('pob_total') or
+    p_urbana != datos.get('pob_urbana') or
+    p_rural != datos.get('pob_rural') or
+    departamento != datos.get('departamento') or
+    municipio != datos.get('municipio') or
+    vereda != datos.get('vereda') or
+    coordenadas != datos.get('coordenadas') or
+    limites != datos.get('limites') or
+    economia != datos.get('economia') or
+    vias != datos.get('vias')
+)
+
+if hubo_cambios:
     st.session_state['datos_zona'] = nueva_data
     guardar_datos_nube()
     st.rerun()
