@@ -76,19 +76,24 @@ with col_l:
 
 st.divider()
 
-# --- PREPARACIÓN DE DATOS (FILA AUTOMÁTICA) ---
+# --- PREPARACIÓN DE DATOS (BLOQUE 1 CORREGIDO) ---
 columnas_validas = [
     "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", 
     "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA", "BORRAR"
 ]
 
-if df_actual.empty: 
-    df_clean = pd.DataFrame(columns=columnas_validas)
+# Si no hay nada en sesión, creamos una fila inicial vacía
+if df_actual.empty:
+    df_clean = pd.DataFrame([{col: (False if col == "BORRAR" else "") for col in columnas_validas}])
 else:
+    # Aseguramos que todas las columnas existan
     for col in columnas_validas:
         if col not in df_actual.columns:
             df_actual[col] = False if col == "BORRAR" else ""
     df_clean = df_actual[columnas_validas].copy().reset_index(drop=True)
+
+opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
+opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
 # Lógica de Fila Fantasma: Agrega una vacía si la última tiene datos
 if df_clean.empty or (df_clean.iloc[-1]["NOMBRE"] and str(df_clean.iloc[-1]["NOMBRE"]).strip() != ""):
