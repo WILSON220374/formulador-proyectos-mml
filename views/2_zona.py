@@ -61,10 +61,8 @@ st.divider()
 def calcular_altura(texto, min_h=80):
     if not texto: return min_h
     texto_str = str(texto)
-    # Ajuste para ancho completo (aprox 120 caracteres por línea)
     lineas_por_enter = texto_str.count('\n') 
     lineas_por_longitud = len(texto_str) // 120 
-    
     total_lineas = lineas_por_enter + lineas_por_longitud
     return max(min_h, (total_lineas + 1) * 24)
 
@@ -75,7 +73,7 @@ with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True
 
 st.subheader("📍 Detalles del Área")
 
-# BLOQUE 1: POBLACIÓN (Se mantienen columnas por ser inputs numéricos pequeños)
+# BLOQUE 1: POBLACIÓN
 with st.container(border=True):
     st.markdown("##### 👥 Población Afectada")
     c1, c2, c3 = st.columns(3)
@@ -88,17 +86,15 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 2: UBICACIÓN DETALLADA (Unificado a una sola columna de flujo)
+# BLOQUE 2: UBICACIÓN DETALLADA (UNA DEBAJO DE LA OTRA)
 with st.container(border=True):
     st.markdown("##### 🗺️ Ubicación Geográfica")
-    
     departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá")
     municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso")
     vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte")
     coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long")
     
     st.markdown("---")
-    
     st.markdown("##### 🚧 Límites Geográficos")
     val_limites = datos.get('limites', "")
     limites = st.text_area(
@@ -111,10 +107,9 @@ with st.container(border=True):
 
 st.write("")
 
-# BLOQUE 3: ECONOMÍA Y VÍAS (Unificado a una sola columna)
+# BLOQUE 3: ECONOMÍA Y VÍAS (UNA DEBAJO DE LA OTRA)
 with st.container(border=True):
     st.markdown("##### 💰 Contexto Socioeconómico y Físico")
-    
     st.markdown("**Principal Actividad Económica**")
     val_eco = datos.get('economia', "")
     economia = st.text_area(
@@ -126,7 +121,6 @@ with st.container(border=True):
     )
     
     st.write("")
-    
     st.markdown("**División del Territorio / Vías**")
     val_vias = datos.get('vias', "")
     vias = st.text_area(
@@ -140,35 +134,35 @@ with st.container(border=True):
 # --- AJUSTE VISUAL: MARGEN INFERIOR ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
-# --- GUARDADO AUTOMÁTICO (CORREGIDO Y SEGURO) ---
+# --- GUARDADO AUTOMÁTICO ROBUSTO ---
 nueva_data = {
-    'pob_total': p_total,
-    'pob_urbana': p_urbana,
-    'pob_rural': p_rural,
-    'departamento': departamento,
-    'municipio': municipio,
-    'vereda': vereda,
-    'coordenadas': coordenadas,
-    'limites': limites,
-    'economia': economia,
-    'vias': vias
+    'pob_total': int(p_total),
+    'pob_urbana': int(p_urbana),
+    'pob_rural': int(p_rural),
+    'departamento': str(departamento).strip(),
+    'municipio': str(municipio).strip(),
+    'vereda': str(vereda).strip(),
+    'coordenadas': str(coordenadas).strip(),
+    'limites': str(limites).strip(),
+    'economia': str(economia).strip(),
+    'vias': str(vias).strip()
 }
 
-# Comparamos campo por campo para evitar conflictos con datos técnicos de la nube
-hubo_cambios = (
-    p_total != datos.get('pob_total') or
-    p_urbana != datos.get('pob_urbana') or
-    p_rural != datos.get('pob_rural') or
-    departamento != datos.get('departamento') or
-    municipio != datos.get('municipio') or
-    vereda != datos.get('vereda') or
-    coordenadas != datos.get('coordenadas') or
-    limites != datos.get('limites') or
-    economia != datos.get('economia') or
-    vias != datos.get('vias')
-)
+# Comparamos campo por campo limpiando espacios y tipos de datos
+cambio_detectado = False
+for k, v in nueva_data.items():
+    valor_nube = datos.get(k)
+    # Normalizamos para comparar manzanas con manzanas
+    if k in ['pob_total', 'pob_urbana', 'pob_rural']:
+        valor_nube_clean = int(valor_nube) if valor_nube is not None else 0
+    else:
+        valor_nube_clean = str(valor_nube).strip() if valor_nube is not None else ""
+    
+    if v != valor_nube_clean:
+        cambio_detectado = True
+        break
 
-if hubo_cambios:
+if cambio_detectado:
     st.session_state['datos_zona'] = nueva_data
     guardar_datos_nube()
     st.rerun()
