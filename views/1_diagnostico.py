@@ -145,6 +145,9 @@ with st.container(border=True):
         key="txt_agravantes", label_visibility="collapsed"
     )
 
+# --- AJUSTE VISUAL: MARGEN INFERIOR ---
+st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
+
 # --- GUARDADO AUTOMÁTICO ---
 if (p_central != datos.get('problema_central') or 
     sintomas != datos.get('sintomas') or 
