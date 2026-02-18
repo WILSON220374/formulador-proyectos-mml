@@ -34,7 +34,11 @@ def inicializar_session():
     if 'df_calificaciones' not in st.session_state: st.session_state['df_calificaciones'] = pd.DataFrame()
     if 'arbol_objetivos_final' not in st.session_state: st.session_state['arbol_objetivos_final'] = {}
     if 'arbol_problemas_final' not in st.session_state: st.session_state['arbol_problemas_final'] = {}
-    if 'descripcion_zona' not in st.session_state: st.session_state['descripcion_zona'] = {}
+    if 'descripcion_zona' not in st.session_state: 
+        st.session_state['descripcion_zona'] = {
+            "departamento": "", "municipio": "", "barrio_vereda": "", 
+            "latitud": "", "longitud": "", "poblacion_referencia": 0
+        }
 
 def cargar_datos_nube(user_id):
     try:
