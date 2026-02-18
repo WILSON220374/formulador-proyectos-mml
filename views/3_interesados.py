@@ -167,7 +167,7 @@ if "BORRAR" in df_editado.columns:
 st.subheader("📊 Mapa de Influencia Estratégico")
 
 
-# Usamos los datos directos de la tabla para que el mapa se mueva mientras escribes
+# Usamos los datos directos de lo que estás escribiendo en la tabla
 df_mapa = pd.DataFrame(grid_response['data'])
 
 if not df_mapa.empty and df_mapa['NOMBRE'].dropna().any():
@@ -213,19 +213,23 @@ if not df_mapa.empty and df_mapa['NOMBRE'].dropna().any():
 """
     st.markdown(html_matrix, unsafe_allow_html=True)
 else:
-    st.info("Empieza a escribir en la tabla para ver el mapa de influencia en tiempo real.")
+    st.info("Empieza a escribir en la tabla para ver el mapa de influencia.")
     
-# --- ANÁLISIS FINAL ---
+# --- ANÁLISIS FINAL (AJUSTE COMPACTO) ---
 st.subheader("📝 Análisis de Participantes")
-num_lineas = analisis_txt.count('\n') + 1
-altura_dinamica = max(150, num_lineas * 25 + 50)
+
+# Nueva regla de altura: 120 caracteres por línea
+lineas = analisis_txt.count('\n') + (len(str(analisis_txt)) // 120)
+altura_dinamica = max(150, (lineas + 1) * 24)
 
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, height=altura_dinamica,
-    key="txt_analisis_final_panel", label_visibility="collapsed",
+    key="txt_analisis_final", label_visibility="collapsed",
     placeholder="Escriba aquí el análisis cualitativo..."
 )
-st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) 
+
+# Margen de respiro de 80px al final
+st.markdown('<div style="margin-bottom: 80px;"></div>', unsafe_allow_html=True)
 
 if analisis_actual != analisis_txt:
     st.session_state['analisis_participantes'] = analisis_actual
