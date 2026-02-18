@@ -9,23 +9,22 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS ---
+# --- ESTILOS CSS ORIGINALES ---
 st.markdown("""
     <style>
-    .titulo-seccion { font-size: 32px !important; font-weight: 800 !important; color: #4F8BFF; margin-bottom: 5px; line-height: 1.2; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 10px; }
+    /* Headers */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* Estilo para los cuadros de texto de análisis */
-    .stTextArea textarea {
-        background-color: #fcfdfe;
-        border: 1px solid #e0e7ff;
-        border-radius: 8px;
+    /* Botones */
+    div.stButton > button:first-child {
+        background-color: #1E3A8A; color: white; border: none; font-size: 20px; padding: 5px 15px; border-radius: 8px;
     }
-    .stTextArea textarea:focus {
-        border-color: #4F8BFF;
-        box-shadow: 0 0 0 2px rgba(79, 139, 255, 0.1);
-    }
-
+    div.stButton > button:hover { background-color: #153075; color: white; }
+    
+    /* Botones de Acción */
+    .stButton button { width: 100%; }
+    
     /* MATRIZ Y CUADRANTES */
     .matrix-container {
         display: grid;
@@ -55,6 +54,13 @@ st.markdown("""
     .actor-item {
         font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px;
         padding: 2px 0; border-bottom: 1px solid rgba(0,0,0,0.05); 
+    }
+    
+    /* Ajuste para los text_area */
+    .stTextArea textarea {
+        background-color: #fcfdfe;
+        border: 1px solid #e0e7ff;
+        border-radius: 8px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -90,16 +96,12 @@ else:
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
 opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
-# --- FUNCIÓN DE ALTURA AJUSTADA ---
-def calcular_altura(texto, min_h=100):
+# --- FUNCION DE ALTURA AJUSTADA ---
+def calcular_altura(texto, min_h=120):
     if not texto: return min_h
     texto_str = str(texto)
     lineas = texto_str.count('\n') + (len(texto_str) // 120)
     return max(min_h, (lineas + 1) * 24)
-
-# --- CONTROLES (UNIFICADOS DEBAJO) ---
-# Usamos una sola fila para botones de acción rápida
-c_add, c_del, c_save, c_space = st.columns([1.2, 1, 1.2, 3])
 
 # --- CONFIGURACIÓN DE TABLA AG-GRID ---
 gb = GridOptionsBuilder.from_dataframe(df_clean)
@@ -136,10 +138,12 @@ grid_response = AgGrid(
     fit_columns_on_grid_load=True, theme='streamlit', allow_unsafe_jscode=True
 )
 
-# --- LÓGICA DE BOTONES ---
+# --- BOTONES DE ACCIÓN ---
+c_add, c_del, c_save, c_empty = st.columns([1.2, 1, 1.2, 3])
+
 with c_add:
     if st.button("➕ Agregar Actor"):
-        # Intentamos capturar lo que hay en el grid antes de resetear
+        # RECOGER DATOS ACTUALES PARA NO PERDERLOS
         df_temp = pd.DataFrame(grid_response['data'])
         new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
         st.session_state['df_interesados'] = pd.concat([df_temp, new_row], ignore_index=True)
@@ -170,6 +174,11 @@ st.divider()
 # --- MAPA DE INFLUENCIA ---
 st.subheader("📊 Mapa de Influencia Estratégico")
 
+
+
+[Image of Power-Interest Matrix for Stakeholder Analysis]
+
+
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
     def get_list_items_html(p_key, i_key):
@@ -190,7 +199,7 @@ if tiene_datos:
             html_items += f'<div class="actor-item"><span>{icon}</span> <span>{r["NOMBRE"]}</span></div>'
         return html_items
 
-    st.markdown(f"""
+    html_matrix = f"""
 <div class="matrix-container">
     <div class="axis-y">PODER</div>
     <div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2; border-top: 4px solid #fecaca;">
@@ -211,14 +220,18 @@ if tiene_datos:
     </div>
     <div class="axis-x">INTERÉS</div>
 </div>
-""", unsafe_allow_html=True)
+"""
+    st.markdown(html_matrix, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="margin-top: 10px; display: flex; gap: 15px; font-size: 11px; color: #666; justify-content: center;">
+        <span>🔴 Opositor</span><span>🟢 Cooperante</span><span>🔵 Beneficiario</span><span>🟣 Perjudicado</span>
+    </div>""", unsafe_allow_html=True)
 else:
-    st.info("Complete la matriz para visualizar el Mapa de Influencia.")
+    st.info("Complete la matriz y guarde para visualizar el Mapa de Influencia.")
 
-st.write("")
 st.divider()
 
-# --- ANÁLISIS FINAL (SECCIÓN ÚNICA ABAJO) ---
+# --- ANÁLISIS FINAL (AJUSTE DE ALTURA COMPACTA) ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, 
@@ -230,6 +243,7 @@ analisis_actual = st.text_area(
 # --- AJUSTE VISUAL: MARGEN INFERIOR ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
+# --- GUARDADO AUTOMÁTICO DEL ANÁLISIS ---
 if analisis_actual != analisis_txt:
     st.session_state['analisis_participantes'] = analisis_actual
     guardar_datos_nube()
