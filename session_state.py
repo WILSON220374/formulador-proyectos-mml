@@ -34,6 +34,18 @@ def inicializar_session():
     if 'df_calificaciones' not in st.session_state: st.session_state['df_calificaciones'] = pd.DataFrame()
     if 'arbol_objetivos_final' not in st.session_state: st.session_state['arbol_objetivos_final'] = {}
     if 'arbol_problemas_final' not in st.session_state: st.session_state['arbol_problemas_final'] = {}
+        # --- INICIALIZACIÓN HOJA 9 (Descripción de la Zona) ---
+    if 'descripcion_zona' not in st.session_state:
+        st.session_state['descripcion_zona'] = {
+            "problema_central": "",
+            "departamento": "", "provincia": "", "municipio": "", 
+            "barrio_vereda": "", "latitud": "", "longitud": "",
+            "limites_geograficos": "", "limites_administrativos": "", "otros_limites": "",
+            "accesibilidad": "", 
+            "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
+            "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
+            "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
+        }
 
 def cargar_datos_nube(user_id):
     try:
@@ -60,6 +72,7 @@ def cargar_datos_nube(user_id):
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
+            st.session_state['descripcion_zona'] = d.get('zona_descripcion', st.session_state['descripcion_zona'])
             
             if 'interesados' in d: st.session_state['df_interesados'] = pd.DataFrame(d['interesados'])
             if 'eval_alt' in d: st.session_state['df_evaluacion_alternativas'] = pd.DataFrame(d['eval_alt'])
@@ -87,6 +100,7 @@ def guardar_datos_nube():
             "calificaciones": st.session_state['df_calificaciones'].to_dict(),
             "arbol_f": st.session_state['arbol_objetivos_final'],
             "arbol_p_f": st.session_state['arbol_problemas_final']
+            "zona_descripcion": st.session_state['descripcion_zona']
         }
         # Guardamos en la columna 'datos' buscando por 'user_id'
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
