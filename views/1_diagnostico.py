@@ -70,17 +70,18 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE ALTURA CORREGIDA (MÁS SENSIBLE) ---
-def calcular_altura(texto, min_h=150):
+# --- FUNCIÓN DE ALTURA AJUSTADA (SIN ESPACIOS MUERTOS) ---
+def calcular_altura(texto, min_h=80):
     if not texto: return min_h
     texto_str = str(texto)
-    # AJUSTE: Bajamos de 90 a 55 caracteres por línea.
-    # Esto hace que el cuadro crezca más rápido cuando el texto se dobla.
-    lineas_por_enter = texto_str.count('\n') 
-    lineas_por_longitud = len(texto_str) // 55 
     
+    # AJUSTE: Aumentamos a 95 caracteres por línea para las columnas laterales
+    lineas_por_enter = texto_str.count('\n') 
+    lineas_por_longitud = len(texto_str) // 95 
+    
+    # Eliminamos el "+ 2" para que el cuadro termine justo donde termina el texto
     total_lineas = lineas_por_enter + lineas_por_longitud
-    return max(min_h, (total_lineas + 2) * 24)
+    return max(min_h, (total_lineas + 1) * 24)
 
 # --- SECCIÓN 1: EL PROBLEMA CENTRAL ---
 with st.container(border=True):
@@ -88,8 +89,8 @@ with st.container(border=True):
     st.caption("Describa claramente la situación negativa.")
     
     val_problema = datos.get('problema_central', '')
-    # Para el problema central (que es ancho), usamos un cálculo un poco más relajado (80 chars)
-    h_p = max(100, (str(val_problema).count('\n') + (len(str(val_problema)) // 80) + 2) * 24)
+    # Para el ancho completo, el texto aprovecha mejor el espacio (120 chars por línea)
+    h_p = max(80, (str(val_problema).count('\n') + (len(str(val_problema)) // 120) + 1) * 24)
     
     p_central = st.text_area(
         "Descripción", value=val_problema, height=h_p,
@@ -121,7 +122,6 @@ with c2:
         st.caption("¿Por qué está ocurriendo esto ahora?")
         
         val_causas = datos.get('causas_inmediatas', '')
-        # Aquí se aplicará el nuevo cálculo más sensible (55 chars)
         h_c = calcular_altura(val_causas)
         
         causas = st.text_area(
@@ -137,7 +137,6 @@ with st.container(border=True):
     st.caption("Elementos externos que empeoran la situación.")
     
     val_agravantes = datos.get('factores_agravantes', '')
-    # Usamos la misma función sensible por si escriben mucho
     h_a = calcular_altura(val_agravantes)
     
     agravantes = st.text_area(
