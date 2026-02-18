@@ -190,30 +190,20 @@ with tab2:
     col_izq, col_der = st.columns(2)
     with col_izq:
         st.markdown("**Objetivos Específicos (Componentes)**")
-        # Ciclo de visualización pura sincronizada con el árbol
-        if ref_data['especificos']:
+        # Visualización limpia: se eliminan las sub-columnas y botones manuales
+        if ref_data.get('especificos'):
             for item in ref_data['especificos']:
                 st.markdown(f"<div class='list-item'>• {item}</div>", unsafe_allow_html=True)
         else:
             st.info("Sincronice con el árbol para ver los componentes.")
-        
-        ei1, ei2 = st.columns([0.8, 0.2])
-        with ei1: st.text_area("Nuevo Esp", label_visibility="collapsed", key="new_esp", placeholder="Componente...", height=68)
-        with ei2: st.button("➕", key="add_esp", on_click=agregar_item_lista, args=('especificos', 'new_esp'))
-
     with col_der:
         st.markdown("**Actividades Clave**")
-        # Ciclo de visualización pura sincronizada con el árbol
-        if ref_data['actividades']:
+        # Visualización limpia: se eliminan las sub-columnas y botones manuales
+        if ref_data.get('actividades'):
             for item in ref_data['actividades']:
                 st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
         else:
             st.info("Sincronice con el árbol para ver las actividades.")
-        
-        ai1, ai2 = st.columns([0.8, 0.2])
-        with ai1: st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Actividad...", height=68)
-        with ai2: st.button("➕", key="add_act", on_click=agregar_item_lista, args=('actividades', 'new_act'))
-
     st.divider()
     st.subheader("📋 Panel de Poda")
     
