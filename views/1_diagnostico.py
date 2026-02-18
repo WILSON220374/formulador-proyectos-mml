@@ -70,16 +70,14 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE ALTURA AJUSTADA (SIN ESPACIOS MUERTOS) ---
+# --- FUNCIÓN DE ALTURA AJUSTADA PARA ANCHO COMPLETO ---
 def calcular_altura(texto, min_h=80):
     if not texto: return min_h
     texto_str = str(texto)
-    
-    # AJUSTE: Aumentamos a 95 caracteres por línea para las columnas laterales
+    # Al ser una sola columna, el texto fluye mejor (aprox 120 chars por línea)
     lineas_por_enter = texto_str.count('\n') 
-    lineas_por_longitud = len(texto_str) // 95 
+    lineas_por_longitud = len(texto_str) // 120 
     
-    # Eliminamos el "+ 2" para que el cuadro termine justo donde termina el texto
     total_lineas = lineas_por_enter + lineas_por_longitud
     return max(min_h, (total_lineas + 1) * 24)
 
@@ -89,8 +87,7 @@ with st.container(border=True):
     st.caption("Describa claramente la situación negativa.")
     
     val_problema = datos.get('problema_central', '')
-    # Para el ancho completo, el texto aprovecha mejor el espacio (120 chars por línea)
-    h_p = max(80, (str(val_problema).count('\n') + (len(str(val_problema)) // 120) + 1) * 24)
+    h_p = calcular_altura(val_problema)
     
     p_central = st.text_area(
         "Descripción", value=val_problema, height=h_p,
@@ -100,38 +97,37 @@ with st.container(border=True):
 
 st.write("")
 
-# --- SECCIÓN 2: ANÁLISIS (2 COLUMNAS) ---
-c1, c2 = st.columns(2, gap="large")
-
-with c1:
-    with st.container(border=True):
-        st.markdown("### 📉 Síntomas (Efectos)")
-        st.caption("¿Qué evidencia demuestra que el problema existe?")
-        
-        val_sintomas = datos.get('sintomas', '')
-        h_s = calcular_altura(val_sintomas)
-        
-        sintomas = st.text_area(
-            "S", value=val_sintomas, height=h_s, 
-            key="txt_sintomas", label_visibility="collapsed"
-        )
-
-with c2:
-    with st.container(border=True):
-        st.markdown("### 🛠️ Causas Inmediatas")
-        st.caption("¿Por qué está ocurriendo esto ahora?")
-        
-        val_causas = datos.get('causas_inmediatas', '')
-        h_c = calcular_altura(val_causas)
-        
-        causas = st.text_area(
-            "C", value=val_causas, height=h_c, 
-            key="txt_causas", label_visibility="collapsed"
-        )
+# --- SECCIÓN 2: SÍNTOMAS (AHORA UNA SOLA COLUMNA) ---
+with st.container(border=True):
+    st.markdown("### 📉 Síntomas (Efectos)")
+    st.caption("¿Qué evidencia demuestra que el problema existe?")
+    
+    val_sintomas = datos.get('sintomas', '')
+    h_s = calcular_altura(val_sintomas)
+    
+    sintomas = st.text_area(
+        "S", value=val_sintomas, height=h_s, 
+        key="txt_sintomas", label_visibility="collapsed"
+    )
 
 st.write("") 
 
-# --- SECCIÓN 3: FACTORES AGRAVANTES ---
+# --- SECCIÓN 3: CAUSAS INMEDIATAS (AHORA UNA SOLA COLUMNA) ---
+with st.container(border=True):
+    st.markdown("### 🛠️ Causas Inmediatas")
+    st.caption("¿Por qué está ocurriendo esto ahora?")
+    
+    val_causas = datos.get('causas_inmediatas', '')
+    h_c = calcular_altura(val_causas)
+    
+    causas = st.text_area(
+        "C", value=val_causas, height=h_c, 
+        key="txt_causas", label_visibility="collapsed"
+    )
+
+st.write("") 
+
+# --- SECCIÓN 4: FACTORES AGRAVANTES ---
 with st.container(border=True):
     st.markdown("### ⚠️ Factores Agravantes")
     st.caption("Elementos externos que empeoran la situación.")
