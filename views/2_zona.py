@@ -21,6 +21,7 @@ st.markdown("""
         color: #666;
         margin-bottom: 10px;
     }
+    /* Estilo para inputs */
     div[data-testid="stNumberInput"], div[data-testid="stTextInput"], .stTextArea textarea {
         background-color: #fcfdfe;
         border: 1px solid #e0e7ff;
@@ -30,8 +31,10 @@ st.markdown("""
         border-color: #4F8BFF;
         box-shadow: 0 0 0 2px rgba(79, 139, 255, 0.1);
     }
+    /* Hack imagen estática */
     [data-testid="stImage"] img { pointer-events: none; user-select: none; border-radius: 10px; }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
+    
     div[data-testid="stAlert"] { padding: 10px; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
@@ -43,6 +46,8 @@ with col_titulo:
     st.markdown('<div class="titulo-seccion">🗺️ 2. Zona de Estudio</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Delimitación geográfica, límites y contexto económico.</div>', unsafe_allow_html=True)
     
+    # --- CÁLCULO DE PROGRESO ---
+    # Revisamos si hay datos clave
     campos_clave = ['pob_total', 'municipio', 'limites', 'economia', 'vias']
     llenos = sum(1 for c in campos_clave if datos.get(c) and str(datos.get(c)).strip())
     progreso = llenos / len(campos_clave)
@@ -57,115 +62,103 @@ with col_logo:
 
 st.divider()
 
-# --- FUNCIÓN DE AUTO-AJUSTE COMPACTO ---
-def calcular_altura(texto, min_h=80):
+# --- FUNCIÓN DE AUTO-AJUSTE ---
+def calcular_altura(texto, min_h=100):
     if not texto: return min_h
     texto_str = str(texto)
-    lineas_por_enter = texto_str.count('\n') 
-    lineas_por_longitud = len(texto_str) // 120 
-    total_lineas = lineas_por_enter + lineas_por_longitud
-    return max(min_h, (total_lineas + 1) * 24)
+    lineas = texto_str.count('\n') + (len(texto_str) // 60)
+    return max(min_h, (lineas + 2) * 24)
 
 # --- CONTEXTO: PROBLEMA CENTRAL ---
 problema_actual = st.session_state.get('datos_problema', {}).get('problema_central', 'No definido aún.')
 with st.expander("📌 Contexto: Problema Central (Solo Lectura)", expanded=True):
     st.info(f"**Problema Identificado:** {problema_actual}")
 
+# --- FORMULARIO ESTRUCTURADO ---
 st.subheader("📍 Detalles del Área")
 
-# BLOQUE 1: POBLACIÓN (CORREGIDO CON KEYS)
+# BLOQUE 1: POBLACIÓN
 with st.container(border=True):
     st.markdown("##### 👥 Población Afectada")
     c1, c2, c3 = st.columns(3)
     with c1:
-        p_total = st.number_input("Población Total", min_value=0, value=int(datos.get('pob_total', 0)), key="n_pob_total")
+        p_total = st.number_input("Población Total", min_value=0, value=int(datos.get('pob_total', 0)))
     with c2:
-        p_urbana = st.number_input("Urbana", min_value=0, value=int(datos.get('pob_urbana', 0)), key="n_pob_urbana")
+        p_urbana = st.number_input("Urbana", min_value=0, value=int(datos.get('pob_urbana', 0)))
     with c3:
-        p_rural = st.number_input("Rural", min_value=0, value=int(datos.get('pob_rural', 0)), key="n_pob_rural")
+        p_rural = st.number_input("Rural", min_value=0, value=int(datos.get('pob_rural', 0)))
 
 st.write("")
 
-# BLOQUE 2: UBICACIÓN DETALLADA (CORREGIDO CON KEYS)
+# BLOQUE 2: UBICACIÓN DETALLADA (Restaurado como pediste)
 with st.container(border=True):
     st.markdown("##### 🗺️ Ubicación Geográfica")
-    departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá", key="t_depto")
-    municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso", key="t_muni")
-    vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte", key="t_vereda")
-    coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long", key="t_coord")
+    
+    c4, c5 = st.columns(2)
+    with c4:
+        departamento = st.text_input("Departamento / Estado", value=datos.get('departamento', ''), placeholder="Ej: Boyacá")
+        municipio = st.text_input("Municipio / Ciudad", value=datos.get('municipio', ''), placeholder="Ej: Sogamoso")
+    with c5:
+        vereda = st.text_input("Vereda / Localidad", value=datos.get('vereda', ''), placeholder="Ej: Sector Norte")
+        coordenadas = st.text_input("Coordenadas (Opcional)", value=datos.get('coordenadas', ''), placeholder="Lat, Long")
     
     st.markdown("---")
+    
     st.markdown("##### 🚧 Límites Geográficos")
     val_limites = datos.get('limites', "")
     limites = st.text_area(
-        "Límites Geográficos", 
+        "Norte, Sur, Oriente, Occidente...", 
         value=val_limites, 
         height=calcular_altura(val_limites),
         label_visibility="collapsed",
-        placeholder="Norte, Sur, Oriente, Occidente...",
-        key="t_limites"
+        placeholder="Defina los límites territoriales..."
     )
 
 st.write("")
 
-# BLOQUE 3: ECONOMÍA Y VÍAS (CORREGIDO CON KEYS)
+# BLOQUE 3: ECONOMÍA Y VÍAS
 with st.container(border=True):
     st.markdown("##### 💰 Contexto Socioeconómico y Físico")
-    st.markdown("**Principal Actividad Económica**")
-    val_eco = datos.get('economia', "")
-    economia = st.text_area(
-        "Economia", 
-        value=val_eco, 
-        height=calcular_altura(val_eco),
-        label_visibility="collapsed",
-        placeholder="Ej: Agricultura, Minería...",
-        key="t_economia"
-    )
     
-    st.write("")
-    st.markdown("**División del Territorio / Vías**")
-    val_vias = datos.get('vias', "")
-    vias = st.text_area(
-        "Vias", 
-        value=val_vias, 
-        height=calcular_altura(val_vias),
-        label_visibility="collapsed",
-        placeholder="Descripción de vías y acceso...",
-        key="t_vias"
-    )
+    col_a, col_b = st.columns(2, gap="large")
+    
+    with col_a:
+        st.markdown("**Principal Actividad Económica**")
+        val_eco = datos.get('economia', "")
+        economia = st.text_area(
+            "Economia", 
+            value=val_eco, 
+            height=calcular_altura(val_eco),
+            label_visibility="collapsed",
+            placeholder="Ej: Agricultura, Minería..."
+        )
+        
+    with col_b:
+        st.markdown("**División del Territorio / Vías**")
+        val_vias = datos.get('vias', "")
+        vias = st.text_area(
+            "Vias", 
+            value=val_vias, 
+            height=calcular_altura(val_vias),
+            label_visibility="collapsed",
+            placeholder="Descripción de vías y acceso..."
+        )
 
-# --- AJUSTE VISUAL: MARGEN INFERIOR ---
-st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
-
-# --- GUARDADO AUTOMÁTICO (LÓGICA DE COMPARACIÓN SEGURA) ---
+# --- GUARDADO AUTOMÁTICO ---
 nueva_data = {
-    'pob_total': int(p_total),
-    'pob_urbana': int(p_urbana),
-    'pob_rural': int(p_rural),
-    'departamento': str(departamento).strip(),
-    'municipio': str(municipio).strip(),
-    'vereda': str(vereda).strip(),
-    'coordenadas': str(coordenadas).strip(),
-    'limites': str(limites).strip(),
-    'economia': str(economia).strip(),
-    'vias': str(vias).strip()
+    'pob_total': p_total,
+    'pob_urbana': p_urbana,
+    'pob_rural': p_rural,
+    'departamento': departamento,  # Campo restaurado
+    'municipio': municipio,        # Campo restaurado
+    'vereda': vereda,              # Campo restaurado
+    'coordenadas': coordenadas,    # Campo restaurado
+    'limites': limites,
+    'economia': economia,
+    'vias': vias
 }
 
-# Verificamos si hubo cambios reales campo por campo
-hubo_cambios = (
-    nueva_data['pob_total'] != int(datos.get('pob_total', 0)) or
-    nueva_data['pob_urbana'] != int(datos.get('pob_urbana', 0)) or
-    nueva_data['pob_rural'] != int(datos.get('pob_rural', 0)) or
-    nueva_data['departamento'] != str(datos.get('departamento', '')).strip() or
-    nueva_data['municipio'] != str(datos.get('municipio', '')).strip() or
-    nueva_data['vereda'] != str(datos.get('vereda', '')).strip() or
-    nueva_data['coordenadas'] != str(datos.get('coordenadas', '')).strip() or
-    nueva_data['limites'] != str(datos.get('limites', '')).strip() or
-    nueva_data['economia'] != str(datos.get('economia', '')).strip() or
-    nueva_data['vias'] != str(datos.get('vias', '')).strip()
-)
-
-if hubo_cambios:
+if nueva_data != datos:
     st.session_state['datos_zona'] = nueva_data
     guardar_datos_nube()
     st.rerun()
