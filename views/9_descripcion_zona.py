@@ -67,17 +67,15 @@ def calc_altura(texto):
     lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
     return max(80, lineas * 25)
 
-def mostrar_imagen_simetrica(ruta_imagen, altura_px):
-    if not ruta_imagen or not os.path.exists(ruta_imagen): return
-    with open(ruta_imagen, "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
+def mostrar_imagen_simetrica(datos_base64, altura_px):
+    if not datos_base64: return
     html_code = f"""
     <div style="width: 100%; height: {altura_px}px; overflow: hidden; border-radius: 8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px;">
-        <img src="data:image/jpeg;base64,{data}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+        <img src="{datos_base64}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
     </div>
     """
     st.markdown(html_code, unsafe_allow_html=True)
-
+    
 # --- FUNCIÓN DE GUARDADO ROBUSTO ---
 def update_field(key):
     temp_key = f"temp_{key}"
@@ -87,15 +85,13 @@ def update_field(key):
 
 def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
     if uploaded_file is not None:
-        file_ext = os.path.splitext(uploaded_file.name)[1]
-        unique_filename = f"{tipo_imagen_key}_{uuid.uuid4()}{file_ext}"
-        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-        with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
-        ruta_anterior = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
-        if ruta_anterior and os.path.exists(ruta_anterior):
-            try: os.remove(ruta_anterior)
-            except: pass
-        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = file_path
+        # Convertimos la imagen a texto Base64
+        bytes_data = uploaded_file.getvalue()
+        base64_image = base64.b64encode(bytes_data).decode("utf-8")
+        imagen_final = f"data:image/jpeg;base64,{base64_image}"
+        
+        # Guardamos el texto en el session_state
+        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = imagen_final
         guardar_datos_nube()
         st.rerun()
 
