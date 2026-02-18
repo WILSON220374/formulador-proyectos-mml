@@ -143,7 +143,6 @@ c_add, c_del, c_save, c_empty = st.columns([1.2, 1, 1.2, 3])
 
 with c_add:
     if st.button("➕ Agregar Actor"):
-        # RECOGER DATOS ACTUALES PARA NO PERDERLOS
         df_temp = pd.DataFrame(grid_response['data'])
         new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
         st.session_state['df_interesados'] = pd.concat([df_temp, new_row], ignore_index=True)
@@ -173,11 +172,6 @@ st.divider()
 
 # --- MAPA DE INFLUENCIA ---
 st.subheader("📊 Mapa de Influencia Estratégico")
-
-
-
-[Image of Power-Interest Matrix for Stakeholder Analysis]
-
 
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
@@ -231,7 +225,7 @@ else:
 
 st.divider()
 
-# --- ANÁLISIS FINAL (AJUSTE DE ALTURA COMPACTA) ---
+# --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
 analisis_actual = st.text_area(
     "Analisis", value=analisis_txt, 
@@ -243,7 +237,7 @@ analisis_actual = st.text_area(
 # --- AJUSTE VISUAL: MARGEN INFERIOR ---
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
-# --- GUARDADO AUTOMÁTICO DEL ANÁLISIS ---
+# --- GUARDADO AUTOMÁTICO ---
 if analisis_actual != analisis_txt:
     st.session_state['analisis_participantes'] = analisis_actual
     guardar_datos_nube()
