@@ -32,13 +32,17 @@ def inicializar_session():
             "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
         }
 
-    # --- [NUEVO] INICIALIZAR HOJA 10 ---
+    # --- INICIALIZAR HOJA 10 ---
     if 'descripcion_problema' not in st.session_state:
         st.session_state['descripcion_problema'] = {
             'tabla_datos': {},
             'redaccion_narrativa': "",
             'antecedentes': ""
         }
+
+    # --- [NUEVO] INICIALIZAR HOJA 11 (INDICADORES) ---
+    if 'indicadores' not in st.session_state:
+        st.session_state['indicadores'] = {'tabla_indicadores': {}}
 
     if 'df_interesados' not in st.session_state: st.session_state['df_interesados'] = pd.DataFrame()
     if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
@@ -74,6 +78,7 @@ def limpiar_datos_arbol(arbol_dict):
 def cargar_datos_nube(user_id):
     try:
         db = conectar_db()
+        # MANTENEMOS TU CORRECCIÓN: usamos user_id y datos
         res = db.table("proyectos").select("*").eq("user_id", user_id).execute()
         
         if res.data:
@@ -85,8 +90,11 @@ def cargar_datos_nube(user_id):
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['descripcion_zona'] = d.get('zona', st.session_state['descripcion_zona'])
             
-            # --- [NUEVO] CARGAR HOJA 10 ---
+            # --- CARGAR HOJA 10 ---
             st.session_state['descripcion_problema'] = d.get('desc_problema', st.session_state['descripcion_problema'])
+
+            # --- [NUEVO] CARGAR HOJA 11 (INDICADORES) ---
+            st.session_state['indicadores'] = d.get('indicadores_f4', {'tabla_indicadores': {}})
 
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
             st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(d.get('arbol_p', st.session_state['arbol_tarjetas']))
@@ -105,6 +113,9 @@ def cargar_datos_nube(user_id):
 
 def guardar_datos_nube():
     try:
+        # Validación extra de seguridad
+        if not st.session_state.get('usuario_id'): return
+
         db = conectar_db()
         st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(st.session_state['arbol_tarjetas'])
         st.session_state['arbol_objetivos'] = limpiar_datos_arbol(st.session_state['arbol_objetivos'])
@@ -114,8 +125,11 @@ def guardar_datos_nube():
             "diagnostico": st.session_state['datos_problema'],
             "zona": st.session_state['descripcion_zona'],
             
-            # --- [NUEVO] GUARDAR HOJA 10 ---
+            # --- GUARDAR HOJA 10 ---
             "desc_problema": st.session_state['descripcion_problema'],
+
+            # --- [NUEVO] GUARDAR HOJA 11 (INDICADORES) ---
+            "indicadores_f4": st.session_state.get('indicadores', {}),
 
             "interesados": st.session_state['df_interesados'].to_dict(),
             "analisis_txt": st.session_state['analisis_participantes'],
@@ -129,6 +143,7 @@ def guardar_datos_nube():
             "arbol_f": st.session_state['arbol_objetivos_final'],
             "arbol_p_f": st.session_state['arbol_problemas_final']
         }
+        # MANTENEMOS TU CORRECCIÓN: usamos user_id y datos
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state['usuario_id']).execute()
     except Exception as e:
         st.error(f"Error al guardar: {e}")
