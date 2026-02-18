@@ -22,6 +22,7 @@ def inicializar_session():
     if 'datos_problema' not in st.session_state:
         st.session_state['datos_problema'] = {"problema_central": "", "sintomas": "", "causas_inmediatas": "", "factores_agravantes": ""}
     
+    # --- CORRECCIÓN AQUÍ: Unificamos a 'descripcion_zona' con su estructura completa ---
     if 'descripcion_zona' not in st.session_state: 
         st.session_state['descripcion_zona'] = {
             "problema_central": "", "departamento": "", "provincia": "", "municipio": "", 
@@ -32,17 +33,10 @@ def inicializar_session():
             "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
         }
 
-    # --- [NUEVO] INICIALIZAR HOJA 10 ---
-    if 'descripcion_problema' not in st.session_state:
-        st.session_state['descripcion_problema'] = {
-            'tabla_datos': {},
-            'redaccion_narrativa': "",
-            'antecedentes': ""
-        }
-
     if 'df_interesados' not in st.session_state: st.session_state['df_interesados'] = pd.DataFrame()
     if 'analisis_participantes' not in st.session_state: st.session_state['analisis_participantes'] = ""
     
+    # Estructuras de Árboles
     if 'arbol_tarjetas' not in st.session_state: 
         st.session_state['arbol_tarjetas'] = {"Efectos Indirectos": [], "Efectos Directos": [], "Problema Principal": [], "Causas Directas": [], "Causas Indirectas": []}
     if 'arbol_objetivos' not in st.session_state: 
@@ -83,11 +77,10 @@ def cargar_datos_nube(user_id):
 
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
+            
+            # --- CARGA CORREGIDA ---
             st.session_state['descripcion_zona'] = d.get('zona', st.session_state['descripcion_zona'])
             
-            # --- [NUEVO] CARGAR HOJA 10 ---
-            st.session_state['descripcion_problema'] = d.get('desc_problema', st.session_state['descripcion_problema'])
-
             st.session_state['analisis_participantes'] = d.get('analisis_txt', "")
             st.session_state['arbol_tarjetas'] = limpiar_datos_arbol(d.get('arbol_p', st.session_state['arbol_tarjetas']))
             st.session_state['arbol_objetivos'] = limpiar_datos_arbol(d.get('arbol_o', st.session_state['arbol_objetivos']))
@@ -112,11 +105,10 @@ def guardar_datos_nube():
         paquete = {
             "integrantes": st.session_state['integrantes'],
             "diagnostico": st.session_state['datos_problema'],
+            
+            # --- GUARDADO CORREGIDO ---
             "zona": st.session_state['descripcion_zona'],
             
-            # --- [NUEVO] GUARDAR HOJA 10 ---
-            "desc_problema": st.session_state['descripcion_problema'],
-
             "interesados": st.session_state['df_interesados'].to_dict(),
             "analisis_txt": st.session_state['analisis_participantes'],
             "arbol_p": st.session_state['arbol_tarjetas'],
