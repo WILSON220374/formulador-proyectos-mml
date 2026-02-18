@@ -28,10 +28,10 @@ def obtener_resumen_diagnostico():
     if pp: 
         item = pp[0]
         resumen["problema_central"] = item.get("texto", str(item)) if isinstance(item, dict) else str(item)
-    resumen["efectos_indirectos"] = [t.get("texto") for t in datos.get("Efectos Indirectos", []) if t.get("texto")]
-    resumen["efectos_directos"] = [t.get("texto") for t in datos.get("Efectos Directos", []) if t.get("texto")]
-    resumen["causas_directas"] = [t.get("texto") for t in datos.get("Causas Directas", []) if t.get("texto")]
-    resumen["causas_indirectas"] = [t.get("texto") for t in datos.get("Causas Indirectas", []) if t.get("texto")]
+    resumen["efectos_indirectos"] = [t.get("texto", str(t)) if isinstance(t, dict) else str(t) for t in datos.get("Efectos Indirectos", []) if t]
+    resumen["efectos_directos"] = [t.get("texto", str(t)) if isinstance(t, dict) else str(t) for t in datos.get("Efectos Directos", []) if t]
+    resumen["causas_directas"] = [t.get("texto", str(t)) if isinstance(t, dict) else str(t) for t in datos.get("Causas Directas", []) if t]
+    resumen["causas_indirectas"] = [t.get("texto", str(t)) if isinstance(t, dict) else str(t) for t in datos.get("Causas Indirectas", []) if t]
     return resumen
 
 def eliminar_tarjeta_poda(seccion, idx):
