@@ -9,7 +9,7 @@ inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
 analisis_txt = st.session_state.get('analisis_participantes', "")
 
-# --- ESTILOS CSS ORIGINALES ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     /* Headers */
@@ -55,13 +55,6 @@ st.markdown("""
         font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px;
         padding: 2px 0; border-bottom: 1px solid rgba(0,0,0,0.05); 
     }
-    
-    /* Ajuste para los text_area */
-    .stTextArea textarea {
-        background-color: #fcfdfe;
-        border: 1px solid #e0e7ff;
-        border-radius: 8px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +68,7 @@ with col_t:
     if isinstance(df_actual, pd.DataFrame) and not df_actual.empty and 'NOMBRE' in df_actual.columns:
         tiene_datos = df_actual['NOMBRE'].dropna().any()
     progreso = (0.5 if tiene_datos else 0) + (0.5 if len(str(analisis_txt).strip()) > 20 else 0)
-    st.progress(progreso, text=f"Nivel de Completitud: {int(progreso * 100)}%")
+    st.progress(progreso, text=f"Completitud: {int(progreso * 100)}%")
 
 with col_l:
     if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
@@ -84,41 +77,57 @@ with col_l:
 st.divider()
 
 # --- PREPARACIÓN DE DATOS ---
-columnas_validas = ["NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"]
+columnas_validas = [
+    "NOMBRE", "GRUPO", "POSICIÓN", "EXPECTATIVA", 
+    "CONTRIBUCION AL PROYECTO", "PODER", "INTERÉS", "ESTRATEGIA"
+]
 
 if df_actual.empty: 
     df_clean = pd.DataFrame(columns=columnas_validas)
 else:
     for col in columnas_validas:
-        if col not in df_actual.columns: df_actual[col] = ""
-    df_clean = df_actual[columnas_validas].copy().reset_index(drop=True)
+        if col not in df_actual.columns:
+            df_actual[col] = ""
+    df_clean = df_actual[columnas_validas].copy()
+    df_clean = df_clean.reset_index(drop=True)
 
 opciones_pos = ["🔴 Opositor", "🟢 Cooperante", "🔵 Beneficiario", "🟣 Perjudicado"]
 opciones_niv = ["⚡ ALTO", "🔅 BAJO"]
 
-# --- FUNCION DE ALTURA AJUSTADA ---
-def calcular_altura(texto, min_h=120):
-    if not texto: return min_h
-    texto_str = str(texto)
-    lineas = texto_str.count('\n') + (len(texto_str) // 120)
-    return max(min_h, (lineas + 1) * 24)
+# --- CONTROLES (AGREGAR / BORRAR) ---
+c_add, c_del, c_space = st.columns([1, 1, 4])
 
-# --- CONFIGURACIÓN DE TABLA AG-GRID ---
+with c_add:
+    if st.button("➕ Agregar Actor"):
+        new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
+        st.session_state['df_interesados'] = pd.concat([df_clean, new_row], ignore_index=True)
+        guardar_datos_nube()
+        st.rerun()
+
+# --- TABLA AG-GRID CON CÁLCULO EN VIVO ---
 gb = GridOptionsBuilder.from_dataframe(df_clean)
 gb.configure_selection(selection_mode="multiple", use_checkbox=True)
-gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True)
-gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True)
+
+# Columnas Básicas
+gb.configure_column("NOMBRE", headerName="👤 Nombre", width=180, editable=True, wrapText=True, autoHeight=True)
+gb.configure_column("GRUPO", headerName="🏢 Grupo", width=120, editable=True, wrapText=True, autoHeight=True)
 gb.configure_column("POSICIÓN", headerName="🚩 Posición", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_pos}, width=140)
 gb.configure_column("EXPECTATIVA", headerName="🎯 Expectativa", editable=True, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("CONTRIBUCION AL PROYECTO", headerName="💡 Contribución", editable=True, wrapText=True, autoHeight=True, width=250)
+
+# Niveles (Poder e Interés)
 gb.configure_column("PODER", headerName="⚡ Poder", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 gb.configure_column("INTERÉS", headerName="👁️ Interés", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': opciones_niv}, width=110)
 
+# --- FÓRMULA JS PARA ESTRATEGIA EN VIVO ---
 js_calc_strategy = JsCode("""
 function(params) {
     if (!params.data.PODER || !params.data.INTERÉS) return "";
+    
+    // Limpiamos los emojis para comparar texto puro
     var p = params.data.PODER.replace("⚡ ", "").replace("🔅 ", "").trim().toUpperCase();
     var i = params.data.INTERÉS.replace("⚡ ", "").replace("🔅 ", "").trim().toUpperCase();
+
     if (p === 'ALTO' && i === 'BAJO') return 'INVOLUCRAR - MANTENER SATISFECHOS';
     if (p === 'ALTO' && i === 'ALTO') return 'INVOLUCRAR Y ATRAER EFECTIVAMENTE';
     if (p === 'BAJO' && i === 'ALTO') return 'MANTENER INFORMADOS';
@@ -126,45 +135,85 @@ function(params) {
     return "";
 }
 """)
-gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", valueGetter=js_calc_strategy, width=200)
-gb.configure_grid_options(domLayout='autoHeight')
+
+# Aplicamos la fórmula con valueGetter
+gb.configure_column("ESTRATEGIA", headerName="🚀 Estrategia", 
+                    valueGetter=js_calc_strategy, 
+                    editable=False, wrapText=True, autoHeight=True, width=200)
+
+# --- COLORES EN VIVO (Usan el valor calculado por JS) ---
+jscode_row_style = JsCode("""
+function(params) {
+    // Como usamos valueGetter, params.data.ESTRATEGIA puede no estar actualizado en el objeto data crudo,
+    // pero podemos recalcularlo o confiar en que AgGrid pasa el valor visualizado.
+    // Para asegurar, repetimos la logica o leemos el valor.
+    
+    var p = (params.data.PODER || "").replace("⚡ ", "").replace("🔅 ", "").trim().toUpperCase();
+    var i = (params.data.INTERÉS || "").replace("⚡ ", "").replace("🔅 ", "").trim().toUpperCase();
+    
+    if (p === 'ALTO' && i === 'BAJO') return { 'background-color': '#FEF2F2', 'color': 'black' }; // Rojo
+    if (p === 'ALTO' && i === 'ALTO') return { 'background-color': '#F0FDF4', 'color': 'black' }; // Verde
+    if (p === 'BAJO' && i === 'ALTO') return { 'background-color': '#EFF6FF', 'color': 'black' }; // Azul
+    if (p === 'BAJO' && i === 'BAJO') return { 'background-color': '#FEFCE8', 'color': 'black' }; // Amarillo
+    
+    return null;
+};
+""")
+
+gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
+
+custom_css = {
+    ".ag-header-cell-text": {"font-size": "14px !important", "font-weight": "700 !important", "color": "#1E3A8A !important"},
+    ".ag-header": {"background-color": "#f8f9fa !important"}
+}
 
 st.subheader("📝 Matriz de Interesados")
 grid_response = AgGrid(
-    df_clean, gridOptions=gridOptions, 
-    update_mode=GridUpdateMode.VALUE_CHANGED,
+    df_clean, gridOptions=gridOptions, custom_css=custom_css,
+    update_mode=GridUpdateMode.VALUE_CHANGED, # Actualiza más rápido
     data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     fit_columns_on_grid_load=True, theme='streamlit', allow_unsafe_jscode=True
 )
 
-# --- BOTONES DE ACCIÓN ---
-c_add, c_del, c_save, c_empty = st.columns([1.2, 1, 1.2, 3])
-
-with c_add:
-    if st.button("➕ Agregar Actor"):
-        df_temp = pd.DataFrame(grid_response['data'])
-        new_row = pd.DataFrame([{col: "" for col in columnas_validas}])
-        st.session_state['df_interesados'] = pd.concat([df_temp, new_row], ignore_index=True)
-        guardar_datos_nube()
-        st.rerun()
-
+# --- ELIMINAR (Blindado) ---
 with c_del:
     if st.button("🗑️ Eliminar"):
         sel_rows = grid_response['selected_rows']
         if sel_rows is not None and len(sel_rows) > 0:
-            df_sel = pd.DataFrame(sel_rows)
-            df_nuevo = df_clean.merge(df_sel, how='left', indicator=True)
-            df_nuevo = df_nuevo[df_nuevo['_merge'] == 'left_only'].drop(columns=['_merge'])
-            st.session_state['df_interesados'] = df_nuevo
-            guardar_datos_nube()
-            st.rerun()
+            if isinstance(sel_rows, pd.DataFrame): df_sel = sel_rows
+            else: df_sel = pd.DataFrame(sel_rows)
+            
+            cols_comunes = [c for c in df_clean.columns if c in df_sel.columns]
+            if cols_comunes:
+                df_merged = df_clean.merge(df_sel[cols_comunes], on=cols_comunes, how='left', indicator=True)
+                df_nuevo = df_merged[df_merged['_merge'] == 'left_only'].drop(columns=['_merge'])
+                st.session_state['df_interesados'] = df_nuevo
+                guardar_datos_nube()
+                st.rerun()
 
-with c_save:
-    if st.button("💾 Guardar"):
-        st.session_state['df_interesados'] = pd.DataFrame(grid_response['data'])
+col_btn, col_rest = st.columns([1, 10])
+with col_btn:
+    btn_guardar = st.button("💾 Guardar Cambios", help="Guardar permanentemente")
+
+# Función Python (Respaldo para el guardado)
+def calcular_estrategia_py(row):
+    p = str(row.get('PODER', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
+    i = str(row.get('INTERÉS', '')).replace("⚡ ", "").replace("🔅 ", "").strip().upper()
+    if p == "ALTO" and i == "BAJO": return "INVOLUCRAR - MANTENER SATISFECHOS"
+    if p == "ALTO" and i == "ALTO": return "INVOLUCRAR Y ATRAER EFECTIVAMENTE"
+    if p == "BAJO" and i == "ALTO": return "MANTENER INFORMADOS"
+    if p == "BAJO" and i == "BAJO": return "MONITOREAR"
+    return ""
+
+if btn_guardar:
+    df_editado = pd.DataFrame(grid_response['data'])
+    if not df_editado.empty:
+        # Recalculamos en Python para asegurar que se guarde bien en la base de datos
+        # (aunque JS lo muestre, necesitamos el dato real en Python)
+        df_editado["ESTRATEGIA"] = df_editado.apply(calcular_estrategia_py, axis=1)
+        st.session_state['df_interesados'] = df_editado
         guardar_datos_nube()
-        st.success("¡Datos guardados!")
         st.rerun()
 
 st.write("")
@@ -175,44 +224,48 @@ st.subheader("📊 Mapa de Influencia Estratégico")
 
 if tiene_datos:
     df_mapa = st.session_state.get('df_interesados', df_clean)
+
     def get_list_items_html(p_key, i_key):
         filtered = df_mapa[
             (df_mapa['PODER'].astype(str).str.upper().str.contains(p_key)) & 
             (df_mapa['INTERÉS'].astype(str).str.upper().str.contains(i_key)) & 
             (df_mapa['NOMBRE'].notna()) & (df_mapa['NOMBRE'] != "")
         ]
+        
         if filtered.empty: return '<div style="font-size:11px; color:#aaa; font-style:italic;">Sin actores</div>'
+            
         html_items = ""
         for _, r in filtered.iterrows():
             pos = str(r['POSICIÓN'])
+            nombre = r['NOMBRE']
             icon = "⚪"
             if "Opositor" in pos: icon = "🔴"
             elif "Cooperante" in pos: icon = "🟢"
             elif "Beneficiario" in pos: icon = "🔵"
             elif "Perjudicado" in pos: icon = "🟣"
-            html_items += f'<div class="actor-item"><span>{icon}</span> <span>{r["NOMBRE"]}</span></div>'
+            html_items += f'<div class="actor-item"><span>{icon}</span> <span>{nombre}</span></div>'
         return html_items
 
     html_matrix = f"""
 <div class="matrix-container">
-    <div class="axis-y">PODER</div>
-    <div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2; border-top: 4px solid #fecaca;">
-        <div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
-        {get_list_items_html("ALTO", "BAJO")}
-    </div>
-    <div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border-top: 4px solid #86efac;">
-        <div class="q-title" style="color: #166534;">🚀 Involucrar y Atraer Efectivamente</div>
-        {get_list_items_html("ALTO", "ALTO")}
-    </div>
-    <div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2; border-top: 4px solid #fde047;">
-        <div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
-        {get_list_items_html("BAJO", "BAJO")}
-    </div>
-    <div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3; border-top: 4px solid #bfdbfe;">
-        <div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
-        {get_list_items_html("BAJO", "ALTO")}
-    </div>
-    <div class="axis-x">INTERÉS</div>
+<div class="axis-y">PODER</div>
+<div class="quadrant-box" style="background-color: #FEF2F2; grid-row: 1; grid-column: 2; border-top: 4px solid #fecaca;">
+<div class="q-title" style="color: #991b1b;">🤝 Mantener Satisfechos</div>
+{get_list_items_html("ALTO", "BAJO")}
+</div>
+<div class="quadrant-box" style="background-color: #F0FDF4; grid-row: 1; grid-column: 3; border-top: 4px solid #86efac;">
+<div class="q-title" style="color: #166534;">🚀 Involucrar y Atraer Efectivamente</div>
+{get_list_items_html("ALTO", "ALTO")}
+</div>
+<div class="quadrant-box" style="background-color: #FEFCE8; grid-row: 2; grid-column: 2; border-top: 4px solid #fde047;">
+<div class="q-title" style="color: #854d0e;">🔍 Monitorear</div>
+{get_list_items_html("BAJO", "BAJO")}
+</div>
+<div class="quadrant-box" style="background-color: #EFF6FF; grid-row: 2; grid-column: 3; border-top: 4px solid #bfdbfe;">
+<div class="q-title" style="color: #1e40af;">ℹ️ Mantener Informados</div>
+{get_list_items_html("BAJO", "ALTO")}
+</div>
+<div class="axis-x">INTERÉS</div>
 </div>
 """
     st.markdown(html_matrix, unsafe_allow_html=True)
@@ -227,17 +280,16 @@ st.divider()
 
 # --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
+num_lineas = analisis_txt.count('\n') + 1
+altura_dinamica = max(150, num_lineas * 25 + 50)
+
 analisis_actual = st.text_area(
-    "Analisis", value=analisis_txt, 
-    height=calcular_altura(analisis_txt, min_h=150),
-    key="txt_analisis_final", label_visibility="collapsed",
+    "Analisis", value=analisis_txt, height=altura_dinamica,
+    key="txt_analisis_final_panel", label_visibility="collapsed",
     placeholder="Escriba aquí el análisis cualitativo..."
 )
+st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) 
 
-# --- AJUSTE VISUAL: MARGEN INFERIOR ---
-st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
-
-# --- GUARDADO AUTOMÁTICO ---
 if analisis_actual != analisis_txt:
     st.session_state['analisis_participantes'] = analisis_actual
     guardar_datos_nube()
