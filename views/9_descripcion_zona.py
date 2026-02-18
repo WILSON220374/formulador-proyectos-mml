@@ -158,7 +158,7 @@ st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', 
 
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
-if ruta_mapa and os.path.exists(ruta_mapa):
+if ruta_mapa:
     mostrar_imagen_simetrica(ruta_mapa, 650) # TAMAÑO AUMENTADO AQUÍ
     if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"): eliminar_imagen("mapa")
 else:
@@ -170,7 +170,7 @@ col_f1, col_f2 = st.columns(2)
 with col_f1:
     st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
     rf1 = zona_data.get("ruta_foto1")
-    if rf1 and os.path.exists(rf1):
+    if rf1:
         mostrar_imagen_simetrica(rf1, 300)
         if st.button("🗑️ Eliminar Foto 1", key="btn_del_f1"): eliminar_imagen("foto1")
     else:
@@ -179,7 +179,7 @@ with col_f1:
 with col_f2:
     st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
     rf2 = zona_data.get("ruta_foto2")
-    if rf2 and os.path.exists(rf2):
+    if rf2:
         mostrar_imagen_simetrica(rf2, 300)
         if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"): eliminar_imagen("foto2")
     else:
