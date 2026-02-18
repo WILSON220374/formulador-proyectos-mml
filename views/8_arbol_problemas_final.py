@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import graphviz
 import os
 import uuid
@@ -15,21 +15,21 @@ if 'arbol_problemas_final' not in st.session_state:
 
 # --- FUNCIÓN DE EXTRACCIÓN AUTOMÁTICA ---
 def obtener_resumen_diagnostico():
-    datos = st.session_state.get('arbol_problemas_final', {})
-    resumen = {"problema_central": "", "efectos_indirectos": [], "efectos_directos": [], "causas_directas": [], "causas_indirectas": []}
-    
-    # Función interna para sacar texto sin importar el formato
-    def extraer(lista):
-        return [it.get("texto", str(it)) if isinstance(it, dict) else str(it) for it in lista if it]
-
+    """Lee el estado actual de las tarjetas y genera el resumen limpio."""
+    datos = st.session_state['arbol_problemas_final']
+    resumen = {
+        "problema_central": "",
+        "efectos_indirectos": [],
+        "efectos_directos": [],
+        "causas_directas": [],
+        "causas_indirectas": []
+    }
     pp = datos.get("Problema Principal", [])
-    if pp: 
-        resumen["problema_central"] = pp[0].get("texto", str(pp[0])) if isinstance(pp[0], dict) else str(pp[0])
-    
-    resumen["efectos_indirectos"] = extraer(datos.get("Efectos Indirectos", []))
-    resumen["efectos_directos"] = extraer(datos.get("Efectos Directos", []))
-    resumen["causas_directas"] = extraer(datos.get("Causas Directas", []))
-    resumen["causas_indirectas"] = extraer(datos.get("Causas Indirectas", []))
+    if pp: resumen["problema_central"] = pp[0].get("texto", "")
+    resumen["efectos_indirectos"] = [t.get("texto") for t in datos.get("Efectos Indirectos", []) if t.get("texto")]
+    resumen["efectos_directos"] = [t.get("texto") for t in datos.get("Efectos Directos", []) if t.get("texto")]
+    resumen["causas_directas"] = [t.get("texto") for t in datos.get("Causas Directas", []) if t.get("texto")]
+    resumen["causas_indirectas"] = [t.get("texto") for t in datos.get("Causas Indirectas", []) if t.get("texto")]
     return resumen
 
 def eliminar_tarjeta_poda(seccion, idx):
@@ -97,27 +97,23 @@ def generar_grafo_problemas():
     dot = graphviz.Digraph(format='png')
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
-    
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
-    def get_t(item): return item.get('texto', str(item)) if isinstance(item, dict) else str(item)
-
-    pp_list = [it for it in datos.get("Problema Principal", []) if it]
-    if pp_list: 
-        dot.node("PP", limpiar(get_t(pp_list[0])), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
-    
+    pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
+    if pp: dot.node("PP", limpiar(pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
-        items = [it for it in datos.get(tipo, []) if it]
+        items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
             n_id = f"{tipo[:2]}{i}"
-            dot.node(n_id, limpiar(get_t(item)), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
+            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
             if "Efecto" in tipo: dot.edge("PP", n_id)
             else: dot.edge(n_id, "PP")
-            
-            hijos = [h for h in datos.get(h_tipo, []) if (h.get('padre') if isinstance(h, dict) else None) == get_t(item)]
+            hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
             for j, h in enumerate(hijos):
                 h_id = f"{h_tipo[:2]}{i}_{j}"
-                dot.node(h_id, limpiar(get_t(h)), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
+                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
                 if "Efecto" in tipo: dot.edge(n_id, h_id)
+                else: dot.edge(h_id, n_id)
+    return dot
 
 def render_poda_card(seccion, item, idx):
     if not isinstance(item, dict): return
