@@ -51,6 +51,7 @@ def cargar_datos_nube(user_id):
             if not d: d = {}
 
             # 3. Cargamos la información desempaquetada
+            st.session_state['usuario_id'] = user_id
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['datos_zona'] = d.get('zona', {})
