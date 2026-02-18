@@ -100,19 +100,19 @@ def generar_grafo_problemas():
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
-    pp = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
-    if pp: dot.node("PP", limpiar(pp[0]['texto']), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
+    pp = [it for it in datos.get("Problema Principal", []) if (it.get('texto') if isinstance(it, dict) else it)]
+    if pp: dot.node("PP", limpiar(pp[0].get('texto', pp[0]) if isinstance(pp[0], dict) else pp[0]), fillcolor=CONFIG_PROB["Problema Principal"]["color"], fontcolor='black', color='none', width='4.5')
     for tipo, p_id, h_tipo in [("Efectos Directos", "PP", "Efectos Indirectos"), ("Causas Directas", "PP", "Causas Indirectas")]:
         items = [it for it in datos.get(tipo, []) if it.get('texto')]
         for i, item in enumerate(items):
             n_id = f"{tipo[:2]}{i}"
-            dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
+            dot.node(n_id, limpiar(item.get('texto', item) if isinstance(item, dict) else item), fillcolor=CONFIG_PROB[tipo]["color"], fontcolor='black', color='none')
             if "Efecto" in tipo: dot.edge("PP", n_id)
             else: dot.edge(n_id, "PP")
             hijos = [h for h in datos.get(h_tipo, []) if h.get('padre') == item.get('texto')]
             for j, h in enumerate(hijos):
                 h_id = f"{h_tipo[:2]}{i}_{j}"
-                dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
+                dot.node(h_id, limpiar(h.get('texto', h) if isinstance(h, dict) else h), fillcolor=CONFIG_PROB[h_tipo]["color"], fontcolor='black', color='none', fontsize='10')
                 if "Efecto" in tipo: dot.edge(n_id, h_id)
                 else: dot.edge(h_id, n_id)
     return dot
