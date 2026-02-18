@@ -190,20 +190,22 @@ with tab2:
     col_izq, col_der = st.columns(2)
     with col_izq:
         st.markdown("**Objetivos Específicos (Componentes)**")
-        # Ciclo limpio sin columnas de borrado
         for i, item in enumerate(ref_data['especificos']):
-            st.markdown(f"<div class='list-item'>• {item}</div>", unsafe_allow_html=True)
+            c1, c2 = st.columns([0.85, 0.15])
+            with c1: st.markdown(f"<div class='list-item'>• {item}</div>", unsafe_allow_html=True)
+            with c2: st.button("🗑️", key=f"del_esp_{i}", on_click=eliminar_item_lista, args=('especificos', i))
         
         ei1, ei2 = st.columns([0.8, 0.2])
         with ei1: st.text_area("Nuevo Esp", label_visibility="collapsed", key="new_esp", placeholder="Componente...", height=68)
         with ei2: st.button("➕", key="add_esp", on_click=agregar_item_lista, args=('especificos', 'new_esp'))
 
-   with col_der:
+    with col_der:
         st.markdown("**Actividades Clave**")
-        # Ciclo limpio sin columnas de borrado
         for i, item in enumerate(ref_data['actividades']):
-            st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
-
+            c1, c2 = st.columns([0.85, 0.15])
+            with c1: st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
+            with c2: st.button("🗑️", key=f"del_act_{i}", on_click=eliminar_item_lista, args=('actividades', i))
+        
         ai1, ai2 = st.columns([0.8, 0.2])
         with ai1: st.text_area("Nueva Act", label_visibility="collapsed", key="new_act", placeholder="Actividad...", height=68)
         with ai2: st.button("➕", key="add_act", on_click=agregar_item_lista, args=('actividades', 'new_act'))
