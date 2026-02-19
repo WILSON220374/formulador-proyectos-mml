@@ -183,7 +183,6 @@ if "df_indicadores" not in st.session_state or not isinstance(st.session_state.g
 if "hash_indicadores" not in st.session_state:
     st.session_state["hash_indicadores"] = ""
 
-# NUEVO: selección de indicadores
 if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_state.get("seleccion_indicadores"), dict):
     st.session_state["seleccion_indicadores"] = {}
 
@@ -309,7 +308,6 @@ gb.configure_grid_options(
     domLayout="autoHeight"
 )
 
-# Azul tenue si está completo (solo para visual)
 jscode_row_style_1 = JsCode("""
 function(params) {
   const a = (params.data && params.data["1. Objeto"]) ? String(params.data["1. Objeto"]).trim() : "";
@@ -349,7 +347,6 @@ df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 df_live = df_live[target_cols].copy()
 
-# Auto-guardar tabla 1: solo si cambia
 cols_hash_1 = ["Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar"]
 hash_actual_1 = _stable_hash_df(df_live, cols_hash_1)
 hash_prev_1 = st.session_state.get("hash_indicadores", "")
@@ -384,7 +381,7 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
     guardar_datos_nube()
 
 # -----------------------------
-# Tabla 2: Selección de indicadores (NUEVA)
+# Tabla 2: Selección de indicadores
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion">Selección de indicadores</div>', unsafe_allow_html=True)
 st.markdown(
@@ -399,11 +396,11 @@ P3 = "El indicador es tangible y se puede observar"
 P4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
 P5 = "El indicador es lo bastante representativo para el conjunto de resultados esperados."
 
-# Leyenda (opción 3)
+# Leyenda (sin texto extra)
 st.markdown(
     f"""
     <div class="legend-box">
-      <div><b>Leyenda:</b> (puedes pasar el mouse sobre P1–P5 para ver la pregunta completa)</div>
+      <div><b>Leyenda:</b></div>
       <ul>
         <li><b>P1</b>: {P1}</li>
         <li><b>P2</b>: {P2}</li>
@@ -432,16 +429,15 @@ def _build_df_seleccion_from_indicadores(df_ind):
         guard_sel = st.session_state["seleccion_indicadores"].get(key_estable, {})
 
         rows.append({
-            "_key": key_estable,  # interno
+            "_key": key_estable,
             "Indicador": indicador_txt,
             P1: bool(guard_sel.get(P1, False)),
             P2: bool(guard_sel.get(P2, False)),
             P3: bool(guard_sel.get(P3, False)),
             P4: bool(guard_sel.get(P4, False)),
             P5: bool(guard_sel.get(P5, False)),
-            "Selección": "",  # calculado en JS
+            "Selección": "",
         })
-
     return pd.DataFrame(rows)
 
 df_base_sel = _build_df_seleccion_from_indicadores(df_live)
@@ -463,19 +459,18 @@ df_base_sel = df_base_sel[sel_cols].copy()
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
 
 gb2.configure_column("_key", headerName="", editable=False, hide=True)
-
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
 
-# Checkboxes con encabezados cortos (opción 2) + tooltip con pregunta completa
-gb2.configure_column(P1, headerName="P1", headerTooltip=P1, editable=True, width=90,
+# Encabezados cortos (sin tooltip)
+gb2.configure_column(P1, headerName="P1", editable=True, width=90,
                      cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P2, headerName="P2", headerTooltip=P2, editable=True, width=90,
+gb2.configure_column(P2, headerName="P2", editable=True, width=90,
                      cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P3, headerName="P3", headerTooltip=P3, editable=True, width=90,
+gb2.configure_column(P3, headerName="P3", editable=True, width=90,
                      cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P4, headerName="P4", headerTooltip=P4, editable=True, width=90,
+gb2.configure_column(P4, headerName="P4", editable=True, width=90,
                      cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P5, headerName="P5", headerTooltip=P5, editable=True, width=90,
+gb2.configure_column(P5, headerName="P5", editable=True, width=90,
                      cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
 
 value_getter_sel = JsCode(f"""
@@ -539,13 +534,11 @@ grid_response_2 = AgGrid(
 df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
 df_sel_live = _ensure_columns(df_sel_live, cols_sel_defaults)
 
-# Asegurar _key (si AgGrid no lo devolvió)
 if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
     df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
 
 df_sel_live = df_sel_live[sel_cols].copy()
 
-# Auto-guardar tabla 2: solo si cambia
 cols_hash_2 = ["_key", P1, P2, P3, P4, P5]
 hash_actual_2 = _stable_hash_df(df_sel_live, cols_hash_2)
 hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
