@@ -102,6 +102,14 @@ def inicializar_session():
             "poblacion_referencia": 0
         }
 
+    # --- HOJA 10 (Descripción del problema) ---
+    if 'descripcion_problema' not in st.session_state:
+        st.session_state['descripcion_problema'] = {
+            "tabla_datos": {},
+            "redaccion_narrativa": "",
+            "antecedentes": ""
+        }
+
     # --- HOJA 11 (Indicadores) ---
     if 'datos_indicadores' not in st.session_state:
         st.session_state['datos_indicadores'] = {}
@@ -112,18 +120,12 @@ def inicializar_session():
 def cargar_datos_nube(user_id):
     try:
         db = conectar_db()
-        # 1. Buscamos por 'user_id'
         res = db.table("proyectos").select("*").eq("user_id", user_id).execute()
 
         if res.data:
             row = res.data[0]
-            # 2. Extraemos el JSON de la columna 'datos'
-            d = row.get('datos', {})
+            d = row.get('datos', {}) or {}
 
-            if not d:
-                d = {}
-
-            # 3. Cargamos la información desempaquetada
             st.session_state['usuario_id'] = user_id
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
@@ -136,6 +138,13 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             st.session_state['descripcion_zona'] = d.get('zona_detallada', {})
+
+            # --- HOJA 10 (Descripción del problema) ---
+            st.session_state['descripcion_problema'] = d.get('descripcion_problema', st.session_state.get('descripcion_problema', {
+                "tabla_datos": {},
+                "redaccion_narrativa": "",
+                "antecedentes": ""
+            }))
 
             # --- HOJA 11 (Indicadores) ---
             st.session_state['datos_indicadores'] = d.get('datos_indicadores', {})
@@ -159,31 +168,40 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
 
-        # Empaquetamos todo en un diccionario
         paquete = {
             "integrantes": st.session_state.get('integrantes', []),
             "diagnostico": st.session_state.get('datos_problema', {}),
             "zona": st.session_state.get('datos_zona', {}),
+
             # Guardado recomendado: records (más estable)
             "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(orient="records"),
             "analisis_txt": st.session_state.get('analisis_participantes', ""),
+
             "arbol_p": st.session_state.get('arbol_tarjetas', {}),
             "arbol_o": st.session_state.get('arbol_objetivos', {}),
             "alternativas": st.session_state.get('lista_alternativas', []),
+
             "eval_alt": st.session_state.get('df_evaluacion_alternativas', pd.DataFrame()).to_dict(orient="records"),
             "rel_obj": st.session_state.get('df_relaciones_objetivos', pd.DataFrame()).to_dict(orient="records"),
             "pesos_eval": st.session_state.get('ponderacion_criterios', {}),
             "calificaciones": st.session_state.get('df_calificaciones', pd.DataFrame()).to_dict(orient="records"),
+
             "arbol_f": st.session_state.get('arbol_objetivos_final', {}),
             "arbol_p_f": st.session_state.get('arbol_problemas_final', {}),
             "zona_detallada": st.session_state.get('descripcion_zona', {}),
+
+            # --- HOJA 10 (Descripción del problema) ---
+            "descripcion_problema": st.session_state.get('descripcion_problema', {
+                "tabla_datos": {},
+                "redaccion_narrativa": "",
+                "antecedentes": ""
+            }),
 
             # --- HOJA 11 (Indicadores) ---
             "datos_indicadores": st.session_state.get('datos_indicadores', {}),
             "indicadores_mapa_objetivo": st.session_state.get('indicadores_mapa_objetivo', {}),
         }
 
-        # Guardamos en la columna 'datos' buscando por 'user_id'
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
 
     except Exception as e:
