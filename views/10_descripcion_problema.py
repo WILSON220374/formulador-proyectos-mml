@@ -201,13 +201,13 @@ st.divider()
 st.subheader("🖋️ REDACCIÓN FINAL")
 
 # Fila 1: Narrativa
-st.markdown("##### 1. Descripción detallada (Lógica del problema)")
+st.markdown("##### 1. Descripción detallada (Problema - Causa - Efecto)")
 curr_n = st.session_state['descripcion_problema'].get('redaccion_narrativa', "")
 h_narr = max(120, (str(curr_n).count('\n') + len(str(curr_n)) // 90 + 1) * 28)
 narrativa = st.text_area("Narrativa", value=curr_n, height=h_narr, key="txt_narr_final", label_visibility="collapsed")
 
 # Fila 2: Antecedentes
-st.markdown("##### 2. Antecedentes y Contexto")
+st.markdown("##### 2. Antecedentes : ¿Que se ha hecho previamente con el problema")
 curr_a = st.session_state['descripcion_problema'].get('antecedentes', "")
 h_ant = max(120, (str(curr_a).count('\n') + len(str(curr_a)) // 90 + 1) * 28)
 antecedentes = st.text_area("Antecedentes", value=curr_a, height=h_ant, key="txt_ant_final", label_visibility="collapsed")
