@@ -99,15 +99,32 @@ def _resolve_key(nivel, objetivo_txt, id_unico):
     return new_key
 
 def _ensure_columns(df, cols_defaults):
-    """
-    cols_defaults: dict col -> default_value
-    """
     if df is None or not isinstance(df, pd.DataFrame):
         df = pd.DataFrame()
     for c, v in cols_defaults.items():
         if c not in df.columns:
             df[c] = v
     return df
+
+def _reorder_tolerant(df, target_cols, defaults):
+    """
+    Reordena tolerante:
+    - crea columnas faltantes con defaults
+    - ignora columnas extras no esperadas
+    """
+    df = _ensure_columns(df, defaults)
+    cols_present = [c for c in target_cols if c in df.columns]
+    # si por cualquier motivo falta alguna del target, ya fue creada por _ensure_columns
+    df = df[cols_present].copy()
+    # asegurar orden exacto (ya tiene todas)
+    df = df[target_cols].copy()
+    return df
+
+def _normalize_df_for_compare(df):
+    df2 = df.copy()
+    for c in df2.columns:
+        df2[c] = df2[c].astype(str)
+    return df2
 
 # -----------------------------
 # Header
@@ -166,8 +183,19 @@ if 'df_indicadores' not in st.session_state or not isinstance(st.session_state.g
 base_lookup = {(r["Nivel"], r["Objetivo"]): r.get("id_unico", "") for r in lista_base}
 
 # -----------------------------
-# DF base
+# DF base / sincronización
 # -----------------------------
+cols_defaults = {
+    "_estado": "Pendiente",
+    "Nivel": "",
+    "Objetivo": "",
+    "1. Objeto": "",
+    "2. Condición Deseada": "",
+    "3. Lugar": "",
+    "Indicador Generado": "",
+}
+target_cols = list(cols_defaults.keys())
+
 def _build_df_from_base():
     rows = []
     for r in lista_base:
@@ -189,7 +217,7 @@ def _build_df_from_base():
         est = _estado(obj, cond, lugar)
 
         rows.append({
-            "_estado": est,  # interno (no visible)
+            "_estado": est,
             "Nivel": nivel,
             "Objetivo": objetivo_txt,
             "1. Objeto": obj,
@@ -198,7 +226,10 @@ def _build_df_from_base():
             "Indicador Generado": indicador,
         })
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df = _ensure_columns(df, cols_defaults)
+    df = df[target_cols].copy()
+    return df
 
 def _sync_df_keep_user_edits(df_old):
     df_new = _build_df_from_base()
@@ -206,34 +237,24 @@ def _sync_df_keep_user_edits(df_old):
     if df_old is None or df_old.empty:
         return df_new
 
-    keycols = ["Nivel", "Objetivo"]
-    df_old_k = df_old.copy()
-    df_new_k = df_new.copy()
+    df_old = _ensure_columns(df_old, cols_defaults)
 
+    keycols = ["Nivel", "Objetivo"]
     df_merge = pd.merge(
-        df_new_k[keycols],
-        df_old_k,
+        df_new[keycols],
+        df_old,
         on=keycols,
-        how="left",
-        suffixes=("", "_old")
+        how="left"
     )
 
-    # asegurar columnas
-    for col in df_new.columns:
-        if col not in df_merge.columns:
-            df_merge[col] = df_new[col].values if col in df_new.columns else ""
+    df_merge = _ensure_columns(df_merge, cols_defaults)
 
-    # forzar columnas "sistema" desde df_new primero
-    df_merge["_estado"] = df_new["_estado"].values
-    df_merge["Indicador Generado"] = df_new["Indicador Generado"].values
-
-    # si el usuario ya tenía valores editables, conservarlos
+    # conservar inputs si existen; si no, tomar del nuevo
     for col_edit in ["1. Objeto", "2. Condición Deseada", "3. Lugar"]:
-        if col_edit in df_old_k.columns:
-            mask = df_merge[col_edit].isna() | (df_merge[col_edit].astype(str) == "nan")
-            df_merge.loc[mask, col_edit] = df_new[col_edit].values
+        mask = df_merge[col_edit].isna() | (df_merge[col_edit].astype(str) == "nan")
+        df_merge.loc[mask, col_edit] = df_new[col_edit].values
 
-    # recalcular (por si conserva inputs)
+    # recalcular
     df_merge["Indicador Generado"] = df_merge.apply(
         lambda r: _generar_indicador(r.get("1. Objeto", ""), r.get("2. Condición Deseada", ""), r.get("3. Lugar", "")),
         axis=1
@@ -243,25 +264,12 @@ def _sync_df_keep_user_edits(df_old):
         axis=1
     )
 
-    df_merge = df_merge[df_new.columns].copy()
+    df_merge = df_merge[target_cols].copy()
     return df_merge
 
 df_old_ui = st.session_state.get('df_indicadores', pd.DataFrame())
 df_ui = _sync_df_keep_user_edits(df_old_ui)
 
-# asegurar columnas obligatorias
-cols_defaults = {
-    "_estado": "Pendiente",
-    "Nivel": "",
-    "Objetivo": "",
-    "1. Objeto": "",
-    "2. Condición Deseada": "",
-    "3. Lugar": "",
-    "Indicador Generado": "",
-}
-df_ui = _ensure_columns(df_ui, cols_defaults)
-
-# guardar si cambió estructura
 if df_old_ui is None or df_old_ui.empty:
     st.session_state['df_indicadores'] = df_ui.copy()
 else:
@@ -270,13 +278,13 @@ else:
 
 df_work = st.session_state['df_indicadores'].copy()
 df_work = _ensure_columns(df_work, cols_defaults)
+df_work = df_work[target_cols].copy()
 
 # -----------------------------
 # AgGrid config (sin columna Estado visible)
 # -----------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
-# Oculta columna interna de estado
 gb.configure_column("_estado", headerName="", editable=False, hide=True)
 
 gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=180)
@@ -288,7 +296,6 @@ gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=T
 
 gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, wrapText=True, autoHeight=True, width=440)
 
-# Fondo azul tenue cuando está completo
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data && params.data._estado === "Completo") {
@@ -299,7 +306,6 @@ function(params) {
 """)
 
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
-
 gridOptions = gb.build()
 
 custom_css = {
@@ -320,12 +326,13 @@ grid_response = AgGrid(
     key="grid_indicadores"
 )
 
+# -----------------------------
+# Captura data devuelta por AgGrid (robusto)
+# -----------------------------
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 
-# -----------------------------
-# Autogeneración en vivo (sin KeyError)
-# -----------------------------
+# recalcular sistema
 df_live["Indicador Generado"] = df_live.apply(
     lambda r: _generar_indicador(r.get("1. Objeto", ""), r.get("2. Condición Deseada", ""), r.get("3. Lugar", "")),
     axis=1
@@ -335,26 +342,21 @@ df_live["_estado"] = df_live.apply(
     axis=1
 )
 
-# mantener orden de columnas (todas existen por _ensure_columns)
-df_live = df_live[list(df_work.columns)].copy()
+# reorden tolerante (evita KeyError)
+df_live = _reorder_tolerant(df_live, target_cols, cols_defaults)
 
-def _normalize_df_for_compare(df):
-    df2 = df.copy()
-    for c in df2.columns:
-        df2[c] = df2[c].astype(str)
-    return df2
-
-need_rerun = False
+# -----------------------------
+# Sincronizar session_state y rerun solo si cambió
+# -----------------------------
 df_prev = st.session_state.get("df_indicadores", pd.DataFrame()).copy()
 df_prev = _ensure_columns(df_prev, cols_defaults)
+df_prev = _reorder_tolerant(df_prev, target_cols, cols_defaults)
 
 a = _normalize_df_for_compare(df_prev)
 b = _normalize_df_for_compare(df_live)
+
 if not a.equals(b):
     st.session_state["df_indicadores"] = df_live
-    need_rerun = True
-
-if need_rerun:
     st.rerun()
 
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
@@ -379,6 +381,7 @@ with col_stats:
 if btn_guardar:
     df_save = st.session_state.get("df_indicadores", pd.DataFrame()).copy()
     df_save = _ensure_columns(df_save, cols_defaults)
+    df_save = _reorder_tolerant(df_save, target_cols, cols_defaults)
 
     if df_save.empty:
         st.warning("No hay datos para guardar.")
