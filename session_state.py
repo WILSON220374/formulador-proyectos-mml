@@ -116,6 +116,16 @@ def inicializar_session():
     if 'indicadores_mapa_objetivo' not in st.session_state:
         st.session_state['indicadores_mapa_objetivo'] = {}
 
+    # NUEVO: selección de indicadores (tabla 2)
+    if 'seleccion_indicadores' not in st.session_state:
+        st.session_state['seleccion_indicadores'] = {}
+
+    # NUEVO: meta y resultados parciales (duración + tabla)
+    if 'duracion_proyecto_periodos' not in st.session_state:
+        st.session_state['duracion_proyecto_periodos'] = 4
+    if 'meta_resultados_parciales' not in st.session_state:
+        st.session_state['meta_resultados_parciales'] = {}
+
 
 def cargar_datos_nube(user_id):
     try:
@@ -149,6 +159,13 @@ def cargar_datos_nube(user_id):
             # --- HOJA 11 (Indicadores) ---
             st.session_state['datos_indicadores'] = d.get('datos_indicadores', {})
             st.session_state['indicadores_mapa_objetivo'] = d.get('indicadores_mapa_objetivo', {})
+
+            # NUEVO: selección de indicadores (tabla 2)
+            st.session_state['seleccion_indicadores'] = d.get('seleccion_indicadores', {})
+
+            # NUEVO: meta y resultados parciales
+            st.session_state['duracion_proyecto_periodos'] = d.get('duracion_proyecto_periodos', 4)
+            st.session_state['meta_resultados_parciales'] = d.get('meta_resultados_parciales', {})
 
             # DataFrames (compatibilidad: records o dict)
             if 'interesados' in d:
@@ -200,6 +217,13 @@ def guardar_datos_nube():
             # --- HOJA 11 (Indicadores) ---
             "datos_indicadores": st.session_state.get('datos_indicadores', {}),
             "indicadores_mapa_objetivo": st.session_state.get('indicadores_mapa_objetivo', {}),
+
+            # NUEVO: selección de indicadores (tabla 2)
+            "seleccion_indicadores": st.session_state.get('seleccion_indicadores', {}),
+
+            # NUEVO: meta y resultados parciales
+            "duracion_proyecto_periodos": st.session_state.get('duracion_proyecto_periodos', 4),
+            "meta_resultados_parciales": st.session_state.get('meta_resultados_parciales', {}),
         }
 
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
