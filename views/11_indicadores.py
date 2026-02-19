@@ -50,19 +50,6 @@ st.markdown(
         margin: 6px 0 12px 0;
     }
 
-    .legend-box {
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(2, 132, 199, 0.08);
-        border: 1px solid rgba(2, 132, 199, 0.15);
-        color: #0c4a6e;
-        font-weight: 700;
-        font-size: 13px;
-        margin: 6px 0 10px 0;
-    }
-    .legend-box ul { margin: 8px 0 0 18px; }
-    .legend-box li { margin: 4px 0; font-weight: 600; }
-
     .info-box-3 {
         padding: 10px 12px;
         border-radius: 12px;
@@ -258,8 +245,7 @@ def _build_df_from_ref():
 
     df = pd.DataFrame(rows)
     df = _ensure_columns(df, cols_defaults)
-    df = df[target_cols].copy()
-    return df
+    return df[target_cols].copy()
 
 def _sync_df_keep_user_edits(df_old):
     df_new = _build_df_from_ref()
@@ -268,19 +254,15 @@ def _sync_df_keep_user_edits(df_old):
 
     df_old = _ensure_columns(df_old, cols_defaults)
 
-    # Backward compat: si venimos de una versión sin _key, lo reconstruimos
     if "_key" not in df_old.columns:
         df_old["_key"] = df_old.apply(
             lambda r: _resolve_key(_norm_text(r.get("Nivel", "")), _norm_text(r.get("Objetivo", ""))),
             axis=1
         )
 
-    # Evitar duplicados por _key
     df_old = df_old.drop_duplicates(subset=["_key"], keep="first").copy()
-
     df_merge = df_new.copy()
 
-    # Preservar ediciones
     edit_cols = ["1. Objeto", "2. Condición Deseada", "3. Lugar"]
     old_ix = df_old.set_index("_key", drop=False)
 
@@ -293,8 +275,7 @@ def _sync_df_keep_user_edits(df_old):
 
     df_merge["Indicador Generado"] = ""
     df_merge = _ensure_columns(df_merge, cols_defaults)
-    df_merge = df_merge[target_cols].copy()
-    return df_merge
+    return df_merge[target_cols].copy()
 
 df_old_ui = st.session_state.get("df_indicadores", pd.DataFrame())
 df_ui = _sync_df_keep_user_edits(df_old_ui)
@@ -330,8 +311,18 @@ value_getter_indicador = JsCode(
     }
     """
 )
+gb.configure_column(
+    "Indicador Generado",
+    headerName="Indicador Generado",
+    editable=False,
+    valueGetter=value_getter_indicador,
+    wrapText=True,
+    autoHeight=True,
+    width=420
+)
 
-gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, valueGetter=value_getter_indicador, wrapText=True, autoHeight=True, width=420)
+# Clave: que el grid crezca (sin scroll vertical interno)
+gb.configure_grid_options(domLayout="autoHeight")
 
 gridOptions = gb.build()
 
@@ -341,13 +332,13 @@ grid_response = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
     allow_unsafe_jscode=True,
+    fit_columns_on_grid_load=True,   # reduce scroll horizontal
     key="grid_indicadores"
 )
 
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 
-# Resiliencia: si AgGrid no devuelve _key por estar oculta
 if "_key" not in df_live.columns or df_live["_key"].astype(str).eq("").all():
     try:
         base_keys = df_work.get("_key", pd.Series(dtype=str)).astype(str).values
@@ -378,7 +369,6 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
 
         key_estable = _norm_text(r.get("_key", "")) or _resolve_key(nivel, objetivo_txt)
 
-        # Si el usuario borró todo, persistimos el borrado eliminando el registro
         if not obj and not cond and not lugar:
             st.session_state["datos_indicadores"].pop(key_estable, None)
             st.session_state.get("seleccion_indicadores", {}).pop(key_estable, None)
@@ -386,7 +376,6 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
             continue
 
         indicador = _generar_indicador(obj, cond, lugar)
-
         st.session_state["datos_indicadores"][key_estable] = {
             "Objetivo": objetivo_txt,
             "Nivel": nivel,
@@ -459,8 +448,7 @@ def _build_df_seleccion():
 
     df = pd.DataFrame(rows)
     df = _ensure_columns(df, sel_cols_defaults)
-    df = df[sel_cols].copy()
-    return df
+    return df[sel_cols].copy()
 
 df_base_sel = _build_df_seleccion()
 
@@ -489,7 +477,7 @@ row_style_js = JsCode(
 )
 
 gb2.configure_column("Selección", headerName="Selección", editable=False, width=120)
-gb2.configure_grid_options(getRowStyle=row_style_js)
+gb2.configure_grid_options(getRowStyle=row_style_js, domLayout="autoHeight")
 
 gridOptions2 = gb2.build()
 
@@ -499,6 +487,7 @@ grid_response_2 = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
     allow_unsafe_jscode=True,
+    fit_columns_on_grid_load=True,   # reduce scroll horizontal
     key="grid_seleccion_indicadores"
 )
 
@@ -648,7 +637,7 @@ else:
     for pc in period_cols:
         gb3.configure_column(pc, headerName=pc, editable=True, width=120)
 
-    gb3.configure_grid_options(getRowStyle=row_style_meta_js)
+    gb3.configure_grid_options(getRowStyle=row_style_meta_js, domLayout="autoHeight")
     gridOptions3 = gb3.build()
 
     grid_response_3 = AgGrid(
@@ -657,6 +646,7 @@ else:
         update_mode=GridUpdateMode.VALUE_CHANGED,
         theme="streamlit",
         allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,  # reduce scroll horizontal
         key="grid_meta_resultados_parciales"
     )
 
