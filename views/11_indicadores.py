@@ -452,7 +452,6 @@ sel_cols = list(sel_cols_defaults.keys())
 def _get_sel_bool(sel_dict, short_key, long_key):
     if not isinstance(sel_dict, dict):
         return False
-    # backward compat: si venía guardado con textos largos
     if short_key in sel_dict:
         return bool(sel_dict.get(short_key, False))
     if long_key in sel_dict:
@@ -500,12 +499,19 @@ gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True,
 gb2.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=420)
 
-# Encabezados cortos P1..P5
-gb2.configure_column(P1, headerName=P1, editable=True, width=90)
-gb2.configure_column(P2, headerName=P2, editable=True, width=90)
-gb2.configure_column(P3, headerName=P3, editable=True, width=90)
-gb2.configure_column(P4, headerName=P4, editable=True, width=90)
-gb2.configure_column(P5, headerName=P5, editable=True, width=90)
+# Checkbox REAL (para que el click cambie el valor que vuelve a Python)
+for p in P_COLS:
+    gb2.configure_column(
+        p,
+        headerName=p,
+        editable=True,
+        width=80,
+        type=["booleanColumn"],
+        cellRenderer="agCheckboxCellRenderer",
+        cellEditor="agCheckboxCellEditor",
+        suppressMenu=True,
+        filter=False
+    )
 
 row_style_js = JsCode(
     """
@@ -526,7 +532,7 @@ gridOptions2 = gb2.build()
 grid_response_2 = AgGrid(
     df_base_sel,
     gridOptions=gridOptions2,
-    update_mode=GridUpdateMode.VALUE_CHANGED,
+    update_mode=GridUpdateMode.MODEL_CHANGED,  # CLAVE: captura cambios por click en checkbox
     theme="streamlit",
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
@@ -536,11 +542,10 @@ grid_response_2 = AgGrid(
 df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
 df_sel_live = _ensure_columns(df_sel_live, sel_cols_defaults)
 
-# Resiliencia: si AgGrid no devuelve _key por estar oculta
 if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
     df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
 
-# Recalcular Selección en backend (CLAVE para color + meta)
+# Recalcular Selección en backend (para color + meta)
 df_sel_live["Selección"] = df_sel_live.apply(lambda r: _compute_seleccion_row(r, P_COLS), axis=1)
 df_sel_live = df_sel_live[sel_cols].copy()
 
@@ -551,7 +556,6 @@ hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
 if hash_actual_2 and (hash_actual_2 != hash_prev_2):
     st.session_state["hash_seleccion_indicadores"] = hash_actual_2
 
-    # Persistir selección (con claves cortas)
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
@@ -566,12 +570,10 @@ if hash_actual_2 and (hash_actual_2 != hash_prev_2):
         }
 
     guardar_datos_nube()
-
-    # Importante: forzar re-render para que “Selección” cambie a Sí y el color se actualice al instante
     st.rerun()
 
 # -----------------------------
-# META Y RESULTADOS PARCIALES (usa la selección recalculada)
+# META Y RESULTADOS PARCIALES (usa la selección del state)
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
 st.markdown(
@@ -591,7 +593,6 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
     st.session_state["duracion_proyecto_periodos"] = dur
     guardar_datos_nube()
 
-# Determinar keys en Sí (fuente: df_base_sel reconstruida desde state)
 df_sel_for_meta = _build_df_seleccion_from_state()
 keys_si = df_sel_for_meta.loc[df_sel_for_meta["Selección"] == "Sí", "_key"].astype(str).tolist()
 
