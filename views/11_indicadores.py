@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import uuid
 import os
+import json
+import hashlib
 
 from session_state import inicializar_session, guardar_datos_nube
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
@@ -35,7 +37,7 @@ st.markdown(
         margin: 6px 0 14px 0;
     }
 
-    .compact-divider { margin: 14px 0px !important; border-top: 1px solid #eee; }
+    .compact-divider { margin: 12px 0px !important; border-top: 1px solid #eee; }
     </style>
     """,
     unsafe_allow_html=True
@@ -76,7 +78,7 @@ def _generar_indicador(obj, cond, lugar):
     obj = _norm_text(obj)
     cond = _norm_text(cond)
     lugar = _norm_text(lugar)
-    if not obj or not cond:
+    if not obj and not cond and not lugar:
         return ""
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
@@ -107,24 +109,25 @@ def _ensure_columns(df, cols_defaults):
     return df
 
 def _reorder_tolerant(df, target_cols, defaults):
-    """
-    Reordena tolerante:
-    - crea columnas faltantes con defaults
-    - ignora columnas extras no esperadas
-    """
     df = _ensure_columns(df, defaults)
-    cols_present = [c for c in target_cols if c in df.columns]
-    # si por cualquier motivo falta alguna del target, ya fue creada por _ensure_columns
-    df = df[cols_present].copy()
-    # asegurar orden exacto (ya tiene todas)
     df = df[target_cols].copy()
     return df
 
-def _normalize_df_for_compare(df):
-    df2 = df.copy()
-    for c in df2.columns:
-        df2[c] = df2[c].astype(str)
-    return df2
+def _stable_hash_df(df):
+    """
+    Hash estable para detectar cambios reales.
+    - Ordena columnas
+    - Convierte a JSON estable
+    """
+    try:
+        df2 = df.copy()
+        df2 = df2.fillna("")
+        df2 = df2.astype(str)
+        payload = df2.to_dict(orient="records")
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
+    except Exception:
+        return ""
 
 # -----------------------------
 # Header
@@ -132,7 +135,7 @@ def _normalize_df_for_compare(df):
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📊 11. Indicadores</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">El indicador se autogenera al editar. Presiona “Guardar en Nube” para persistir.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Indicador autogenerado (Objeto + Condición + Lugar). Guardado automático en nube.</div>', unsafe_allow_html=True)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -141,7 +144,7 @@ with col_img:
 
 st.markdown(
     '<div class="info-box">Diligencia: <b>1. Objeto</b>, <b>2. Condición Deseada</b> y <b>3. Lugar</b>. '
-    'El sistema autogenera el indicador. Las filas completas se resaltan en azul tenue.</div>',
+    'El indicador se genera automáticamente y los cambios se guardan en la nube sin botón.</div>',
     unsafe_allow_html=True
 )
 
@@ -180,13 +183,16 @@ if 'datos_indicadores' not in st.session_state or not isinstance(st.session_stat
 if 'df_indicadores' not in st.session_state or not isinstance(st.session_state.get('df_indicadores'), pd.DataFrame):
     st.session_state['df_indicadores'] = pd.DataFrame()
 
+if 'hash_indicadores' not in st.session_state:
+    st.session_state['hash_indicadores'] = ""
+
 base_lookup = {(r["Nivel"], r["Objetivo"]): r.get("id_unico", "") for r in lista_base}
 
 # -----------------------------
 # DF base / sincronización
 # -----------------------------
 cols_defaults = {
-    "_estado": "Pendiente",
+    "_estado": "Pendiente",  # interno (no visible)
     "Nivel": "",
     "Objetivo": "",
     "1. Objeto": "",
@@ -246,7 +252,6 @@ def _sync_df_keep_user_edits(df_old):
         on=keycols,
         how="left"
     )
-
     df_merge = _ensure_columns(df_merge, cols_defaults)
 
     # conservar inputs si existen; si no, tomar del nuevo
@@ -281,12 +286,17 @@ df_work = _ensure_columns(df_work, cols_defaults)
 df_work = df_work[target_cols].copy()
 
 # -----------------------------
-# AgGrid config (sin columna Estado visible)
+# AgGrid config
+# - Objetivo: no editable pero copiables (selección de texto habilitada)
+# - Indicador: autogenerado
+# - Guardado: automático (sin botón)
 # -----------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
+# Columna interna
 gb.configure_column("_estado", headerName="", editable=False, hide=True)
 
+# Copiable: en AgGrid lo importante es permitir selección + copy
 gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=180)
 gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
 
@@ -294,8 +304,18 @@ gb.configure_column("1. Objeto", headerName="1. Objeto", editable=True, wrapText
 gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=280)
 gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=170)
 
-gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, wrapText=True, autoHeight=True, width=440)
+gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, wrapText=True, autoHeight=True, width=460)
 
+# Selección / copia en grid
+gb.configure_grid_options(
+    enableCellTextSelection=True,
+    ensureDomOrder=True,
+    suppressCopyRowsToClipboard=False,
+    rowSelection='single',
+    domLayout='autoHeight'
+)
+
+# Fondo azul tenue cuando está completo
 jscode_row_style = JsCode("""
 function(params) {
     if (params.data && params.data._estado === "Completo") {
@@ -305,7 +325,8 @@ function(params) {
 };
 """)
 
-gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
+gb.configure_grid_options(getRowStyle=jscode_row_style)
+
 gridOptions = gb.build()
 
 custom_css = {
@@ -320,7 +341,7 @@ grid_response = AgGrid(
     df_work,
     gridOptions=gridOptions,
     custom_css=custom_css,
-    update_mode=GridUpdateMode.VALUE_CHANGED,
+    update_mode=GridUpdateMode.VALUE_CHANGED,  # dispara al cambiar celda
     theme='streamlit',
     allow_unsafe_jscode=True,
     key="grid_indicadores"
@@ -332,7 +353,7 @@ grid_response = AgGrid(
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 
-# recalcular sistema
+# recalcular indicador + estado siempre
 df_live["Indicador Generado"] = df_live.apply(
     lambda r: _generar_indicador(r.get("1. Objeto", ""), r.get("2. Condición Deseada", ""), r.get("3. Lugar", "")),
     axis=1
@@ -342,55 +363,25 @@ df_live["_estado"] = df_live.apply(
     axis=1
 )
 
-# reorden tolerante (evita KeyError)
 df_live = _reorder_tolerant(df_live, target_cols, cols_defaults)
 
 # -----------------------------
-# Sincronizar session_state y rerun solo si cambió
+# Auto-guardar: solo si hubo cambios reales
+# - 1) actualiza df_indicadores
+# - 2) actualiza datos_indicadores (estructura persistente)
+# - 3) guarda en nube
 # -----------------------------
-df_prev = st.session_state.get("df_indicadores", pd.DataFrame()).copy()
-df_prev = _ensure_columns(df_prev, cols_defaults)
-df_prev = _reorder_tolerant(df_prev, target_cols, cols_defaults)
+hash_actual = _stable_hash_df(df_live)
+hash_prev = st.session_state.get("hash_indicadores", "")
 
-a = _normalize_df_for_compare(df_prev)
-b = _normalize_df_for_compare(df_live)
-
-if not a.equals(b):
+if hash_actual and (hash_actual != hash_prev):
+    # actualizar df en sesión
     st.session_state["df_indicadores"] = df_live
-    st.rerun()
+    st.session_state["hash_indicadores"] = hash_actual
 
-st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
-
-# -----------------------------
-# Guardado a nube
-# -----------------------------
-col_btn, col_stats = st.columns([1, 2], vertical_alignment="center")
-with col_btn:
-    btn_guardar = st.button("💾 Guardar en Nube", type="primary")
-
-with col_stats:
-    try:
-        df_stats = st.session_state.get("df_indicadores", pd.DataFrame())
-        df_stats = _ensure_columns(df_stats, cols_defaults)
-        total = len(df_stats)
-        completos = int((df_stats["_estado"] == "Completo").sum()) if (not df_stats.empty) else 0
-        st.markdown(f"**Completos:** {completos} / {total}")
-    except Exception:
-        pass
-
-if btn_guardar:
-    df_save = st.session_state.get("df_indicadores", pd.DataFrame()).copy()
-    df_save = _ensure_columns(df_save, cols_defaults)
-    df_save = _reorder_tolerant(df_save, target_cols, cols_defaults)
-
-    if df_save.empty:
-        st.warning("No hay datos para guardar.")
-        st.stop()
-
-    errores = []
+    # actualizar estructura de persistencia por key estable
     guardados_ok = 0
-
-    for _, r in df_save.iterrows():
+    for _, r in df_live.iterrows():
         nivel = _norm_text(r.get("Nivel", ""))
         objetivo_txt = _norm_text(r.get("Objetivo", ""))
 
@@ -398,9 +389,8 @@ if btn_guardar:
         cond = _norm_text(r.get("2. Condición Deseada", ""))
         lugar = _norm_text(r.get("3. Lugar", ""))
 
-        if not obj or not cond:
-            if objetivo_txt:
-                errores.append(f"- Falta Objeto/Condición en: {objetivo_txt[:90]}")
+        # Persistimos solo si hay algo diligenciado (evita basura)
+        if not obj and not cond and not lugar:
             continue
 
         id_unico = _norm_text(base_lookup.get((nivel, objetivo_txt), ""))
@@ -418,11 +408,5 @@ if btn_guardar:
         }
         guardados_ok += 1
 
+    # Guardar en nube (auto)
     guardar_datos_nube()
-
-    if errores:
-        st.warning("Se guardó lo válido, pero hay filas incompletas:\n" + "\n".join(errores))
-    if guardados_ok > 0:
-        st.success("✅ Indicadores guardados y sincronizados en la nube.")
-    else:
-        st.info("No se guardó nada (faltan Objeto y/o Condición en las filas editadas).")
