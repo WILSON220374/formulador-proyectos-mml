@@ -108,15 +108,15 @@ def _generar_indicador(obj, cond, lugar):
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
 def _resolve_key(nivel, objetivo_txt):
-    if 'indicadores_mapa_objetivo' not in st.session_state or not isinstance(st.session_state.get('indicadores_mapa_objetivo'), dict):
-        st.session_state['indicadores_mapa_objetivo'] = {}
+    if "indicadores_mapa_objetivo" not in st.session_state or not isinstance(st.session_state.get("indicadores_mapa_objetivo"), dict):
+        st.session_state["indicadores_mapa_objetivo"] = {}
 
     kmap = _mk_map_key(nivel, objetivo_txt)
-    if kmap in st.session_state['indicadores_mapa_objetivo']:
-        return st.session_state['indicadores_mapa_objetivo'][kmap]
+    if kmap in st.session_state["indicadores_mapa_objetivo"]:
+        return st.session_state["indicadores_mapa_objetivo"][kmap]
 
     new_key = str(uuid.uuid4())
-    st.session_state['indicadores_mapa_objetivo'][kmap] = new_key
+    st.session_state["indicadores_mapa_objetivo"][kmap] = new_key
     return new_key
 
 def _ensure_columns(df, cols_defaults):
@@ -140,9 +140,6 @@ def _stable_hash_df(df, cols_for_hash):
         return hashlib.md5(raw.encode("utf-8")).hexdigest()
     except Exception:
         return ""
-
-def _compute_seleccion_row(row, pcols):
-    return "Sí" if all(bool(row.get(c, False)) for c in pcols) else "No"
 
 # -----------------------------
 # Encabezado
@@ -198,9 +195,6 @@ if "hash_indicadores" not in st.session_state:
 
 if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_state.get("seleccion_indicadores"), dict):
     st.session_state["seleccion_indicadores"] = {}
-
-if "hash_seleccion_indicadores" not in st.session_state:
-    st.session_state["hash_seleccion_indicadores"] = ""
 
 if "duracion_proyecto_periodos" not in st.session_state:
     st.session_state["duracion_proyecto_periodos"] = 4
@@ -399,12 +393,14 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
     guardar_datos_nube()
 
 # -----------------------------
-# Tabla 2: Selección de indicadores (P1..P5 + Convenciones)
+# Tabla 2: Selección de indicadores (HÍBRIDO)
+# - UI reactiva en frontend (Sí/No + color instantáneo)
+# - Persistencia en backend solo al presionar "Aplicar selección"
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion">Selección de indicadores</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="info-box-2">Marca las validaciones. La columna <b>Selección</b> será <b>Sí</b> solo si todas están chuleadas. '
-    'Fila verde tenue si es <b>Sí</b>, rojo tenue si es <b>No</b>. Guardado automático en nube.</div>',
+    'Fila verde tenue si es <b>Sí</b>, rojo tenue si es <b>No</b>. Para guardar y habilitar la tabla de metas, presiona <b>Aplicar selección</b>.</div>',
     unsafe_allow_html=True
 )
 
@@ -472,6 +468,7 @@ def _build_df_seleccion_from_state():
         d = _get_sel_bool(sel, P4, Q4)
         e = _get_sel_bool(sel, P5, Q5)
 
+        # Esta columna se mostrará reactiva en frontend, pero aquí dejamos un valor base coherente
         seleccion_txt = "Sí" if (a and b and c and d and e) else "No"
 
         rows.append({
@@ -493,13 +490,45 @@ def _build_df_seleccion_from_state():
 
 df_base_sel = _build_df_seleccion_from_state()
 
+# JS: cálculo reactivo de "Selección" con base en P1..P5 (frontend)
+js_value_getter_sel = JsCode(
+    """
+    function(params) {
+        const a = !!params.data['P1'];
+        const b = !!params.data['P2'];
+        const c = !!params.data['P3'];
+        const d = !!params.data['P4'];
+        const e = !!params.data['P5'];
+        return (a && b && c && d && e) ? 'Sí' : 'No';
+    }
+    """
+)
+
+# JS: color reactivo (frontend) con base en P1..P5 (no depende de "Selección" persistida)
+js_row_style = JsCode(
+    """
+    function(params) {
+        const a = !!params.data['P1'];
+        const b = !!params.data['P2'];
+        const c = !!params.data['P3'];
+        const d = !!params.data['P4'];
+        const e = !!params.data['P5'];
+        const ok = (a && b && c && d && e);
+        if (ok) {
+            return {'backgroundColor': '#ecfdf5'};
+        }
+        return {'backgroundColor': '#fef2f2'};
+    }
+    """
+)
+
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
 gb2.configure_column("_key", headerName="_key", editable=False, hide=True)
 gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=240)
 gb2.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=420)
 
-# Checkbox REAL (para que el click cambie el valor que vuelve a Python)
+# Checkbox real en columnas P1..P5
 for p in P_COLS:
     gb2.configure_column(
         p,
@@ -513,49 +542,44 @@ for p in P_COLS:
         filter=False
     )
 
-row_style_js = JsCode(
-    """
-    function(params) {
-        if ((params.data['Selección'] || '') === 'Sí') {
-            return {'backgroundColor': '#ecfdf5'};
-        }
-        return {'backgroundColor': '#fef2f2'};
-    }
-    """
+# Columna Selección reactiva (frontend)
+gb2.configure_column(
+    "Selección",
+    headerName="Selección",
+    editable=False,
+    width=120,
+    valueGetter=js_value_getter_sel
 )
 
-gb2.configure_column("Selección", headerName="Selección", editable=False, width=120)
-gb2.configure_grid_options(getRowStyle=row_style_js, domLayout="autoHeight")
-
+gb2.configure_grid_options(getRowStyle=js_row_style, domLayout="autoHeight")
 gridOptions2 = gb2.build()
 
 grid_response_2 = AgGrid(
     df_base_sel,
     gridOptions=gridOptions2,
-    update_mode=GridUpdateMode.MODEL_CHANGED,  # CLAVE: captura cambios por click en checkbox
+    update_mode=GridUpdateMode.MODEL_CHANGED,  # mantiene el modelo actualizado para el "Aplicar"
     theme="streamlit",
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
     key="grid_seleccion_indicadores"
 )
 
-df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
-df_sel_live = _ensure_columns(df_sel_live, sel_cols_defaults)
+# Botón de commit (backend): guarda selección y habilita metas
+c_apply_1, c_apply_2 = st.columns([1, 5], vertical_alignment="center")
+with c_apply_1:
+    aplicar = st.button("Aplicar selección", use_container_width=True)
+with c_apply_2:
+    st.caption("Use este botón para guardar las selecciones y actualizar la tabla de METAS.")
 
-if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
-    df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
+if aplicar:
+    df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
+    df_sel_live = _ensure_columns(df_sel_live, sel_cols_defaults)
 
-# Recalcular Selección en backend (para color + meta)
-df_sel_live["Selección"] = df_sel_live.apply(lambda r: _compute_seleccion_row(r, P_COLS), axis=1)
-df_sel_live = df_sel_live[sel_cols].copy()
+    # Resiliencia: si _key no viene en data (por oculto)
+    if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
+        df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
 
-cols_hash_2 = ["_key", P1, P2, P3, P4, P5, "Selección"]
-hash_actual_2 = _stable_hash_df(df_sel_live, cols_hash_2)
-hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
-
-if hash_actual_2 and (hash_actual_2 != hash_prev_2):
-    st.session_state["hash_seleccion_indicadores"] = hash_actual_2
-
+    # Persistir selección por fila
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
@@ -569,11 +593,24 @@ if hash_actual_2 and (hash_actual_2 != hash_prev_2):
             P5: bool(r.get(P5, False)),
         }
 
+    # Limpiar metas de indicadores que dejaron de estar seleccionados (por consistencia)
+    try:
+        keys_si = []
+        for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
+            if all(bool(sel.get(p, False)) for p in P_COLS):
+                keys_si.append(k)
+        actuales = set(keys_si)
+        existentes_meta = set(st.session_state.get("meta_resultados_parciales", {}).keys())
+        for k in list(existentes_meta - actuales):
+            st.session_state["meta_resultados_parciales"].pop(k, None)
+    except Exception:
+        pass
+
     guardar_datos_nube()
     st.rerun()
 
 # -----------------------------
-# META Y RESULTADOS PARCIALES (usa la selección del state)
+# META Y RESULTADOS PARCIALES (usa el state guardado con "Aplicar selección")
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
 st.markdown(
@@ -593,6 +630,7 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
     st.session_state["duracion_proyecto_periodos"] = dur
     guardar_datos_nube()
 
+# Determinar keys en Sí desde state
 df_sel_for_meta = _build_df_seleccion_from_state()
 keys_si = df_sel_for_meta.loc[df_sel_for_meta["Selección"] == "Sí", "_key"].astype(str).tolist()
 
@@ -604,7 +642,7 @@ for _, r in df_sel_for_meta.iterrows():
     indicador_txt_por_key[k] = _norm_text(r.get("Indicador", ""))
 
 if not keys_si:
-    st.info("Aún no hay indicadores con Selección = Sí. Marca las 5 validaciones (P1..P5) para activar la tabla de metas.")
+    st.info("Aún no hay indicadores con Selección = Sí. Marca las 5 validaciones (P1..P5) y presiona “Aplicar selección”.")
 else:
     period_cols = [f"Periodo {i}" for i in range(1, dur + 1)]
 
@@ -718,10 +756,5 @@ else:
                 "Unidad de medida": _norm_text(r.get("Unidad de medida", "")),
                 "Periodos": {pc: _norm_text(r.get(pc, "")) for pc in period_cols}
             }
-
-        existentes = set(st.session_state["meta_resultados_parciales"].keys())
-        actuales = set(keys_si)
-        for k in list(existentes - actuales):
-            st.session_state["meta_resultados_parciales"].pop(k, None)
 
         guardar_datos_nube()
