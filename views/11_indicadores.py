@@ -50,6 +50,19 @@ st.markdown(
         margin: 6px 0 12px 0;
     }
 
+    .legend-box {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(2, 132, 199, 0.08);
+        border: 1px solid rgba(2, 132, 199, 0.15);
+        color: #0c4a6e;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 10px 0;
+    }
+    .legend-box ul { margin: 8px 0 0 18px; }
+    .legend-box li { margin: 4px 0; font-weight: 600; }
+
     .info-box-3 {
         padding: 10px 12px;
         border-radius: 12px;
@@ -128,6 +141,9 @@ def _stable_hash_df(df, cols_for_hash):
     except Exception:
         return ""
 
+def _compute_seleccion_row(row, pcols):
+    return "Sí" if all(bool(row.get(c, False)) for c in pcols) else "No"
+
 # -----------------------------
 # Encabezado
 # -----------------------------
@@ -186,7 +202,6 @@ if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_
 if "hash_seleccion_indicadores" not in st.session_state:
     st.session_state["hash_seleccion_indicadores"] = ""
 
-# Meta y resultados parciales
 if "duracion_proyecto_periodos" not in st.session_state:
     st.session_state["duracion_proyecto_periodos"] = 4
 
@@ -210,7 +225,7 @@ def _build_rows_from_ref():
     return rows
 
 # -----------------------------
-# Tabla 1: Indicadores (AgGrid)
+# Tabla 1: Indicadores
 # -----------------------------
 cols_defaults = {
     "_key": "",
@@ -291,11 +306,9 @@ df_work = _ensure_columns(df_work, cols_defaults)
 df_work = df_work[target_cols].copy()
 
 gb = GridOptionsBuilder.from_dataframe(df_work)
-
 gb.configure_column("_key", headerName="_key", editable=False, hide=True)
 gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=560)
-
 gb.configure_column("1. Objeto", headerName="1. Objeto", editable=True, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=300)
 gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=200)
@@ -321,9 +334,7 @@ gb.configure_column(
     width=420
 )
 
-# Clave: que el grid crezca (sin scroll vertical interno)
 gb.configure_grid_options(domLayout="autoHeight")
-
 gridOptions = gb.build()
 
 grid_response = AgGrid(
@@ -332,7 +343,7 @@ grid_response = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
     allow_unsafe_jscode=True,
-    fit_columns_on_grid_load=True,   # reduce scroll horizontal
+    fit_columns_on_grid_load=True,
     key="grid_indicadores"
 )
 
@@ -388,7 +399,7 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
     guardar_datos_nube()
 
 # -----------------------------
-# Tabla 2: Selección de indicadores
+# Tabla 2: Selección de indicadores (P1..P5 + Convenciones)
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion">Selección de indicadores</div>', unsafe_allow_html=True)
 st.markdown(
@@ -397,11 +408,32 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-P1 = "El Sentido del indicador es claro"
-P2 = "Existe información disponible o se puede recolectar fácilmente"
-P3 = "El indicador es tangible y se puede observar"
-P4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
-P5 = "El indicador es lo bastante representativo para el conjunto de resultados e impactos"
+# Columnas cortas
+P1, P2, P3, P4, P5 = "P1", "P2", "P3", "P4", "P5"
+P_COLS = [P1, P2, P3, P4, P5]
+
+# Textos largos (para convención)
+Q1 = "El Sentido del indicador es claro"
+Q2 = "Existe información disponible o se puede recolectar fácilmente"
+Q3 = "El indicador es tangible y se puede observar"
+Q4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
+Q5 = "El indicador es lo bastante representativo para el conjunto de resultados e impactos"
+
+st.markdown(
+    f"""
+    <div class="legend-box">
+      <div><b>Convenciones</b></div>
+      <ul>
+        <li><b>{P1}:</b> {Q1}</li>
+        <li><b>{P2}:</b> {Q2}</li>
+        <li><b>{P3}:</b> {Q3}</li>
+        <li><b>{P4}:</b> {Q4}</li>
+        <li><b>{P5}:</b> {Q5}</li>
+      </ul>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 sel_cols_defaults = {
     "_key": "",
@@ -417,7 +449,17 @@ sel_cols_defaults = {
 }
 sel_cols = list(sel_cols_defaults.keys())
 
-def _build_df_seleccion():
+def _get_sel_bool(sel_dict, short_key, long_key):
+    if not isinstance(sel_dict, dict):
+        return False
+    # backward compat: si venía guardado con textos largos
+    if short_key in sel_dict:
+        return bool(sel_dict.get(short_key, False))
+    if long_key in sel_dict:
+        return bool(sel_dict.get(long_key, False))
+    return False
+
+def _build_df_seleccion_from_state():
     rows = []
     for nivel, objetivo_txt in _build_rows_from_ref():
         k = _resolve_key(nivel, objetivo_txt)
@@ -425,11 +467,11 @@ def _build_df_seleccion():
         ind = _norm_text(guardado.get("Indicador", ""))
 
         sel = st.session_state.get("seleccion_indicadores", {}).get(k, {})
-        a = bool(sel.get(P1, False))
-        b = bool(sel.get(P2, False))
-        c = bool(sel.get(P3, False))
-        d = bool(sel.get(P4, False))
-        e = bool(sel.get(P5, False))
+        a = _get_sel_bool(sel, P1, Q1)
+        b = _get_sel_bool(sel, P2, Q2)
+        c = _get_sel_bool(sel, P3, Q3)
+        d = _get_sel_bool(sel, P4, Q4)
+        e = _get_sel_bool(sel, P5, Q5)
 
         seleccion_txt = "Sí" if (a and b and c and d and e) else "No"
 
@@ -450,25 +492,25 @@ def _build_df_seleccion():
     df = _ensure_columns(df, sel_cols_defaults)
     return df[sel_cols].copy()
 
-df_base_sel = _build_df_seleccion()
+df_base_sel = _build_df_seleccion_from_state()
 
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
-
 gb2.configure_column("_key", headerName="_key", editable=False, hide=True)
 gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=240)
 gb2.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=420)
 
-gb2.configure_column(P1, headerName=P1, editable=True, width=220)
-gb2.configure_column(P2, headerName=P2, editable=True, width=260)
-gb2.configure_column(P3, headerName=P3, editable=True, width=220)
-gb2.configure_column(P4, headerName=P4, editable=True, width=360)
-gb2.configure_column(P5, headerName=P5, editable=True, width=320)
+# Encabezados cortos P1..P5
+gb2.configure_column(P1, headerName=P1, editable=True, width=90)
+gb2.configure_column(P2, headerName=P2, editable=True, width=90)
+gb2.configure_column(P3, headerName=P3, editable=True, width=90)
+gb2.configure_column(P4, headerName=P4, editable=True, width=90)
+gb2.configure_column(P5, headerName=P5, editable=True, width=90)
 
 row_style_js = JsCode(
     """
     function(params) {
-        if (params.data['Selección'] === 'Sí') {
+        if ((params.data['Selección'] || '') === 'Sí') {
             return {'backgroundColor': '#ecfdf5'};
         }
         return {'backgroundColor': '#fef2f2'};
@@ -487,25 +529,29 @@ grid_response_2 = AgGrid(
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
     allow_unsafe_jscode=True,
-    fit_columns_on_grid_load=True,   # reduce scroll horizontal
+    fit_columns_on_grid_load=True,
     key="grid_seleccion_indicadores"
 )
 
 df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
 df_sel_live = _ensure_columns(df_sel_live, sel_cols_defaults)
 
+# Resiliencia: si AgGrid no devuelve _key por estar oculta
 if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
     df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
 
+# Recalcular Selección en backend (CLAVE para color + meta)
+df_sel_live["Selección"] = df_sel_live.apply(lambda r: _compute_seleccion_row(r, P_COLS), axis=1)
 df_sel_live = df_sel_live[sel_cols].copy()
 
-cols_hash_2 = ["_key", P1, P2, P3, P4, P5]
+cols_hash_2 = ["_key", P1, P2, P3, P4, P5, "Selección"]
 hash_actual_2 = _stable_hash_df(df_sel_live, cols_hash_2)
 hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
 
 if hash_actual_2 and (hash_actual_2 != hash_prev_2):
     st.session_state["hash_seleccion_indicadores"] = hash_actual_2
 
+    # Persistir selección (con claves cortas)
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
@@ -521,8 +567,11 @@ if hash_actual_2 and (hash_actual_2 != hash_prev_2):
 
     guardar_datos_nube()
 
+    # Importante: forzar re-render para que “Selección” cambie a Sí y el color se actualice al instante
+    st.rerun()
+
 # -----------------------------
-# META Y RESULTADOS PARCIALES
+# META Y RESULTADOS PARCIALES (usa la selección recalculada)
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
 st.markdown(
@@ -542,27 +591,19 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
     st.session_state["duracion_proyecto_periodos"] = dur
     guardar_datos_nube()
 
-def _is_seleccion_si(row_dict):
-    a = bool(row_dict.get(P1, False))
-    b = bool(row_dict.get(P2, False))
-    c = bool(row_dict.get(P3, False))
-    d = bool(row_dict.get(P4, False))
-    e = bool(row_dict.get(P5, False))
-    return a and b and c and d and e
+# Determinar keys en Sí (fuente: df_base_sel reconstruida desde state)
+df_sel_for_meta = _build_df_seleccion_from_state()
+keys_si = df_sel_for_meta.loc[df_sel_for_meta["Selección"] == "Sí", "_key"].astype(str).tolist()
 
-keys_si = []
 indicador_txt_por_key = {}
-
-for _, r in df_sel_live.iterrows():
+for _, r in df_sel_for_meta.iterrows():
     k = _norm_text(r.get("_key", ""))
     if not k:
         continue
-    if _is_seleccion_si(r.to_dict()):
-        keys_si.append(k)
-        indicador_txt_por_key[k] = _norm_text(r.get("Indicador", ""))
+    indicador_txt_por_key[k] = _norm_text(r.get("Indicador", ""))
 
 if not keys_si:
-    st.info("Aún no hay indicadores con Selección = Sí. Marca todas las validaciones para activar la tabla de metas.")
+    st.info("Aún no hay indicadores con Selección = Sí. Marca las 5 validaciones (P1..P5) para activar la tabla de metas.")
 else:
     period_cols = [f"Periodo {i}" for i in range(1, dur + 1)]
 
@@ -646,7 +687,7 @@ else:
         update_mode=GridUpdateMode.VALUE_CHANGED,
         theme="streamlit",
         allow_unsafe_jscode=True,
-        fit_columns_on_grid_load=True,  # reduce scroll horizontal
+        fit_columns_on_grid_load=True,
         key="grid_meta_resultados_parciales"
     )
 
