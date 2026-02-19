@@ -48,6 +48,19 @@ st.markdown(
         font-size: 13px;
         margin: 6px 0 12px 0;
     }
+
+    .legend-box {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(2, 132, 199, 0.08);
+        border: 1px solid rgba(2, 132, 199, 0.15);
+        color: #0c4a6e;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 10px 0;
+    }
+    .legend-box ul { margin: 8px 0 0 18px; }
+    .legend-box li { margin: 4px 0; font-weight: 600; }
     </style>
     """,
     unsafe_allow_html=True
@@ -386,6 +399,23 @@ P3 = "El indicador es tangible y se puede observar"
 P4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
 P5 = "El indicador es lo bastante representativo para el conjunto de resultados esperados."
 
+# Leyenda (opción 3)
+st.markdown(
+    f"""
+    <div class="legend-box">
+      <div><b>Leyenda:</b> (puedes pasar el mouse sobre P1–P5 para ver la pregunta completa)</div>
+      <ul>
+        <li><b>P1</b>: {P1}</li>
+        <li><b>P2</b>: {P2}</li>
+        <li><b>P3</b>: {P3}</li>
+        <li><b>P4</b>: {P4}</li>
+        <li><b>P5</b>: {P5}</li>
+      </ul>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 def _build_df_seleccion_from_indicadores(df_ind):
     rows = []
     for _, r in df_ind.iterrows():
@@ -430,31 +460,33 @@ sel_cols = list(cols_sel_defaults.keys())
 df_base_sel = _ensure_columns(df_base_sel, cols_sel_defaults)
 df_base_sel = df_base_sel[sel_cols].copy()
 
-# AgGrid selección
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
 
-# Ocultar key interna (si el grid no la retorna, reconstruimos por orden / contenido)
 gb2.configure_column("_key", headerName="", editable=False, hide=True)
 
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
 
-# Checkboxes
-gb2.configure_column(P1, headerName="P1", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P2, headerName="P2", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P3, headerName="P3", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P4, headerName="P4", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P5, headerName="P5", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+# Checkboxes con encabezados cortos (opción 2) + tooltip con pregunta completa
+gb2.configure_column(P1, headerName="P1", headerTooltip=P1, editable=True, width=90,
+                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P2, headerName="P2", headerTooltip=P2, editable=True, width=90,
+                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P3, headerName="P3", headerTooltip=P3, editable=True, width=90,
+                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P4, headerName="P4", headerTooltip=P4, editable=True, width=90,
+                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P5, headerName="P5", headerTooltip=P5, editable=True, width=90,
+                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
 
-# Selección calculada
-value_getter_sel = JsCode("""
-function(params) {
-  const a = !!(params.data && params.data["El Sentido del indicador es claro"]);
-  const b = !!(params.data && params.data["Existe información disponible o se puede recolectar fácilmente"]);
-  const c = !!(params.data && params.data["El indicador es tangible y se puede observar"]);
-  const d = !!(params.data && params.data["La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"]);
-  const e = !!(params.data && params.data["El indicador es lo bastante representativo para el conjunto de resultados esperados."]);
+value_getter_sel = JsCode(f"""
+function(params) {{
+  const a = !!(params.data && params.data[{json.dumps(P1)}]);
+  const b = !!(params.data && params.data[{json.dumps(P2)}]);
+  const c = !!(params.data && params.data[{json.dumps(P3)}]);
+  const d = !!(params.data && params.data[{json.dumps(P4)}]);
+  const e = !!(params.data && params.data[{json.dumps(P5)}]);
   return (a && b && c && d && e) ? "Sí" : "No";
-}
+}}
 """)
 
 gb2.configure_column("Selección", headerName="Selección", editable=False, width=110, valueGetter=value_getter_sel)
@@ -467,20 +499,19 @@ gb2.configure_grid_options(
     domLayout="autoHeight"
 )
 
-# Estilo fila: verde si Sí, rojo si No
-row_style_sel = JsCode("""
-function(params) {
-  const a = !!(params.data && params.data["El Sentido del indicador es claro"]);
-  const b = !!(params.data && params.data["Existe información disponible o se puede recolectar fácilmente"]);
-  const c = !!(params.data && params.data["El indicador es tangible y se puede observar"]);
-  const d = !!(params.data && params.data["La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"]);
-  const e = !!(params.data && params.data["El indicador es lo bastante representativo para el conjunto de resultados esperados."]);
+row_style_sel = JsCode(f"""
+function(params) {{
+  const a = !!(params.data && params.data[{json.dumps(P1)}]);
+  const b = !!(params.data && params.data[{json.dumps(P2)}]);
+  const c = !!(params.data && params.data[{json.dumps(P3)}]);
+  const d = !!(params.data && params.data[{json.dumps(P4)}]);
+  const e = !!(params.data && params.data[{json.dumps(P5)}]);
   const ok = (a && b && c && d && e);
-  if (ok) {
-    return { 'background-color': '#ECFDF5', 'color': '#000000' };   // verde tenue
-  }
-  return { 'background-color': '#FEF2F2', 'color': '#000000' };     // rojo tenue
-}
+  if (ok) {{
+    return {{ 'background-color': '#ECFDF5', 'color': '#000000' }};
+  }}
+  return {{ 'background-color': '#FEF2F2', 'color': '#000000' }};
+}}
 """)
 
 gb2.configure_grid_options(getRowStyle=row_style_sel)
@@ -508,9 +539,8 @@ grid_response_2 = AgGrid(
 df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
 df_sel_live = _ensure_columns(df_sel_live, cols_sel_defaults)
 
-# Asegurar que si AgGrid no devolvió _key, lo reconstruimos por orden (misma tabla base)
+# Asegurar _key (si AgGrid no lo devolvió)
 if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
-    # reconstrucción por orden: df_base_sel ya tiene _key correcto
     df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
 
 df_sel_live = df_sel_live[sel_cols].copy()
@@ -523,7 +553,6 @@ hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
 if hash_actual_2 and (hash_actual_2 != hash_prev_2):
     st.session_state["hash_seleccion_indicadores"] = hash_actual_2
 
-    # Persistimos por _key estable
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
