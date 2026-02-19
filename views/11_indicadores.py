@@ -59,16 +59,6 @@ def _as_list(valor):
         return valor
     return [valor]
 
-def _safe_obj_text(item):
-    if isinstance(item, dict):
-        return _norm_text(item.get("texto", ""))
-    return _norm_text(item)
-
-def _safe_obj_id(item):
-    if isinstance(item, dict):
-        return _norm_text(item.get("id_unico", ""))
-    return ""
-
 def _mk_map_key(nivel, objetivo):
     return f"{_norm_text(nivel)}||{_norm_text(objetivo)}"
 
@@ -80,10 +70,11 @@ def _generar_indicador(obj, cond, lugar):
         return ""
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
-def _resolve_key(nivel, objetivo_txt, id_unico):
-    if id_unico:
-        return id_unico
-
+def _resolve_key(nivel, objetivo_txt):
+    """
+    Key estable para guardar en session_state['datos_indicadores'].
+    (Opción 1 estricta: no depende del árbol por niveles, solo de la tabla superior 'referencia_manual')
+    """
     if 'indicadores_mapa_objetivo' not in st.session_state or not isinstance(st.session_state.get('indicadores_mapa_objetivo'), dict):
         st.session_state['indicadores_mapa_objetivo'] = {}
 
@@ -123,7 +114,7 @@ def _stable_hash_df(df, cols_for_hash):
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📊 11. Indicadores</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Indicador autogenerado (Objeto + Condición + Lugar) con AgGrid. Guardado automático en nube.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.</div>', unsafe_allow_html=True)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -137,44 +128,41 @@ st.markdown(
 )
 
 # -----------------------------
-# Base de objetivos: Hoja 7
+# Fuente estricta: Hoja 7 -> arbol_objetivos_final["referencia_manual"]
 # -----------------------------
-arbol = st.session_state.get('arbol_objetivos_final', {})
+arbol = st.session_state.get("arbol_objetivos_final", {})
 if not isinstance(arbol, dict):
     arbol = {}
 
-niveles = ["Objetivo General", "Fines Directos", "Fines Indirectos", "Medios Directos", "Medios Indirectos"]
-
-lista_base = []
-for nivel in niveles:
-    items = _as_list(arbol.get(nivel, []))
-    for item in items:
-        texto = _safe_obj_text(item)
-        if not texto:
-            continue
-        lista_base.append({
-            "Nivel": nivel,
-            "Objetivo": texto,
-            "id_unico": _safe_obj_id(item)
-        })
-
-if not lista_base:
-    st.warning("⚠️ No se encontraron objetivos. Completa primero la Hoja 7 (Árbol de Objetivos Final).")
+ref = arbol.get("referencia_manual", None)
+if not isinstance(ref, dict):
+    st.error("Falta la tabla superior de Hoja 7 (referencia_manual). En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
     st.stop()
+
+obj_general = _norm_text(ref.get("objetivo", ""))
+especificos = _as_list(ref.get("especificos", []))
+actividades = _as_list(ref.get("actividades", []))
+
+# Estricto: si no hay nada, se detiene
+if not obj_general and len(especificos) == 0 and len(actividades) == 0:
+    st.error("La tabla superior de Hoja 7 está vacía. En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
+    st.stop()
+
+# normalizar textos
+especificos = [ _norm_text(x) for x in especificos if _norm_text(x) ]
+actividades = [ _norm_text(x) for x in actividades if _norm_text(x) ]
 
 # -----------------------------
 # State hoja 11
 # -----------------------------
-if 'datos_indicadores' not in st.session_state or not isinstance(st.session_state.get('datos_indicadores'), dict):
-    st.session_state['datos_indicadores'] = {}
+if "datos_indicadores" not in st.session_state or not isinstance(st.session_state.get("datos_indicadores"), dict):
+    st.session_state["datos_indicadores"] = {}
 
-if 'df_indicadores' not in st.session_state or not isinstance(st.session_state.get('df_indicadores'), pd.DataFrame):
-    st.session_state['df_indicadores'] = pd.DataFrame()
+if "df_indicadores" not in st.session_state or not isinstance(st.session_state.get("df_indicadores"), pd.DataFrame):
+    st.session_state["df_indicadores"] = pd.DataFrame()
 
-if 'hash_indicadores' not in st.session_state:
-    st.session_state['hash_indicadores'] = ""
-
-base_lookup = {(r["Nivel"], r["Objetivo"]): r.get("id_unico", "") for r in lista_base}
+if "hash_indicadores" not in st.session_state:
+    st.session_state["hash_indicadores"] = ""
 
 # -----------------------------
 # DataFrame base (UI)
@@ -189,19 +177,25 @@ cols_defaults = {
 }
 target_cols = list(cols_defaults.keys())
 
-def _build_df_from_base():
+def _build_rows_from_ref():
     rows = []
-    for r in lista_base:
-        nivel = r["Nivel"]
-        objetivo_txt = r["Objetivo"]
-        id_unico = r.get("id_unico", "")
 
-        key_estable = _resolve_key(nivel, objetivo_txt, id_unico)
+    if obj_general:
+        rows.append(("Objetivo General", obj_general))
 
-        guardado = st.session_state['datos_indicadores'].get(key_estable, {})
-        # compat muy vieja
-        if (not guardado) and (objetivo_txt in st.session_state['datos_indicadores']):
-            guardado = st.session_state['datos_indicadores'].get(objetivo_txt, {})
+    for e in especificos:
+        rows.append(("Objetivo Específico (Componente)", e))
+
+    for a in actividades:
+        rows.append(("Actividad Clave", a))
+
+    return rows
+
+def _build_df_from_ref():
+    rows = []
+    for nivel, objetivo_txt in _build_rows_from_ref():
+        key_estable = _resolve_key(nivel, objetivo_txt)
+        guardado = st.session_state["datos_indicadores"].get(key_estable, {})
 
         obj = _norm_text(guardado.get("Objeto", ""))
         cond = _norm_text(guardado.get("Condicion", guardado.get("Condición", "")))
@@ -213,7 +207,7 @@ def _build_df_from_base():
             "1. Objeto": obj,
             "2. Condición Deseada": cond,
             "3. Lugar": lugar,
-            # Se muestra por JS; aquí puede quedar vacío sin problema
+            # el display se calcula en JS
             "Indicador Generado": "",
         })
 
@@ -223,7 +217,7 @@ def _build_df_from_base():
     return df
 
 def _sync_df_keep_user_edits(df_old):
-    df_new = _build_df_from_base()
+    df_new = _build_df_from_ref()
     if df_old is None or df_old.empty:
         return df_new
 
@@ -233,45 +227,44 @@ def _sync_df_keep_user_edits(df_old):
     df_merge = pd.merge(df_new[keycols], df_old, on=keycols, how="left")
     df_merge = _ensure_columns(df_merge, cols_defaults)
 
-    # Conservar edición del usuario (solo columnas editables)
+    # Conservar edición del usuario
     for col_edit in ["1. Objeto", "2. Condición Deseada", "3. Lugar"]:
         mask = df_merge[col_edit].isna() | (df_merge[col_edit].astype(str) == "nan")
         df_merge.loc[mask, col_edit] = df_new[col_edit].values
 
-    # Indicador lo calcula JS (display). Guardado lo calcula Python.
     df_merge["Indicador Generado"] = ""
     df_merge = df_merge[target_cols].copy()
     return df_merge
 
-df_old_ui = st.session_state.get('df_indicadores', pd.DataFrame())
+df_old_ui = st.session_state.get("df_indicadores", pd.DataFrame())
 df_ui = _sync_df_keep_user_edits(df_old_ui)
 
+# Reemplazar si cambió estructura (por cambios en Hoja 7)
 if df_old_ui is None or df_old_ui.empty:
-    st.session_state['df_indicadores'] = df_ui.copy()
+    st.session_state["df_indicadores"] = df_ui.copy()
 else:
     if list(df_old_ui.columns) != list(df_ui.columns) or len(df_old_ui) != len(df_ui):
-        st.session_state['df_indicadores'] = df_ui.copy()
+        st.session_state["df_indicadores"] = df_ui.copy()
 
-df_work = st.session_state['df_indicadores'].copy()
+df_work = st.session_state["df_indicadores"].copy()
 df_work = _ensure_columns(df_work, cols_defaults)
 df_work = df_work[target_cols].copy()
 
 # -----------------------------
 # AgGrid config
-# - Indicador Generado calculado en FRONT (JS) -> se actualiza al instante
-# - Filas completas en azul tenue (JS) -> basado en Objeto/Condición/Lugar
+# - Indicador calculado en FRONT (JS) -> se actualiza al instante
+# - Filas completas en azul tenue (JS)
 # - Objetivo no editable pero copiable (selección de texto habilitada)
 # -----------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
-gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=180)
-gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
+gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=220)
+gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=560)
 
 gb.configure_column("1. Objeto", headerName="1. Objeto", editable=True, wrapText=True, autoHeight=True, width=250)
-gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=280)
-gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=170)
+gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=300)
+gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=190)
 
-# Indicador calculado por JS (valueGetter). No depende de rerun.
 value_getter_indicador = JsCode("""
 function(params) {
   const a = (params.data && params.data["1. Objeto"]) ? String(params.data["1. Objeto"]).trim() : "";
@@ -288,20 +281,18 @@ gb.configure_column(
     editable=False,
     wrapText=True,
     autoHeight=True,
-    width=460,
+    width=520,
     valueGetter=value_getter_indicador
 )
 
-# Copiar/pegar (selección de texto)
 gb.configure_grid_options(
     enableCellTextSelection=True,
     ensureDomOrder=True,
     suppressCopyRowsToClipboard=False,
-    rowSelection='single',
-    domLayout='autoHeight'
+    rowSelection="single",
+    domLayout="autoHeight"
 )
 
-# Fila completa -> azul tenue (JS, sin columna estado)
 jscode_row_style = JsCode("""
 function(params) {
   const a = (params.data && params.data["1. Objeto"]) ? String(params.data["1. Objeto"]).trim() : "";
@@ -332,20 +323,20 @@ grid_response = AgGrid(
     gridOptions=gridOptions,
     custom_css=custom_css,
     update_mode=GridUpdateMode.VALUE_CHANGED,
-    theme='streamlit',
+    theme="streamlit",
     allow_unsafe_jscode=True,
     key="grid_indicadores"
 )
 
 # -----------------------------
 # Captura data devuelta por AgGrid
-# Nota: el valueGetter NO necesariamente viene en data; por eso persistimos calculando en Python.
+# (valueGetter no siempre viene en data => persistimos calculando en Python)
 # -----------------------------
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 df_live = df_live[target_cols].copy()
 
-# Hash SOLO por campos editables (para auto-guardado)
+# Hash SOLO por campos editables y llaves
 cols_hash = ["Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar"]
 hash_actual = _stable_hash_df(df_live, cols_hash)
 hash_prev = st.session_state.get("hash_indicadores", "")
@@ -363,16 +354,14 @@ if hash_actual and (hash_actual != hash_prev):
         cond = _norm_text(r.get("2. Condición Deseada", ""))
         lugar = _norm_text(r.get("3. Lugar", ""))
 
-        # Evita escribir basura si no hay nada diligenciado
+        # evita escribir basura si no hay nada diligenciado
         if not obj and not cond and not lugar:
             continue
 
-        id_unico = _norm_text(base_lookup.get((nivel, objetivo_txt), ""))
-        key_estable = _resolve_key(nivel, objetivo_txt, id_unico)
-
+        key_estable = _resolve_key(nivel, objetivo_txt)
         indicador = _generar_indicador(obj, cond, lugar)
 
-        st.session_state['datos_indicadores'][key_estable] = {
+        st.session_state["datos_indicadores"][key_estable] = {
             "Objetivo": objetivo_txt,
             "Nivel": nivel,
             "Objeto": obj,
