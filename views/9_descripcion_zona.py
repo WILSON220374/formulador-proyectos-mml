@@ -1,47 +1,62 @@
 import streamlit as st
 import os
 import uuid
-import base64
-from PIL import Image
-from session_state import inicializar_session, guardar_datos_nube
+from session_state import inicializar_session, guardar_datos_nube, conectar_db
 
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
 # --- CONFIGURACIÓN DE ALMACENAMIENTO E INICIALIZACIÓN ---
-if 'descripcion_zona' not in st.session_state:
+if 'descripcion_zona' not in st.session_state or not isinstance(st.session_state.get('descripcion_zona'), dict):
     st.session_state['descripcion_zona'] = {
         "problema_central": "",
-        "departamento": "", "provincia": "", "municipio": "", 
+        "departamento": "", "provincia": "", "municipio": "",
         "barrio_vereda": "", "latitud": "", "longitud": "",
         "limites_geograficos": "", "limites_administrativos": "", "otros_limites": "",
         "accesibilidad": "",
+        # Ahora guardamos URL pública + path (para poder borrar)
         "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
+        "path_mapa": None, "path_foto1": None, "path_foto2": None,
         "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
         "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
     }
 
 # --- SINCRONIZACIÓN AUTOMÁTICA SILENCIOSA CON HOJA 8 ---
 if not st.session_state['descripcion_zona'].get('problema_central'):
-    prob_fuente = st.session_state.get('arbol_problemas_final', {}).get('referencia_manual_prob', {}).get('problema_central', "")
+    prob_fuente = (
+        st.session_state.get('arbol_problemas_final', {})
+        .get('referencia_manual_prob', {})
+        .get('problema_central', "")
+    )
     if prob_fuente:
         st.session_state['descripcion_zona']['problema_central'] = prob_fuente
 
 # --- BLOQUE DE AUTO-REPARACIÓN DE CAMPOS ---
 datos = st.session_state['descripcion_zona']
 campos_requeridos = [
-    "problema_central", "departamento", "provincia", "municipio", 
-    "barrio_vereda", "latitud", "longitud", 
-    "limites_geograficos", "limites_administrativos", "otros_limites", 
-    "accesibilidad", "poblacion_referencia", "poblacion_afectada", "poblacion_objetivo"
+    "problema_central", "departamento", "provincia", "municipio",
+    "barrio_vereda", "latitud", "longitud",
+    "limites_geograficos", "limites_administrativos", "otros_limites",
+    "accesibilidad", "poblacion_referencia", "poblacion_afectada", "poblacion_objetivo",
+    "ruta_mapa", "ruta_foto1", "ruta_foto2",
+    "path_mapa", "path_foto1", "path_foto2",
+    "pie_mapa", "pie_foto1", "pie_foto2"
 ]
 for campo in campos_requeridos:
     if campo not in datos:
-        datos[campo] = 0 if "poblacion" in campo else ""
+        if "poblacion" in campo:
+            datos[campo] = 0
+        elif campo.startswith("ruta_") or campo.startswith("path_"):
+            datos[campo] = None
+        else:
+            datos[campo] = ""
 
 zona_data = st.session_state['descripcion_zona']
+
+# --- (Se mantiene, aunque ya no guardamos en disco) ---
 UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
@@ -63,19 +78,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def calc_altura(texto):
-    if not texto: return 100
+    if not texto:
+        return 100
     lineas = str(texto).count('\n') + (len(str(texto)) // 90) + 1
     return max(80, lineas * 25)
 
-def mostrar_imagen_simetrica(datos_base64, altura_px):
-    if not datos_base64: return
+def mostrar_imagen_simetrica(src, altura_px):
+    if not src:
+        return
     html_code = f"""
     <div style="width: 100%; height: {altura_px}px; overflow: hidden; border-radius: 8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px;">
-        <img src="{datos_base64}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+        <img src="{src}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
     </div>
     """
     st.markdown(html_code, unsafe_allow_html=True)
-    
+
 # --- FUNCIÓN DE GUARDADO ROBUSTO ---
 def update_field(key):
     temp_key = f"temp_{key}"
@@ -83,44 +100,130 @@ def update_field(key):
         st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
         guardar_datos_nube()
 
+# --- STORAGE (Supabase) ---
+def _get_bucket_name():
+    # Bucket por defecto: "uploads" (puedes sobreescribir en secrets)
+    try:
+        return st.secrets.get("SUPABASE_BUCKET", "uploads")
+    except Exception:
+        return "uploads"
+
+def _ext_from_filename(name):
+    if not name:
+        return ""
+    name = str(name).lower()
+    if name.endswith(".png"):
+        return "png"
+    if name.endswith(".jpg") or name.endswith(".jpeg"):
+        return "jpg"
+    return ""
+
+def _content_type_from_ext(ext):
+    if ext == "png":
+        return "image/png"
+    return "image/jpeg"
+
+def _upload_to_supabase_storage(uploaded_file, tipo_imagen_key):
+    """
+    Sube a Supabase Storage y retorna (public_url, storage_path).
+    Guarda en un path segregado por usuario_id para evitar colisiones.
+    """
+    if uploaded_file is None:
+        return None, None
+
+    user_id = st.session_state.get("usuario_id", "anon")
+    bucket = _get_bucket_name()
+
+    ext = _ext_from_filename(getattr(uploaded_file, "name", "")) or "jpg"
+    content_type = _content_type_from_ext(ext)
+
+    # Path: <user_id>/zona/<tipo>/<uuid>.<ext>
+    file_id = str(uuid.uuid4())
+    storage_path = f"{user_id}/zona/{tipo_imagen_key}/{file_id}.{ext}"
+
+    db = conectar_db()
+    file_bytes = uploaded_file.getvalue()
+
+    # Upload
+    # upsert True: permite reintentos sin romper por "already exists"
+    db.storage.from_(bucket).upload(
+        storage_path,
+        file_bytes,
+        file_options={"content-type": content_type, "upsert": "true"}
+    )
+
+    # Public URL
+    public_url_obj = db.storage.from_(bucket).get_public_url(storage_path)
+    # Algunas versiones retornan dict / str; normalizamos
+    if isinstance(public_url_obj, dict):
+        public_url = public_url_obj.get("publicUrl") or public_url_obj.get("public_url") or ""
+    else:
+        public_url = str(public_url_obj)
+
+    return public_url, storage_path
+
 def manejar_subida_imagen(uploaded_file, tipo_imagen_key):
-    if uploaded_file is not None:
-        # Convertimos la imagen a texto Base64
-        bytes_data = uploaded_file.getvalue()
-        base64_image = base64.b64encode(bytes_data).decode("utf-8")
-        imagen_final = f"data:image/jpeg;base64,{base64_image}"
-        
-        # Guardamos el texto en el session_state
-        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = imagen_final
-        guardar_datos_nube()
-        st.rerun()
+    if uploaded_file is None:
+        return
+
+    try:
+        public_url, storage_path = _upload_to_supabase_storage(uploaded_file, tipo_imagen_key)
+        if public_url:
+            st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = public_url
+            st.session_state['descripcion_zona'][f"path_{tipo_imagen_key}"] = storage_path
+            guardar_datos_nube()
+            st.rerun()
+        else:
+            st.error("No se pudo obtener URL pública del archivo subido.")
+    except Exception as e:
+        st.error(f"Error subiendo imagen a Supabase Storage: {e}")
 
 def eliminar_imagen(tipo_imagen_key):
-    ruta = st.session_state['descripcion_zona'].get(f"ruta_{tipo_imagen_key}")
-    if ruta and os.path.exists(ruta):
-        try: os.remove(ruta)
-        except: pass
-    st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = None
-    guardar_datos_nube()
-    st.rerun()
+    """
+    Elimina en Storage (si existe path) y limpia URL/path en session_state.
+    """
+    try:
+        bucket = _get_bucket_name()
+        db = conectar_db()
+
+        storage_path = st.session_state['descripcion_zona'].get(f"path_{tipo_imagen_key}")
+        # Si no hay path, igual limpiamos (por compatibilidad con datos antiguos)
+        if storage_path:
+            try:
+                db.storage.from_(bucket).remove([storage_path])
+            except Exception:
+                # Si falla el remove, igual limpiamos el estado para no bloquear al usuario
+                pass
+
+        st.session_state['descripcion_zona'][f"ruta_{tipo_imagen_key}"] = None
+        st.session_state['descripcion_zona'][f"path_{tipo_imagen_key}"] = None
+        guardar_datos_nube()
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error eliminando imagen: {e}")
 
 # --- ENCABEZADO CON BARRA DE AVANCE ---
 col_t, col_img_head = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">🗺️ 9. DESCRIPCIÓN GENERAL DE LA ZONA DE ESTUDIO</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Caracterización de límites, accesibilidad y población.</div>', unsafe_allow_html=True)
-    
-    # Lógica de la barra de progreso
+
     campos_interes = [
         zona_data.get('problema_central'), zona_data.get('departamento'), zona_data.get('municipio'),
-        zona_data.get('limites_geograficos'), zona_data.get('accesibilidad'), 
+        zona_data.get('limites_geograficos'), zona_data.get('accesibilidad'),
         zona_data.get('ruta_mapa'), zona_data.get('poblacion_objetivo')
     ]
-    llenados = len([c for c in campos_interes if (isinstance(c, str) and c.strip() != "") or (isinstance(c, (int, float)) and c > 0) or (c is not None and not isinstance(c, (str, int, float)))])
+    llenados = len([
+        c for c in campos_interes
+        if (isinstance(c, str) and c.strip() != "")
+        or (isinstance(c, (int, float)) and c > 0)
+        or (c is not None and not isinstance(c, (str, int, float)))
+    ])
     st.progress(llenados / len(campos_interes) if campos_interes else 0)
 
 with col_img_head:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
@@ -128,30 +231,47 @@ st.divider()
 
 # 1. PROBLEMA CENTRAL
 st.markdown('<div class="form-header">PROBLEMA CENTRAL</div>', unsafe_allow_html=True)
-st.text_area("Descripción del Problema Central:", value=st.session_state['descripcion_zona']['problema_central'], key="temp_problema_central", height=calc_altura(st.session_state['descripcion_zona']['problema_central']), on_change=update_field, args=("problema_central",))
+st.text_area(
+    "Descripción del Problema Central:",
+    value=st.session_state['descripcion_zona']['problema_central'],
+    key="temp_problema_central",
+    height=calc_altura(st.session_state['descripcion_zona']['problema_central']),
+    on_change=update_field,
+    args=("problema_central",)
+)
 
 # 2. LOCALIZACIÓN
 st.markdown('<div class="form-header">LOCALIZACIÓN</div>', unsafe_allow_html=True)
 c1, c2, c3, c4 = st.columns(4)
-with c1: st.text_input("Departamento:", value=zona_data.get('departamento', ''), key="temp_departamento", on_change=update_field, args=("departamento",))
-with c2: st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="temp_provincia", on_change=update_field, args=("provincia",))
-with c3: st.text_input("Municipio:", value=zona_data.get('municipio', ''), key="temp_municipio", on_change=update_field, args=("municipio",))
-with c4: st.text_input("Barrio o Vereda:", value=zona_data.get('barrio_vereda', ''), key="temp_barrio_vereda", on_change=update_field, args=("barrio_vereda",))
+with c1:
+    st.text_input("Departamento:", value=zona_data.get('departamento', ''), key="temp_departamento", on_change=update_field, args=("departamento",))
+with c2:
+    st.text_input("Provincia:", value=zona_data.get('provincia', ''), key="temp_provincia", on_change=update_field, args=("provincia",))
+with c3:
+    st.text_input("Municipio:", value=zona_data.get('municipio', ''), key="temp_municipio", on_change=update_field, args=("municipio",))
+with c4:
+    st.text_input("Barrio o Vereda:", value=zona_data.get('barrio_vereda', ''), key="temp_barrio_vereda", on_change=update_field, args=("barrio_vereda",))
 
 st.caption("Coordenadas:")
 cl1, cl2 = st.columns(2)
-with cl1: st.text_input("Latitud:", value=zona_data.get('latitud', ''), key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
-with cl2: st.text_input("Longitud:", value=zona_data.get('longitud', ''), key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
+with cl1:
+    st.text_input("Latitud:", value=zona_data.get('latitud', ''), key="temp_latitud", placeholder="Ej: 5.715", on_change=update_field, args=("latitud",))
+with cl2:
+    st.text_input("Longitud:", value=zona_data.get('longitud', ''), key="temp_longitud", placeholder="Ej: -72.933", on_change=update_field, args=("longitud",))
 
 # 3. DEFINICIÓN DE LÍMITES
 st.markdown('<div class="form-header">DEFINICIÓN DE LÍMITES</div>', unsafe_allow_html=True)
-st.text_area("Límites Geográficos:", value=zona_data.get('limites_geograficos', ''), key="temp_limites_geograficos", height=calc_altura(zona_data.get('limites_geograficos', '')), on_change=update_field, args=("limites_geograficos",))
-st.text_area("Límites Administrativos:", value=zona_data.get('limites_administrativos', ''), key="temp_limites_administrativos", height=calc_altura(zona_data.get('limites_administrativos', '')), on_change=update_field, args=("limites_administrativos",))
-st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="temp_otros_limites", height=calc_altura(zona_data.get('otros_limites', '')), on_change=update_field, args=("otros_limites",))
+st.text_area("Límites Geográficos:", value=zona_data.get('limites_geograficos', ''), key="temp_limites_geograficos",
+             height=calc_altura(zona_data.get('limites_geograficos', '')), on_change=update_field, args=("limites_geograficos",))
+st.text_area("Límites Administrativos:", value=zona_data.get('limites_administrativos', ''), key="temp_limites_administrativos",
+             height=calc_altura(zona_data.get('limites_administrativos', '')), on_change=update_field, args=("limites_administrativos",))
+st.text_area("Otros Límites:", value=zona_data.get('otros_limites', ''), key="temp_otros_limites",
+             height=calc_altura(zona_data.get('otros_limites', '')), on_change=update_field, args=("otros_limites",))
 
 # 4. CONDICIONES DE ACCESIBILIDAD
 st.markdown('<div class="form-header">CONDICIONES DE ACCESIBILIDAD</div>', unsafe_allow_html=True)
-st.text_area("Vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad", height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
+st.text_area("Vías de acceso:", value=zona_data.get('accesibilidad', ''), key="temp_accesibilidad",
+             height=calc_altura(zona_data.get('accesibilidad', '')), on_change=update_field, args=("accesibilidad",))
 
 # 5. MAPA Y FOTOS
 st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', unsafe_allow_html=True)
@@ -159,36 +279,53 @@ st.markdown('<div class="form-header">MAPA DEL ÁREA DE ESTUDIO Y FOTOS</div>', 
 st.markdown('<span class="sub-header">Mapa del área de estudio</span>', unsafe_allow_html=True)
 ruta_mapa = zona_data.get("ruta_mapa")
 if ruta_mapa:
-    mostrar_imagen_simetrica(ruta_mapa, 650) # TAMAÑO AUMENTADO AQUÍ
-    if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"): eliminar_imagen("mapa")
+    mostrar_imagen_simetrica(ruta_mapa, 650)
+    if st.button("🗑️ Eliminar Mapa", key="btn_del_mapa"):
+        eliminar_imagen("mapa")
 else:
     up_mapa = st.file_uploader("Cargar Mapa", type=['png', 'jpg', 'jpeg'], key="up_mapa", label_visibility="collapsed")
-    if up_mapa: manejar_subida_imagen(up_mapa, "mapa")
+    if up_mapa:
+        manejar_subida_imagen(up_mapa, "mapa")
 
 st.write("")
 col_f1, col_f2 = st.columns(2)
+
 with col_f1:
     st.markdown('<span class="sub-header">FOTO 1</span>', unsafe_allow_html=True)
     rf1 = zona_data.get("ruta_foto1")
     if rf1:
         mostrar_imagen_simetrica(rf1, 300)
-        if st.button("🗑️ Eliminar Foto 1", key="btn_del_f1"): eliminar_imagen("foto1")
+        if st.button("🗑️ Eliminar Foto 1", key="btn_del_f1"):
+            eliminar_imagen("foto1")
     else:
         uf1 = st.file_uploader("Cargar Foto 1", type=['png', 'jpg', 'jpeg'], key="up_foto1", label_visibility="collapsed")
-        if uf1: manejar_subida_imagen(uf1, "foto1")
+        if uf1:
+            manejar_subida_imagen(uf1, "foto1")
+
 with col_f2:
     st.markdown('<span class="sub-header">FOTO 2</span>', unsafe_allow_html=True)
     rf2 = zona_data.get("ruta_foto2")
     if rf2:
         mostrar_imagen_simetrica(rf2, 300)
-        if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"): eliminar_imagen("foto2")
+        if st.button("🗑️ Eliminar Foto 2", key="btn_del_f2"):
+            eliminar_imagen("foto2")
     else:
         uf2 = st.file_uploader("Cargar Foto 2", type=['png', 'jpg', 'jpeg'], key="up_foto2", label_visibility="collapsed")
-        if uf2: manejar_subida_imagen(uf2, "foto2")
+        if uf2:
+            manejar_subida_imagen(uf2, "foto2")
 
 # 6. POBLACIÓN
 st.markdown('<div class="form-header">POBLACIÓN</div>', unsafe_allow_html=True)
 cp1, cp2, cp3 = st.columns(3)
-with cp1: st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_referencia', 0)), key="temp_poblacion_referencia", on_change=update_field, args=("poblacion_referencia",))
-with cp2: st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_afectada', 0)), key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
-with cp3: st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d", value=int(zona_data.get('poblacion_objetivo', 0)), key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
+with cp1:
+    st.number_input("POBLACIÓN DE REFERENCIA:", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_referencia', 0)),
+                    key="temp_poblacion_referencia", on_change=update_field, args=("poblacion_referencia",))
+with cp2:
+    st.number_input("POBLACIÓN AFECTADA:", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_afectada', 0)),
+                    key="temp_poblacion_afectada", on_change=update_field, args=("poblacion_afectada",))
+with cp3:
+    st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo', 0)),
+                    key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
