@@ -17,10 +17,11 @@ inicializar_session()
 st.markdown(
     """
     <style>
-    .block-container { padding-bottom: 170px !important; }
+    .block-container { padding-bottom: 220px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
     .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
     .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
+    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 22px 0 8px 0; }
     [data-testid="stImage"] img { border-radius: 12px; }
 
     .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
@@ -61,6 +62,17 @@ st.markdown(
     }
     .legend-box ul { margin: 8px 0 0 18px; }
     .legend-box li { margin: 4px 0; font-weight: 600; }
+
+    .info-box-3 {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(245, 158, 11, 0.10);
+        border: 1px solid rgba(245, 158, 11, 0.20);
+        color: #92400e;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 12px 0;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -129,6 +141,18 @@ def _stable_hash_df(df, cols_for_hash):
     except Exception:
         return ""
 
+def _to_float_or_none(x):
+    if x is None:
+        return None
+    s = str(x).strip()
+    if not s:
+        return None
+    s = s.replace(",", ".")
+    try:
+        return float(s)
+    except Exception:
+        return None
+
 # -----------------------------
 # Header
 # -----------------------------
@@ -188,6 +212,16 @@ if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_
 
 if "hash_seleccion_indicadores" not in st.session_state:
     st.session_state["hash_seleccion_indicadores"] = ""
+
+# NUEVO: Meta y resultados parciales
+if "duracion_proyecto_periodos" not in st.session_state:
+    st.session_state["duracion_proyecto_periodos"] = 4
+
+if "meta_resultados_parciales" not in st.session_state or not isinstance(st.session_state.get("meta_resultados_parciales"), dict):
+    st.session_state["meta_resultados_parciales"] = {}
+
+if "hash_meta_resultados_parciales" not in st.session_state:
+    st.session_state["hash_meta_resultados_parciales"] = ""
 
 # -----------------------------
 # Construcción filas base desde referencia_manual
@@ -396,7 +430,6 @@ P3 = "El indicador es tangible y se puede observar"
 P4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
 P5 = "El indicador es lo bastante representativo para el conjunto de resultados esperados."
 
-# Leyenda (sin texto extra)
 st.markdown(
     f"""
     <div class="legend-box">
@@ -457,21 +490,14 @@ df_base_sel = _ensure_columns(df_base_sel, cols_sel_defaults)
 df_base_sel = df_base_sel[sel_cols].copy()
 
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
-
 gb2.configure_column("_key", headerName="", editable=False, hide=True)
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
 
-# Encabezados cortos (sin tooltip)
-gb2.configure_column(P1, headerName="P1", editable=True, width=90,
-                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P2, headerName="P2", editable=True, width=90,
-                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P3, headerName="P3", editable=True, width=90,
-                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P4, headerName="P4", editable=True, width=90,
-                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
-gb2.configure_column(P5, headerName="P5", editable=True, width=90,
-                     cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P1, headerName="P1", editable=True, width=90, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P2, headerName="P2", editable=True, width=90, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P3, headerName="P3", editable=True, width=90, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P4, headerName="P4", editable=True, width=90, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P5, headerName="P5", editable=True, width=90, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
 
 value_getter_sel = JsCode(f"""
 function(params) {{
@@ -510,7 +536,6 @@ function(params) {{
 """)
 
 gb2.configure_grid_options(getRowStyle=row_style_sel)
-
 gridOptions2 = gb2.build()
 
 custom_css_2 = {
@@ -560,3 +585,220 @@ if hash_actual_2 and (hash_actual_2 != hash_prev_2):
         }
 
     guardar_datos_nube()
+
+# -----------------------------
+# Sección: META Y RESULTADOS PARCIALES
+# -----------------------------
+st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="info-box-3">Indica la cantidad de periodos (número entero). Se crearán columnas dinámicas '
+    'Periodo 1..N. La suma de periodos por fila debe coincidir con la Meta (si no coincide, la fila se marca en rojo tenue).</div>',
+    unsafe_allow_html=True
+)
+
+# Pregunta duración (entero)
+dur = st.number_input(
+    "¿Cuántos periodos dura su proyecto?",
+    min_value=1,
+    step=1,
+    value=int(st.session_state.get("duracion_proyecto_periodos", 4))
+)
+dur = int(dur)
+if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
+    st.session_state["duracion_proyecto_periodos"] = dur
+    guardar_datos_nube()
+
+# Determinar qué indicadores están en "Sí"
+def _is_seleccion_si(row_dict):
+    a = bool(row_dict.get(P1, False))
+    b = bool(row_dict.get(P2, False))
+    c = bool(row_dict.get(P3, False))
+    d = bool(row_dict.get(P4, False))
+    e = bool(row_dict.get(P5, False))
+    return a and b and c and d and e
+
+keys_si = []
+indicador_txt_por_key = {}
+
+# Usamos df_sel_live como fuente
+for _, r in df_sel_live.iterrows():
+    k = _norm_text(r.get("_key", ""))
+    if not k:
+        continue
+    if _is_seleccion_si(r.to_dict()):
+        keys_si.append(k)
+        indicador_txt_por_key[k] = _norm_text(r.get("Indicador", ""))
+
+# Si no hay seleccionados, no mostrar tabla
+if len(keys_si) == 0:
+    st.info("No hay indicadores con Selección = Sí. Marca las validaciones en la tabla anterior para que aparezcan aquí.")
+else:
+    # Construir DF meta/periodos desde claves seleccionadas
+    period_cols = [f"Periodo {i}" for i in range(1, dur + 1)]
+
+    base_rows = []
+    for k in keys_si:
+        guard = st.session_state["meta_resultados_parciales"].get(k, {})
+
+        lb = guard.get("Línea base", "")
+        meta = guard.get("Meta", "")
+        unidad = guard.get("Unidad de medida", "")
+
+        row = {
+            "_key": k,
+            "Indicador": indicador_txt_por_key.get(k, ""),
+            "Línea base": lb,
+            "Meta": meta,
+            "Unidad de medida": unidad,
+        }
+
+        guard_periodos = guard.get("Periodos", {})
+        if not isinstance(guard_periodos, dict):
+            guard_periodos = {}
+
+        for pc in period_cols:
+            row[pc] = guard_periodos.get(pc, "")
+
+        base_rows.append(row)
+
+    df_meta = pd.DataFrame(base_rows)
+
+    cols_meta_defaults = {
+        "_key": "",
+        "Indicador": "",
+        "Línea base": "",
+        "Meta": "",
+        "Unidad de medida": "",
+    }
+    for pc in period_cols:
+        cols_meta_defaults[pc] = ""
+
+    df_meta = _ensure_columns(df_meta, cols_meta_defaults)
+
+    # Orden de columnas
+    meta_cols = ["_key", "Indicador", "Línea base", "Meta", "Unidad de medida"] + period_cols
+    df_meta = df_meta[meta_cols].copy()
+
+    # AgGrid meta
+    gb3 = GridOptionsBuilder.from_dataframe(df_meta)
+
+    gb3.configure_column("_key", headerName="", editable=False, hide=True)
+    gb3.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
+
+    # Solo números (permitimos decimal) -> editor texto, validamos por estilo (no bloquea)
+    gb3.configure_column("Línea base", headerName="Línea base", editable=True, width=130)
+    gb3.configure_column("Meta", headerName="Meta", editable=True, width=110)
+    gb3.configure_column("Unidad de medida", headerName="Unidad de medida", editable=True, width=160)
+
+    for pc in period_cols:
+        gb3.configure_column(pc, headerName=pc, editable=True, width=110)
+
+    gb3.configure_grid_options(
+        enableCellTextSelection=True,
+        ensureDomOrder=True,
+        suppressCopyRowsToClipboard=False,
+        rowSelection="single",
+        domLayout="autoHeight"
+    )
+
+    # Estilo fila: verde si suma(periodos) == meta (cuando meta existe), rojo si no coincide
+    # (si meta vacía -> no valida, deja blanco)
+    row_style_meta = JsCode(f"""
+function(params) {{
+  const meta_raw = (params.data && params.data["Meta"] !== undefined) ? String(params.data["Meta"]).trim() : "";
+  if (!meta_raw) {{
+    return {{ 'background-color': '#FFFFFF', 'color': '#000000' }};
+  }}
+
+  function toNum(v) {{
+    if (v === null || v === undefined) return null;
+    let s = String(v).trim();
+    if (!s) return 0;
+    s = s.replace(",", ".");
+    const n = Number(s);
+    return isNaN(n) ? null : n;
+  }}
+
+  const meta = toNum(meta_raw);
+  if (meta === null) {{
+    return {{ 'background-color': '#FEF2F2', 'color': '#000000' }};
+  }}
+
+  let sum = 0;
+  const cols = {json.dumps(period_cols)};
+  for (let i=0; i<cols.length; i++) {{
+    const c = cols[i];
+    const v = (params.data && params.data[c] !== undefined) ? params.data[c] : "";
+    const n = toNum(v);
+    if (n === null) {{
+      return {{ 'background-color': '#FEF2F2', 'color': '#000000' }};
+    }}
+    sum += n;
+  }}
+
+  // tolerancia para decimales
+  const ok = Math.abs(sum - meta) < 0.00001;
+  if (ok) {{
+    return {{ 'background-color': '#ECFDF5', 'color': '#000000' }};
+  }}
+  return {{ 'background-color': '#FEF2F2', 'color': '#000000' }};
+}}
+""")
+
+    gb3.configure_grid_options(getRowStyle=row_style_meta)
+    gridOptions3 = gb3.build()
+
+    custom_css_3 = {
+        ".ag-header-cell-text": {
+            "font-size": "13px !important",
+            "font-weight": "900 !important",
+            "color": "#92400e !important"
+        }
+    }
+
+    grid_response_3 = AgGrid(
+        df_meta,
+        gridOptions=gridOptions3,
+        custom_css=custom_css_3,
+        update_mode=GridUpdateMode.VALUE_CHANGED,
+        theme="streamlit",
+        allow_unsafe_jscode=True,
+        key="grid_meta_resultados_parciales"
+    )
+
+    df_meta_live = pd.DataFrame(grid_response_3.get("data", []))
+    df_meta_live = _ensure_columns(df_meta_live, cols_meta_defaults)
+
+    if "_key" not in df_meta_live.columns or df_meta_live["_key"].astype(str).eq("").all():
+        df_meta_live["_key"] = df_meta["_key"].values[: len(df_meta_live)]
+
+    df_meta_live = df_meta_live[meta_cols].copy()
+
+    # Auto-guardar (solo si cambia)
+    cols_hash_3 = ["_key", "Línea base", "Meta", "Unidad de medida"] + period_cols
+    hash_actual_3 = _stable_hash_df(df_meta_live, cols_hash_3)
+    hash_prev_3 = st.session_state.get("hash_meta_resultados_parciales", "")
+
+    if hash_actual_3 and (hash_actual_3 != hash_prev_3):
+        st.session_state["hash_meta_resultados_parciales"] = hash_actual_3
+
+        # Persistir por clave estable
+        for _, r in df_meta_live.iterrows():
+            k = _norm_text(r.get("_key", ""))
+            if not k:
+                continue
+
+            st.session_state["meta_resultados_parciales"][k] = {
+                "Línea base": _norm_text(r.get("Línea base", "")),
+                "Meta": _norm_text(r.get("Meta", "")),
+                "Unidad de medida": _norm_text(r.get("Unidad de medida", "")),
+                "Periodos": {pc: _norm_text(r.get(pc, "")) for pc in period_cols}
+            }
+
+        # Limpiar keys que ya no están en "Sí" (desaparecer)
+        existentes = set(st.session_state["meta_resultados_parciales"].keys())
+        actuales = set(keys_si)
+        for k in list(existentes - actuales):
+            st.session_state["meta_resultados_parciales"].pop(k, None)
+
+        guardar_datos_nube()
