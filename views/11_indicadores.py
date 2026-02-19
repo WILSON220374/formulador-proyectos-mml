@@ -3,32 +3,34 @@ import uuid
 import pandas as pd
 from session_state import inicializar_session, guardar_datos_nube
 
-# 1. Asegurar persistencia y memoria
 inicializar_session()
 
-# --- ESTILO ---
+# -----------------------------
+# Estilo (limpio, consistente)
+# -----------------------------
 st.markdown("""
 <style>
-.block-container { padding-bottom: 5rem !important; }
+.block-container { padding-bottom: 4rem !important; }
 .h-title { font-size: 30px; font-weight: 900; color: #1E3A8A; margin: 0 0 4px 0; }
-.h-sub { font-size: 14px; color: #64748b; margin: 0 0 14px 0; }
-.badge {
-  display:inline-block; padding: 4px 10px; border-radius: 999px;
-  font-weight: 700; font-size: 12px; background: #eef2ff; color: #1e3a8a;
-  border: 1px solid rgba(30,58,138,0.12);
+.h-sub { font-size: 14px; color: #64748b; margin: 0 0 12px 0; }
+.note {
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(79, 139, 255, 0.10);
+  border: 1px solid rgba(79, 139, 255, 0.18);
+  color: #1e3a8a; font-weight: 600; font-size: 13px;
+  margin: 8px 0 12px 0;
 }
-.small-note { color:#64748b; font-size: 12px; }
-hr { border: none; border-top: 1px solid #e5e7eb; margin: 10px 0 18px 0; }
+.small { color:#64748b; font-size: 12px; }
+hr { border: none; border-top: 1px solid #e5e7eb; margin: 14px 0 16px 0; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="h-title">📊 11. Indicadores</div>', unsafe_allow_html=True)
-st.markdown('<div class="h-sub">Fase IV: Análisis de Objetivos · Construcción de Indicadores</div>', unsafe_allow_html=True)
-st.markdown('<span class="badge">Edición</span> <span class="small-note">El indicador se autogenera en vivo. Presiona “Guardar” para persistir en nube.</span>', unsafe_allow_html=True)
-st.markdown("<hr/>", unsafe_allow_html=True)
+st.markdown('<div class="h-title">11. Indicadores</div>', unsafe_allow_html=True)
+st.markdown('<div class="h-sub">Fase IV · Construcción de indicadores por objetivo</div>', unsafe_allow_html=True)
+st.markdown('<div class="note">El indicador se autogenera al editar. Presiona <b>Guardar en Nube</b> para persistir.</div>', unsafe_allow_html=True)
 
 # -----------------------------
-# Helpers robustos
+# Helpers
 # -----------------------------
 def _norm_text(x):
     if x is None:
@@ -66,8 +68,11 @@ def _generar_indicador(obj, cond, lugar):
         return ""
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
+def _estado_fila(obj, cond, lugar):
+    return "Completo" if (_norm_text(obj) and _norm_text(cond) and _norm_text(lugar)) else "Pendiente"
+
 # -----------------------------
-# EXTRACCIÓN DE OBJETIVOS (HOJA 7)
+# Datos base (Hoja 7)
 # -----------------------------
 arbol = st.session_state.get('arbol_objetivos_final', {})
 if not isinstance(arbol, dict):
@@ -85,15 +90,15 @@ for nivel in niveles:
         lista_base.append({
             "Nivel": nivel,
             "Objetivo": texto,
-            "id_unico": _safe_obj_id(item)  # puede venir vacío
+            "id_unico": _safe_obj_id(item)
         })
 
 if not lista_base:
-    st.warning("⚠️ No se encontraron objetivos. Completa primero la Hoja 7 (Árbol de Objetivos Final).")
+    st.warning("No se encontraron objetivos. Completa primero la Hoja 7 (Árbol de Objetivos Final).")
     st.stop()
 
 # -----------------------------
-# Inicialización state para hoja 11
+# Session init (Hoja 11)
 # -----------------------------
 if 'datos_indicadores' not in st.session_state or not isinstance(st.session_state.get('datos_indicadores'), dict):
     st.session_state['datos_indicadores'] = {}
@@ -101,14 +106,11 @@ if 'datos_indicadores' not in st.session_state or not isinstance(st.session_stat
 if 'indicadores_mapa_objetivo' not in st.session_state or not isinstance(st.session_state.get('indicadores_mapa_objetivo'), dict):
     st.session_state['indicadores_mapa_objetivo'] = {}
 
-# -----------------------------
-# Key estable interna (NO visible)
-# -----------------------------
-def _resolve_key(nivel, obj_texto, id_unico):
+def _resolve_key(nivel, objetivo_txt, id_unico):
     if id_unico:
         return id_unico
 
-    kmap = _mk_map_key(nivel, obj_texto)
+    kmap = _mk_map_key(nivel, objetivo_txt)
     if kmap in st.session_state['indicadores_mapa_objetivo']:
         return st.session_state['indicadores_mapa_objetivo'][kmap]
 
@@ -116,50 +118,46 @@ def _resolve_key(nivel, obj_texto, id_unico):
     st.session_state['indicadores_mapa_objetivo'][kmap] = new_key
     return new_key
 
-# Lookup para resolver id_unico desde lo que ve el usuario
 base_lookup = {(r["Nivel"], r["Objetivo"]): r.get("id_unico", "") for r in lista_base}
 
 # -----------------------------
-# Construir DF base (valores guardados)
+# Construcción DF base (desde nube)
 # -----------------------------
-base_rows = []
-for row in lista_base:
-    nivel = row["Nivel"]
-    obj_texto = row["Objetivo"]
-    id_unico = row.get("id_unico", "")
+rows = []
+for r in lista_base:
+    nivel = r["Nivel"]
+    objetivo_txt = r["Objetivo"]
+    id_unico = r.get("id_unico", "")
 
-    key_estable = _resolve_key(nivel, obj_texto, id_unico)
+    key_estable = _resolve_key(nivel, objetivo_txt, id_unico)
     guardado = st.session_state['datos_indicadores'].get(key_estable, {})
 
-    # Compatibilidad: si existía guardado por texto
-    if (not guardado) and (obj_texto in st.session_state['datos_indicadores']):
-        guardado = st.session_state['datos_indicadores'].get(obj_texto, {})
+    # Compatibilidad muy vieja (si alguien guardó por texto)
+    if (not guardado) and (objetivo_txt in st.session_state['datos_indicadores']):
+        guardado = st.session_state['datos_indicadores'].get(objetivo_txt, {})
 
     obj = _norm_text(guardado.get("Objeto", ""))
     cond = _norm_text(guardado.get("Condicion", guardado.get("Condición", "")))
     lugar = _norm_text(guardado.get("Lugar", ""))
-    indicador_guardado = _norm_text(guardado.get("Indicador", ""))
 
-    # Si no hay indicador guardado, lo calculamos en base a los campos
-    if not indicador_guardado:
-        indicador_guardado = _generar_indicador(obj, cond, lugar)
+    indicador = _norm_text(guardado.get("Indicador", "")) or _generar_indicador(obj, cond, lugar)
+    estado = _estado_fila(obj, cond, lugar)
 
-    base_rows.append({
+    rows.append({
+        "Estado": estado,
         "Nivel": nivel,
-        "Objetivo": obj_texto,
+        "Objetivo": objetivo_txt,
         "1. Objeto": obj,
         "2. Condición Deseada": cond,
         "3. Lugar": lugar,
-        "Indicador Generado": indicador_guardado,
+        "Indicador Generado": indicador,
     })
 
-df_base = pd.DataFrame(base_rows)
+df_base = pd.DataFrame(rows)
 
 # -----------------------------
-# Recuperar edición previa del widget para autogeneración en vivo
+# Autogeneración en vivo (1 sola tabla)
 # -----------------------------
-# Streamlit guarda el valor del data_editor en st.session_state[key] tras cada interacción.
-# Tomamos ese valor, lo normalizamos y recalculamos "Indicador Generado" para mostrarlo actualizado.
 key_editor = "editor_indicadores"
 
 df_work = df_base.copy()
@@ -167,7 +165,6 @@ df_work = df_base.copy()
 if key_editor in st.session_state:
     val = st.session_state.get(key_editor)
 
-    # El valor puede llegar como DataFrame o como lista/dict según versión; soportamos ambos.
     try:
         if isinstance(val, pd.DataFrame):
             df_tmp = val.copy()
@@ -179,18 +176,22 @@ if key_editor in st.session_state:
             df_tmp = None
 
         if df_tmp is not None and not df_tmp.empty:
-            # Asegurar columnas mínimas
+            # asegurar columnas
             for col in df_work.columns:
                 if col not in df_tmp.columns:
                     df_tmp[col] = df_work[col]
 
-            # Mantener "Nivel" y "Objetivo" desde base para evitar que el usuario los altere por estado raro
+            # proteger columnas fijas
             df_tmp["Nivel"] = df_work["Nivel"].values
             df_tmp["Objetivo"] = df_work["Objetivo"].values
 
-            # Autogenerar indicador en vivo
+            # autocalcular estado + indicador
             df_tmp["Indicador Generado"] = df_tmp.apply(
                 lambda r: _generar_indicador(r.get("1. Objeto", ""), r.get("2. Condición Deseada", ""), r.get("3. Lugar", "")),
+                axis=1
+            )
+            df_tmp["Estado"] = df_tmp.apply(
+                lambda r: _estado_fila(r.get("1. Objeto", ""), r.get("2. Condición Deseada", ""), r.get("3. Lugar", "")),
                 axis=1
             )
 
@@ -199,13 +200,14 @@ if key_editor in st.session_state:
         df_work = df_base.copy()
 
 # -----------------------------
-# UI: Editor
+# Editor
 # -----------------------------
-st.info("💡 El indicador se actualiza automáticamente al editar. Presiona **“Guardar”** para persistir en la nube.")
+st.markdown('<div class="small">Sugerencia: completa primero Objeto y Condición, luego Lugar.</div>', unsafe_allow_html=True)
 
 df_edited = st.data_editor(
     df_work,
     column_config={
+        "Estado": st.column_config.TextColumn("Estado", disabled=True, width="small"),
         "Nivel": st.column_config.TextColumn("Nivel", disabled=True, width="small"),
         "Objetivo": st.column_config.TextColumn("Objetivo", disabled=True, width="large"),
         "1. Objeto": st.column_config.TextColumn("1. Objeto", width="medium"),
@@ -215,18 +217,25 @@ df_edited = st.data_editor(
     },
     hide_index=True,
     use_container_width=True,
+    height=520,
     key=key_editor
 )
 
-col_btn, col_hint = st.columns([1, 3], vertical_alignment="center")
+# -----------------------------
+# Guardar
+# -----------------------------
+col_btn, col_stats = st.columns([1, 2], vertical_alignment="center")
 with col_btn:
     guardar = st.button("💾 Guardar en Nube", type="primary")
-with col_hint:
-    st.markdown('<span class="small-note">Las filas “completas” se resaltan en la vista previa (azul tenue).</span>', unsafe_allow_html=True)
 
-# -----------------------------
-# Guardado
-# -----------------------------
+with col_stats:
+    try:
+        total = len(df_edited)
+        completos = int((df_edited["Estado"] == "Completo").sum())
+        st.markdown(f'<div class="small"><b>Completos:</b> {completos} / {total}</div>', unsafe_allow_html=True)
+    except Exception:
+        pass
+
 if guardar:
     errores = []
     guardados_ok = 0
@@ -267,34 +276,7 @@ if guardar:
     if errores:
         st.warning("Se guardó lo válido, pero hay filas incompletas:\n" + "\n".join(errores))
     if guardados_ok > 0:
-        st.success("✅ Guardado y sincronizado en la nube.")
+        st.success("Guardado y sincronizado en la nube.")
         st.rerun()
     else:
         st.info("No se guardó nada porque faltan Objeto y/o Condición en las filas editadas.")
-
-# -----------------------------
-# Vista previa estilizada (filas completas en azul tenue)
-# -----------------------------
-st.markdown("<hr/>", unsafe_allow_html=True)
-st.markdown('<span class="badge">Vista previa</span> <span class="small-note">Resalta filas completas.</span>', unsafe_allow_html=True)
-
-df_preview = df_edited.copy() if isinstance(df_edited, pd.DataFrame) else df_work.copy()
-
-def _is_complete_row(r):
-    return bool(_norm_text(r.get("1. Objeto", ""))) and bool(_norm_text(r.get("2. Condición Deseada", ""))) and bool(_norm_text(r.get("3. Lugar", "")))
-
-df_preview["Estado"] = df_preview.apply(lambda r: "Completo" if _is_complete_row(r) else "Pendiente", axis=1)
-
-cols_order = ["Estado", "Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar", "Indicador Generado"]
-df_preview = df_preview[cols_order]
-
-def _style_rows(row):
-    if row["Estado"] == "Completo":
-        return ["background-color: rgba(79, 139, 255, 0.12)"] * len(row)
-    return [""] * len(row)
-
-st.dataframe(
-    df_preview.style.apply(_style_rows, axis=1),
-    use_container_width=True,
-    hide_index=True
-)
