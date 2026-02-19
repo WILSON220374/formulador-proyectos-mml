@@ -18,38 +18,60 @@ st.markdown(
     """
     <style>
     .block-container { padding-bottom: 220px !important; }
-    .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; margin-bottom: 0px !important; }
-    .subtitulo-seccion { font-size: 20px !important; font-weight: 800 !important; margin-top: 12px !important; margin-bottom: 6px !important; }
-    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 800 !important; margin-top: 24px !important; margin-bottom: 6px !important; }
+    .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
+    .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
+    .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
+    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 22px 0 8px 0; }
+    [data-testid="stImage"] img { border-radius: 12px; }
+
+    .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
+    .ag-header-cell-label { justify-content: center !important; text-align: center !important; }
+    .ag-header-cell-text { width: 100%; text-align: center; }
+
     .info-box {
-        background: #eff6ff;
-        border: 1px solid #dbeafe;
-        color: #1e3a8a;
-        padding: 12px 14px;
-        border-radius: 10px;
-        font-size: 14px;
-        margin: 10px 0 14px 0;
-        font-weight: 600;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(79, 139, 255, 0.10);
+        border: 1px solid rgba(79, 139, 255, 0.18);
+        color: #1E3A8A;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 14px 0;
     }
+
     .info-box-2 {
-        background: #ecfeff;
-        border: 1px solid #cffafe;
-        color: #155e75;
-        padding: 12px 14px;
-        border-radius: 10px;
-        font-size: 14px;
-        margin: 10px 0 14px 0;
-        font-weight: 600;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(16, 185, 129, 0.10);
+        border: 1px solid rgba(16, 185, 129, 0.18);
+        color: #065f46;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 12px 0;
     }
+
+    .legend-box {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(2, 132, 199, 0.08);
+        border: 1px solid rgba(2, 132, 199, 0.15);
+        color: #0c4a6e;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 10px 0;
+    }
+    .legend-box ul { margin: 8px 0 0 18px; }
+    .legend-box li { margin: 4px 0; font-weight: 600; }
+
     .info-box-3 {
-        background: #fef9c3;
-        border: 1px solid #fde68a;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(245, 158, 11, 0.10);
+        border: 1px solid rgba(245, 158, 11, 0.20);
         color: #92400e;
-        padding: 12px 14px;
-        border-radius: 10px;
-        font-size: 14px;
-        margin: 10px 0 14px 0;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 12px 0;
     }
     </style>
     """,
@@ -59,20 +81,23 @@ st.markdown(
 # -----------------------------
 # Helpers
 # -----------------------------
-def _clean_spaces(s: str) -> str:
-    return " ".join(str(s).replace("\n", " ").replace("\r", " ").split()).strip()
-
-def _norm_text(x) -> str:
+def _norm_text(x):
     if x is None:
         return ""
-    s = str(x)
-    if s.lower() == "nan":
-        return ""
-    return _clean_spaces(s)
+    return str(x).strip()
 
-def _mk_map_key(nivel, objetivo_txt):
-    base = f"{_norm_text(nivel)}||{_norm_text(objetivo_txt)}"
-    return hashlib.md5(base.encode("utf-8")).hexdigest()
+def _clean_spaces(texto):
+    return " ".join(str(texto).split()).strip()
+
+def _as_list(valor):
+    if valor is None:
+        return []
+    if isinstance(valor, list):
+        return valor
+    return [valor]
+
+def _mk_map_key(nivel, objetivo):
+    return f"{_norm_text(nivel)}||{_norm_text(objetivo)}"
 
 def _generar_indicador(obj, cond, lugar):
     obj = _norm_text(obj)
@@ -117,23 +142,64 @@ def _stable_hash_df(df, cols_for_hash):
         return ""
 
 # -----------------------------
-# Datos en sesión
+# Encabezado
 # -----------------------------
-if "referencia_manual" not in st.session_state or not isinstance(st.session_state.get("referencia_manual"), dict):
-    st.session_state["referencia_manual"] = {}
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">11. Indicadores</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.</div>', unsafe_allow_html=True)
+with col_img:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
 
+st.markdown(
+    '<div class="info-box">Diligencia: <b>1. Objeto</b>, <b>2. Condición Deseada</b> y <b>3. Lugar</b>. '
+    'El indicador se genera al instante dentro de la tabla y se guarda automáticamente en la nube.</div>',
+    unsafe_allow_html=True
+)
+
+# -----------------------------
+# Fuente estricta: Hoja 7 -> arbol_objetivos_final["referencia_manual"]
+# -----------------------------
+arbol = st.session_state.get("arbol_objetivos_final", {})
+if not isinstance(arbol, dict):
+    arbol = {}
+
+ref = arbol.get("referencia_manual", None)
+if not isinstance(ref, dict):
+    st.error("Falta la tabla superior de Hoja 7 (arbol_objetivos_final → referencia_manual). En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
+    st.stop()
+
+obj_general = _norm_text(ref.get("objetivo", ""))
+especificos = _as_list(ref.get("especificos", []))
+actividades = _as_list(ref.get("actividades", []))
+
+especificos = [_norm_text(x) for x in especificos if _norm_text(x)]
+actividades = [_norm_text(x) for x in actividades if _norm_text(x)]
+
+if not obj_general and len(especificos) == 0 and len(actividades) == 0:
+    st.error("La tabla superior de Hoja 7 está vacía. En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
+    st.stop()
+
+# -----------------------------
+# State Hoja 11
+# -----------------------------
 if "datos_indicadores" not in st.session_state or not isinstance(st.session_state.get("datos_indicadores"), dict):
     st.session_state["datos_indicadores"] = {}
 
-if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_state.get("seleccion_indicadores"), dict):
-    st.session_state["seleccion_indicadores"] = {}
+if "df_indicadores" not in st.session_state or not isinstance(st.session_state.get("df_indicadores"), pd.DataFrame):
+    st.session_state["df_indicadores"] = pd.DataFrame()
 
 if "hash_indicadores" not in st.session_state:
     st.session_state["hash_indicadores"] = ""
 
+if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_state.get("seleccion_indicadores"), dict):
+    st.session_state["seleccion_indicadores"] = {}
+
 if "hash_seleccion_indicadores" not in st.session_state:
     st.session_state["hash_seleccion_indicadores"] = ""
 
+# Meta y resultados parciales
 if "duracion_proyecto_periodos" not in st.session_state:
     st.session_state["duracion_proyecto_periodos"] = 4
 
@@ -144,39 +210,32 @@ if "hash_meta_resultados_parciales" not in st.session_state:
     st.session_state["hash_meta_resultados_parciales"] = ""
 
 # -----------------------------
-# Construcción filas base desde referencia_manual
+# Construcción filas base desde referencia_manual Hoja 7
 # -----------------------------
 def _build_rows_from_ref():
-    ref = st.session_state.get("referencia_manual", {}) or {}
-
     rows = []
-    for k, v in ref.items():
-        if not isinstance(v, dict):
-            continue
-
-        nivel = _norm_text(v.get("Nivel", ""))
-        objetivo = _norm_text(v.get("Objetivo", v.get("Objetivo / Actividad", "")))
-
-        if not nivel or not objetivo:
-            continue
-
-        rows.append((nivel, objetivo))
-
+    if obj_general:
+        rows.append(("Objetivo General", obj_general))
+    for e in especificos:
+        rows.append(("Objetivo Específico (Componente)", e))
+    for a in actividades:
+        rows.append(("Actividad Clave", a))
     return rows
 
 # -----------------------------
-# UI - Título
+# Tabla 1: Indicadores (AgGrid)
 # -----------------------------
-st.markdown('<div class="titulo-seccion">11. Indicadores</div>', unsafe_allow_html=True)
-st.caption("Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.")
-st.markdown(
-    '<div class="info-box">Diligencia: 1. Objeto, 2. Condición Deseada y 3. Lugar. El indicador se genera al instante dentro de la tabla y se guarda automáticamente en la nube.</div>',
-    unsafe_allow_html=True
-)
+cols_defaults = {
+    "_key": "",
+    "Nivel": "",
+    "Objetivo": "",
+    "1. Objeto": "",
+    "2. Condición Deseada": "",
+    "3. Lugar": "",
+    "Indicador Generado": "",
+}
+target_cols = list(cols_defaults.keys())
 
-# -----------------------------
-# Tabla 1: Construcción del Indicador
-# -----------------------------
 def _build_df_from_ref():
     rows = []
     for nivel, objetivo_txt in _build_rows_from_ref():
@@ -209,19 +268,19 @@ def _sync_df_keep_user_edits(df_old):
 
     df_old = _ensure_columns(df_old, cols_defaults)
 
-    # Backward-compat: si venimos de una versión anterior sin _key, lo reconstruimos
+    # Backward compat: si venimos de una versión sin _key, lo reconstruimos
     if "_key" not in df_old.columns:
         df_old["_key"] = df_old.apply(
             lambda r: _resolve_key(_norm_text(r.get("Nivel", "")), _norm_text(r.get("Objetivo", ""))),
             axis=1
         )
 
-    # Evitar duplicados por llave estable (primer valor gana)
+    # Evitar duplicados por _key
     df_old = df_old.drop_duplicates(subset=["_key"], keep="first").copy()
 
     df_merge = df_new.copy()
 
-    # Preservar ediciones del usuario (incluye strings vacíos si el usuario borró)
+    # Preservar ediciones
     edit_cols = ["1. Objeto", "2. Condición Deseada", "3. Lugar"]
     old_ix = df_old.set_index("_key", drop=False)
 
@@ -237,24 +296,13 @@ def _sync_df_keep_user_edits(df_old):
     df_merge = df_merge[target_cols].copy()
     return df_merge
 
-cols_defaults = {
-    "_key": "",
-    "Nivel": "",
-    "Objetivo": "",
-    "1. Objeto": "",
-    "2. Condición Deseada": "",
-    "3. Lugar": "",
-    "Indicador Generado": "",
-}
-target_cols = list(cols_defaults.keys())
-
 df_old_ui = st.session_state.get("df_indicadores", pd.DataFrame())
 df_ui = _sync_df_keep_user_edits(df_old_ui)
 
 if df_old_ui is None or df_old_ui.empty:
     st.session_state["df_indicadores"] = df_ui.copy()
 else:
-    if list(df_old_ui.columns) != list(df_ui.columns) or len(df_old_ui) != len(df_ui):
+    if list(getattr(df_old_ui, "columns", [])) != list(df_ui.columns) or len(df_old_ui) != len(df_ui):
         st.session_state["df_indicadores"] = df_ui.copy()
 
 df_work = st.session_state["df_indicadores"].copy()
@@ -264,13 +312,12 @@ df_work = df_work[target_cols].copy()
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
 gb.configure_column("_key", headerName="_key", editable=False, hide=True)
-
-gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=220)
+gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=560)
 
 gb.configure_column("1. Objeto", headerName="1. Objeto", editable=True, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=300)
-gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=190)
+gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=200)
 
 value_getter_indicador = JsCode(
     """
@@ -278,14 +325,13 @@ value_getter_indicador = JsCode(
         let obj = (params.data['1. Objeto'] || '').toString().trim();
         let cond = (params.data['2. Condición Deseada'] || '').toString().trim();
         let lugar = (params.data['3. Lugar'] || '').toString().trim();
-
         let txt = (obj + ' ' + cond + ' ' + lugar).replace(/\\s+/g,' ').trim();
         return txt;
     }
     """
 )
 
-gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, valueGetter=value_getter_indicador, wrapText=True, autoHeight=True, width=400)
+gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, valueGetter=value_getter_indicador, wrapText=True, autoHeight=True, width=420)
 
 gridOptions = gb.build()
 
@@ -301,13 +347,12 @@ grid_response = AgGrid(
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 
-# Backward-compat / resiliencia: si AgGrid no devuelve _key (columna oculta), la restauramos por posición
+# Resiliencia: si AgGrid no devuelve _key por estar oculta
 if "_key" not in df_live.columns or df_live["_key"].astype(str).eq("").all():
     try:
         base_keys = df_work.get("_key", pd.Series(dtype=str)).astype(str).values
         df_live["_key"] = base_keys[: len(df_live)]
     except Exception:
-        # Fallback: reconstruir por Nivel/Objetivo
         df_live["_key"] = df_live.apply(
             lambda r: _resolve_key(_norm_text(r.get("Nivel", "")), _norm_text(r.get("Objetivo", ""))),
             axis=1
@@ -333,7 +378,7 @@ if hash_actual_1 and (hash_actual_1 != hash_prev_1):
 
         key_estable = _norm_text(r.get("_key", "")) or _resolve_key(nivel, objetivo_txt)
 
-        # Si el usuario borró todo, persistimos el borrado eliminando el registro en nube
+        # Si el usuario borró todo, persistimos el borrado eliminando el registro
         if not obj and not cond and not lugar:
             st.session_state["datos_indicadores"].pop(key_estable, None)
             st.session_state.get("seleccion_indicadores", {}).pop(key_estable, None)
@@ -422,7 +467,7 @@ df_base_sel = _build_df_seleccion()
 gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
 
 gb2.configure_column("_key", headerName="_key", editable=False, hide=True)
-gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=200)
+gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=240)
 gb2.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
 gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=420)
 
@@ -488,16 +533,15 @@ if hash_actual_2 and (hash_actual_2 != hash_prev_2):
     guardar_datos_nube()
 
 # -----------------------------
-# Sección: META Y RESULTADOS PARCIALES
+# META Y RESULTADOS PARCIALES
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="info-box-3">Indica la cantidad de periodos (número entero). Se crearán columnas dinámicas '
-    'Periodo 1..N. La suma de periodos por fila debe coincidir con la Meta (si no coincide, la fila se marca en rojo tenue).</div>',
+    'Periodo 1..N. La suma de periodos por fila debe coincidir con la Meta (si no coincide, la fila se marca en color tenue).</div>',
     unsafe_allow_html=True
 )
 
-# Pregunta duración (entero)
 dur = st.number_input(
     "¿Cuántos periodos dura su proyecto?",
     min_value=1,
@@ -509,7 +553,6 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
     st.session_state["duracion_proyecto_periodos"] = dur
     guardar_datos_nube()
 
-# Determinar qué indicadores están en "Sí"
 def _is_seleccion_si(row_dict):
     a = bool(row_dict.get(P1, False))
     b = bool(row_dict.get(P2, False))
@@ -521,7 +564,6 @@ def _is_seleccion_si(row_dict):
 keys_si = []
 indicador_txt_por_key = {}
 
-# Usamos df_sel_live como fuente
 for _, r in df_sel_live.iterrows():
     k = _norm_text(r.get("_key", ""))
     if not k:
@@ -533,7 +575,6 @@ for _, r in df_sel_live.iterrows():
 if not keys_si:
     st.info("Aún no hay indicadores con Selección = Sí. Marca todas las validaciones para activar la tabla de metas.")
 else:
-    # Construir df_meta con columnas dinámicas de periodos
     period_cols = [f"Periodo {i}" for i in range(1, dur + 1)]
 
     cols_meta_defaults = {
@@ -573,13 +614,6 @@ else:
     df_meta = _ensure_columns(df_meta, cols_meta_defaults)
     df_meta = df_meta[meta_cols].copy()
 
-    # AgGrid con validación visual: suma(periodos) == Meta (cuando Meta es numérica)
-    custom_css_3 = {
-        ".ag-header-cell-label": {"font-weight": "800"},
-        ".ag-cell": {"font-size": "13px"},
-    }
-
-    # JS para pintar fila tenue rojo si suma != meta (ambos numéricos)
     row_style_meta_js = JsCode(
         """
         function(params) {
@@ -596,7 +630,6 @@ else:
                 }
             });
 
-            // tolerancia básica
             if (Math.abs(sum - metaNum) > 1e-9) {
                 return {'backgroundColor': '#fff7ed'};
             }
@@ -621,7 +654,6 @@ else:
     grid_response_3 = AgGrid(
         df_meta,
         gridOptions=gridOptions3,
-        custom_css=custom_css_3,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         theme="streamlit",
         allow_unsafe_jscode=True,
@@ -636,7 +668,6 @@ else:
 
     df_meta_live = df_meta_live[meta_cols].copy()
 
-    # Auto-guardar (solo si cambia)
     cols_hash_3 = ["_key", "Línea base", "Meta", "Unidad de medida"] + period_cols
     hash_actual_3 = _stable_hash_df(df_meta_live, cols_hash_3)
     hash_prev_3 = st.session_state.get("hash_meta_resultados_parciales", "")
@@ -644,7 +675,6 @@ else:
     if hash_actual_3 and (hash_actual_3 != hash_prev_3):
         st.session_state["hash_meta_resultados_parciales"] = hash_actual_3
 
-        # Persistir por clave estable
         for _, r in df_meta_live.iterrows():
             k = _norm_text(r.get("_key", ""))
             if not k:
@@ -657,7 +687,6 @@ else:
                 "Periodos": {pc: _norm_text(r.get(pc, "")) for pc in period_cols}
             }
 
-        # Limpiar keys que ya no están en "Sí" (desaparecer)
         existentes = set(st.session_state["meta_resultados_parciales"].keys())
         actuales = set(keys_si)
         for k in list(existentes - actuales):
