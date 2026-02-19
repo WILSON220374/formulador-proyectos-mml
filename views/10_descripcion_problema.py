@@ -159,17 +159,17 @@ for i, txt in enumerate(lista_efectos):
 st.divider()
 
 # --- SECCIONES NARRATIVAS (FILAS) ---
-st.subheader("🖋️ REDACCIÓN FINAL")
+st.subheader("🖋️ REDACCIÓN DEL PROBLEMA")
 
 # Fila 1: Narrativa
-st.markdown("##### 1. Descripción detallada (Lógica del problema)")
+st.markdown("##### 1. Descripción detallada (PROBLEMA - CAUSAS - EFECTOS)")
 curr_n = st.session_state['descripcion_problema'].get('redaccion_narrativa', "")
 # Altura dinámica para narrativa
 h_narr = max(120, (str(curr_n).count('\n') + len(str(curr_n))//90 + 1) * 28)
 narrativa = st.text_area("Narrativa", value=curr_n, height=h_narr, key="txt_narr_final", label_visibility="collapsed")
 
 # Fila 2: Antecedentes
-st.markdown("##### 2. Antecedentes y Contexto")
+st.markdown("##### 2. Antecedentes (¿Que acciones se han desarrollado previamente")
 curr_a = st.session_state['descripcion_problema'].get('antecedentes', "")
 # Altura dinámica para antecedentes
 h_ant = max(120, (str(curr_a).count('\n') + len(str(curr_a))//90 + 1) * 28)
