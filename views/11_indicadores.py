@@ -17,9 +17,10 @@ inicializar_session()
 st.markdown(
     """
     <style>
-    .block-container { padding-bottom: 150px !important; }
+    .block-container { padding-bottom: 170px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
     .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
+    .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
     [data-testid="stImage"] img { border-radius: 12px; }
 
     .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
@@ -35,6 +36,17 @@ st.markdown(
         font-weight: 700;
         font-size: 13px;
         margin: 6px 0 14px 0;
+    }
+
+    .info-box-2 {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(16, 185, 129, 0.10);
+        border: 1px solid rgba(16, 185, 129, 0.18);
+        color: #065f46;
+        font-weight: 700;
+        font-size: 13px;
+        margin: 6px 0 12px 0;
     }
     </style>
     """,
@@ -71,10 +83,6 @@ def _generar_indicador(obj, cond, lugar):
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
 def _resolve_key(nivel, objetivo_txt):
-    """
-    Key estable para guardar en session_state['datos_indicadores'].
-    (Opción 1 estricta: no depende del árbol por niveles, solo de la tabla superior 'referencia_manual')
-    """
     if 'indicadores_mapa_objetivo' not in st.session_state or not isinstance(st.session_state.get('indicadores_mapa_objetivo'), dict):
         st.session_state['indicadores_mapa_objetivo'] = {}
 
@@ -143,14 +151,12 @@ obj_general = _norm_text(ref.get("objetivo", ""))
 especificos = _as_list(ref.get("especificos", []))
 actividades = _as_list(ref.get("actividades", []))
 
-# Estricto: si no hay nada, se detiene
 if not obj_general and len(especificos) == 0 and len(actividades) == 0:
     st.error("La tabla superior de Hoja 7 está vacía. En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
     st.stop()
 
-# normalizar textos
-especificos = [ _norm_text(x) for x in especificos if _norm_text(x) ]
-actividades = [ _norm_text(x) for x in actividades if _norm_text(x) ]
+especificos = [_norm_text(x) for x in especificos if _norm_text(x)]
+actividades = [_norm_text(x) for x in actividades if _norm_text(x)]
 
 # -----------------------------
 # State hoja 11
@@ -164,8 +170,28 @@ if "df_indicadores" not in st.session_state or not isinstance(st.session_state.g
 if "hash_indicadores" not in st.session_state:
     st.session_state["hash_indicadores"] = ""
 
+# NUEVO: selección de indicadores
+if "seleccion_indicadores" not in st.session_state or not isinstance(st.session_state.get("seleccion_indicadores"), dict):
+    st.session_state["seleccion_indicadores"] = {}
+
+if "hash_seleccion_indicadores" not in st.session_state:
+    st.session_state["hash_seleccion_indicadores"] = ""
+
 # -----------------------------
-# DataFrame base (UI)
+# Construcción filas base desde referencia_manual
+# -----------------------------
+def _build_rows_from_ref():
+    rows = []
+    if obj_general:
+        rows.append(("Objetivo General", obj_general))
+    for e in especificos:
+        rows.append(("Objetivo Específico (Componente)", e))
+    for a in actividades:
+        rows.append(("Actividad Clave", a))
+    return rows
+
+# -----------------------------
+# Tabla 1: Indicadores (AgGrid)
 # -----------------------------
 cols_defaults = {
     "Nivel": "",
@@ -176,20 +202,6 @@ cols_defaults = {
     "Indicador Generado": "",
 }
 target_cols = list(cols_defaults.keys())
-
-def _build_rows_from_ref():
-    rows = []
-
-    if obj_general:
-        rows.append(("Objetivo General", obj_general))
-
-    for e in especificos:
-        rows.append(("Objetivo Específico (Componente)", e))
-
-    for a in actividades:
-        rows.append(("Actividad Clave", a))
-
-    return rows
 
 def _build_df_from_ref():
     rows = []
@@ -207,7 +219,6 @@ def _build_df_from_ref():
             "1. Objeto": obj,
             "2. Condición Deseada": cond,
             "3. Lugar": lugar,
-            # el display se calcula en JS
             "Indicador Generado": "",
         })
 
@@ -227,7 +238,6 @@ def _sync_df_keep_user_edits(df_old):
     df_merge = pd.merge(df_new[keycols], df_old, on=keycols, how="left")
     df_merge = _ensure_columns(df_merge, cols_defaults)
 
-    # Conservar edición del usuario
     for col_edit in ["1. Objeto", "2. Condición Deseada", "3. Lugar"]:
         mask = df_merge[col_edit].isna() | (df_merge[col_edit].astype(str) == "nan")
         df_merge.loc[mask, col_edit] = df_new[col_edit].values
@@ -239,7 +249,6 @@ def _sync_df_keep_user_edits(df_old):
 df_old_ui = st.session_state.get("df_indicadores", pd.DataFrame())
 df_ui = _sync_df_keep_user_edits(df_old_ui)
 
-# Reemplazar si cambió estructura (por cambios en Hoja 7)
 if df_old_ui is None or df_old_ui.empty:
     st.session_state["df_indicadores"] = df_ui.copy()
 else:
@@ -250,12 +259,6 @@ df_work = st.session_state["df_indicadores"].copy()
 df_work = _ensure_columns(df_work, cols_defaults)
 df_work = df_work[target_cols].copy()
 
-# -----------------------------
-# AgGrid config
-# - Indicador calculado en FRONT (JS) -> se actualiza al instante
-# - Filas completas en azul tenue (JS)
-# - Objetivo no editable pero copiable (selección de texto habilitada)
-# -----------------------------
 gb = GridOptionsBuilder.from_dataframe(df_work)
 
 gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=220)
@@ -293,7 +296,8 @@ gb.configure_grid_options(
     domLayout="autoHeight"
 )
 
-jscode_row_style = JsCode("""
+# Azul tenue si está completo (solo para visual)
+jscode_row_style_1 = JsCode("""
 function(params) {
   const a = (params.data && params.data["1. Objeto"]) ? String(params.data["1. Objeto"]).trim() : "";
   const b = (params.data && params.data["2. Condición Deseada"]) ? String(params.data["2. Condición Deseada"]).trim() : "";
@@ -306,7 +310,7 @@ function(params) {
 }
 """)
 
-gb.configure_grid_options(getRowStyle=jscode_row_style)
+gb.configure_grid_options(getRowStyle=jscode_row_style_1)
 
 gridOptions = gb.build()
 
@@ -328,24 +332,19 @@ grid_response = AgGrid(
     key="grid_indicadores"
 )
 
-# -----------------------------
-# Captura data devuelta por AgGrid
-# (valueGetter no siempre viene en data => persistimos calculando en Python)
-# -----------------------------
 df_live = pd.DataFrame(grid_response.get("data", []))
 df_live = _ensure_columns(df_live, cols_defaults)
 df_live = df_live[target_cols].copy()
 
-# Hash SOLO por campos editables y llaves
-cols_hash = ["Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar"]
-hash_actual = _stable_hash_df(df_live, cols_hash)
-hash_prev = st.session_state.get("hash_indicadores", "")
+# Auto-guardar tabla 1: solo si cambia
+cols_hash_1 = ["Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar"]
+hash_actual_1 = _stable_hash_df(df_live, cols_hash_1)
+hash_prev_1 = st.session_state.get("hash_indicadores", "")
 
-if hash_actual and (hash_actual != hash_prev):
-    st.session_state["hash_indicadores"] = hash_actual
+if hash_actual_1 and (hash_actual_1 != hash_prev_1):
+    st.session_state["hash_indicadores"] = hash_actual_1
     st.session_state["df_indicadores"] = df_live
 
-    # Persistencia: actualizar datos_indicadores por key estable
     for _, r in df_live.iterrows():
         nivel = _norm_text(r.get("Nivel", ""))
         objetivo_txt = _norm_text(r.get("Objetivo", ""))
@@ -354,7 +353,6 @@ if hash_actual and (hash_actual != hash_prev):
         cond = _norm_text(r.get("2. Condición Deseada", ""))
         lugar = _norm_text(r.get("3. Lugar", ""))
 
-        # evita escribir basura si no hay nada diligenciado
         if not obj and not cond and not lugar:
             continue
 
@@ -370,5 +368,173 @@ if hash_actual and (hash_actual != hash_prev):
             "Indicador": indicador
         }
 
-    # Guardado automático en nube
+    guardar_datos_nube()
+
+# -----------------------------
+# Tabla 2: Selección de indicadores (NUEVA)
+# -----------------------------
+st.markdown('<div class="subtitulo-seccion">Selección de indicadores</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="info-box-2">Marca las validaciones. La columna <b>Selección</b> será <b>Sí</b> solo si todas están chuleadas. '
+    'Fila verde tenue si es <b>Sí</b>, rojo tenue si es <b>No</b>. Guardado automático en nube.</div>',
+    unsafe_allow_html=True
+)
+
+P1 = "El Sentido del indicador es claro"
+P2 = "Existe información disponible o se puede recolectar fácilmente"
+P3 = "El indicador es tangible y se puede observar"
+P4 = "La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"
+P5 = "El indicador es lo bastante representativo para el conjunto de resultados esperados."
+
+def _build_df_seleccion_from_indicadores(df_ind):
+    rows = []
+    for _, r in df_ind.iterrows():
+        nivel = _norm_text(r.get("Nivel", ""))
+        objetivo_txt = _norm_text(r.get("Objetivo", ""))
+
+        obj = _norm_text(r.get("1. Objeto", ""))
+        cond = _norm_text(r.get("2. Condición Deseada", ""))
+        lugar = _norm_text(r.get("3. Lugar", ""))
+
+        indicador_txt = _generar_indicador(obj, cond, lugar)
+        key_estable = _resolve_key(nivel, objetivo_txt)
+
+        guard_sel = st.session_state["seleccion_indicadores"].get(key_estable, {})
+
+        rows.append({
+            "_key": key_estable,  # interno
+            "Indicador": indicador_txt,
+            P1: bool(guard_sel.get(P1, False)),
+            P2: bool(guard_sel.get(P2, False)),
+            P3: bool(guard_sel.get(P3, False)),
+            P4: bool(guard_sel.get(P4, False)),
+            P5: bool(guard_sel.get(P5, False)),
+            "Selección": "",  # calculado en JS
+        })
+
+    return pd.DataFrame(rows)
+
+df_base_sel = _build_df_seleccion_from_indicadores(df_live)
+
+cols_sel_defaults = {
+    "_key": "",
+    "Indicador": "",
+    P1: False,
+    P2: False,
+    P3: False,
+    P4: False,
+    P5: False,
+    "Selección": "",
+}
+sel_cols = list(cols_sel_defaults.keys())
+df_base_sel = _ensure_columns(df_base_sel, cols_sel_defaults)
+df_base_sel = df_base_sel[sel_cols].copy()
+
+# AgGrid selección
+gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
+
+# Ocultar key interna (si el grid no la retorna, reconstruimos por orden / contenido)
+gb2.configure_column("_key", headerName="", editable=False, hide=True)
+
+gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
+
+# Checkboxes
+gb2.configure_column(P1, headerName="P1", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P2, headerName="P2", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P3, headerName="P3", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P4, headerName="P4", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column(P5, headerName="P5", editable=True, width=140, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+
+# Selección calculada
+value_getter_sel = JsCode("""
+function(params) {
+  const a = !!(params.data && params.data["El Sentido del indicador es claro"]);
+  const b = !!(params.data && params.data["Existe información disponible o se puede recolectar fácilmente"]);
+  const c = !!(params.data && params.data["El indicador es tangible y se puede observar"]);
+  const d = !!(params.data && params.data["La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"]);
+  const e = !!(params.data && params.data["El indicador es lo bastante representativo para el conjunto de resultados esperados."]);
+  return (a && b && c && d && e) ? "Sí" : "No";
+}
+""")
+
+gb2.configure_column("Selección", headerName="Selección", editable=False, width=110, valueGetter=value_getter_sel)
+
+gb2.configure_grid_options(
+    enableCellTextSelection=True,
+    ensureDomOrder=True,
+    suppressCopyRowsToClipboard=False,
+    rowSelection="single",
+    domLayout="autoHeight"
+)
+
+# Estilo fila: verde si Sí, rojo si No
+row_style_sel = JsCode("""
+function(params) {
+  const a = !!(params.data && params.data["El Sentido del indicador es claro"]);
+  const b = !!(params.data && params.data["Existe información disponible o se puede recolectar fácilmente"]);
+  const c = !!(params.data && params.data["El indicador es tangible y se puede observar"]);
+  const d = !!(params.data && params.data["La tarea de recolectar datos está al alcance del proyecto y no requiere expertos para su análisis"]);
+  const e = !!(params.data && params.data["El indicador es lo bastante representativo para el conjunto de resultados esperados."]);
+  const ok = (a && b && c && d && e);
+  if (ok) {
+    return { 'background-color': '#ECFDF5', 'color': '#000000' };   // verde tenue
+  }
+  return { 'background-color': '#FEF2F2', 'color': '#000000' };     // rojo tenue
+}
+""")
+
+gb2.configure_grid_options(getRowStyle=row_style_sel)
+
+gridOptions2 = gb2.build()
+
+custom_css_2 = {
+    ".ag-header-cell-text": {
+        "font-size": "13px !important",
+        "font-weight": "900 !important",
+        "color": "#065f46 !important"
+    }
+}
+
+grid_response_2 = AgGrid(
+    df_base_sel,
+    gridOptions=gridOptions2,
+    custom_css=custom_css_2,
+    update_mode=GridUpdateMode.VALUE_CHANGED,
+    theme="streamlit",
+    allow_unsafe_jscode=True,
+    key="grid_seleccion_indicadores"
+)
+
+df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
+df_sel_live = _ensure_columns(df_sel_live, cols_sel_defaults)
+
+# Asegurar que si AgGrid no devolvió _key, lo reconstruimos por orden (misma tabla base)
+if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
+    # reconstrucción por orden: df_base_sel ya tiene _key correcto
+    df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
+
+df_sel_live = df_sel_live[sel_cols].copy()
+
+# Auto-guardar tabla 2: solo si cambia
+cols_hash_2 = ["_key", P1, P2, P3, P4, P5]
+hash_actual_2 = _stable_hash_df(df_sel_live, cols_hash_2)
+hash_prev_2 = st.session_state.get("hash_seleccion_indicadores", "")
+
+if hash_actual_2 and (hash_actual_2 != hash_prev_2):
+    st.session_state["hash_seleccion_indicadores"] = hash_actual_2
+
+    # Persistimos por _key estable
+    for _, r in df_sel_live.iterrows():
+        k = _norm_text(r.get("_key", ""))
+        if not k:
+            continue
+
+        st.session_state["seleccion_indicadores"][k] = {
+            P1: bool(r.get(P1, False)),
+            P2: bool(r.get(P2, False)),
+            P3: bool(r.get(P3, False)),
+            P4: bool(r.get(P4, False)),
+            P5: bool(r.get(P5, False)),
+        }
+
     guardar_datos_nube()
