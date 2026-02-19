@@ -169,7 +169,7 @@ h_narr = max(120, (str(curr_n).count('\n') + len(str(curr_n))//90 + 1) * 28)
 narrativa = st.text_area("Narrativa", value=curr_n, height=h_narr, key="txt_narr_final", label_visibility="collapsed")
 
 # Fila 2: Antecedentes
-st.markdown("##### 2. Antecedentes (¿Que acciones se han desarrollado previamente")
+st.markdown("##### 2. Antecedentes - ¿Que acciones se han desarrollado previamente")
 curr_a = st.session_state['descripcion_problema'].get('antecedentes', "")
 # Altura dinámica para antecedentes
 h_ant = max(120, (str(curr_a).count('\n') + len(str(curr_a))//90 + 1) * 28)
