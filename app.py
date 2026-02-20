@@ -217,6 +217,7 @@ pg = st.navigation({
     "Fase IV: Análisis de objetivos": [
         st.Page("views/11_indicadores.py", title="11. Indicadores", icon="📊"),
         st.Page("views/12_riesgos.py", title="12. Riesgos", icon="⚠️"),
+        st.Page("views/13_matriz_marco_logico.py", title="13. Matriz Marco Lógico", icon="🧩"),
     ],
 })
 
