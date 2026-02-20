@@ -6,7 +6,7 @@ from session_state import inicializar_session
 # 1. Asegurar persistencia
 inicializar_session()
 
-# --- DISEÑO DE ALTO IMPACTO (CSS CUSTOM) ---
+# --- DISEÑO DE PANTALLA (CSS) ---
 st.markdown("""
     <style>
     .card-mml {
@@ -49,70 +49,75 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE NIVELES Y COLORES ---
+# --- CONFIGURACIÓN DE NIVELES ---
 CONFIG_NIVELES = {
     "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"},
     "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"},
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}
 }
 
-# --- DATOS DE PRUEBA (SOLO PARA DISEÑO) ---
+# --- DATOS DE PRUEBA ---
 datos_ejemplo = [
     {"tipo": "PROPÓSITO / ESPECÍFICO", "objetivo": "Objetivo Específico de prueba", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "Participación comunitaria"},
     {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Producto o Medios Directos", "indicador": "Indicador de Producto", "meta": "500 unidades", "supuesto": "Proveedores a tiempo"},
     {"tipo": "ACTIVIDAD", "objetivo": "Acciones y Medios Indirectos", "indicador": "Presupuesto", "meta": "$100.000.000", "supuesto": "Recursos disponibles"}
 ]
 
-# --- FUNCIÓN PARA GENERAR EL PNG ---
-def generar_png_mml(datos):
-    """Crea una versión de imagen de la matriz usando Graphviz."""
+# --- FUNCIÓN DE EXPORTACIÓN VERTICAL (TIPO MATRIZ APILADA) ---
+def generar_png_vertical(datos):
+    """Genera una imagen con bloques apilados uno debajo del otro."""
     dot = graphviz.Digraph(format='png')
-    dot.attr(rankdir='TB', nodesep='0.1', ranksep='0.1')
+    # Forzamos dirección de arriba hacia abajo (Top to Bottom)
+    dot.attr(rankdir='TB', nodesep='0.2', ranksep='0.1', bgcolor='transparent')
     
-    # Estilo de tabla HTML dentro de Graphviz
     for i, fila in enumerate(datos):
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A"})
-        # Creamos una etiqueta HTML para el nodo
-        label = f'''<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10" BGCOLOR="white">
+        
+        # Estructura de tabla interna que imita la tarjeta de la pantalla
+        label = f'''<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8" BGCOLOR="white" FIXEDSIZE="FALSE">
             <TR><TD COLSPAN="4" BGCOLOR="{conf['color']}"><FONT COLOR="white"><B>{fila['tipo']}</B></FONT></TD></TR>
             <TR>
-                <TD BGCOLOR="#f1f5f9"><B>OBJETIVO</B></TD>
-                <TD BGCOLOR="#f1f5f9"><B>INDICADOR</B></TD>
-                <TD BGCOLOR="#f1f5f9"><B>META</B></TD>
-                <TD BGCOLOR="#f1f5f9"><B>SUPUESTOS</B></TD>
+                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>OBJETIVO</B></FONT></TD>
+                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>INDICADOR</B></FONT></TD>
+                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>META</B></FONT></TD>
+                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>SUPUESTOS</B></FONT></TD>
             </TR>
             <TR>
-                <TD WIDTH="200">{fila['objetivo']}</TD>
-                <TD WIDTH="150">{fila['indicador']}</TD>
-                <TD WIDTH="100">{fila['meta']}</TD>
-                <TD WIDTH="150">{fila['supuesto']}</TD>
+                <TD WIDTH="250" BORDER="1">{fila['objetivo']}</TD>
+                <TD WIDTH="180" BORDER="1">{fila['indicador']}</TD>
+                <TD WIDTH="100" BORDER="1">{fila['meta']}</TD>
+                <TD WIDTH="180" BORDER="1">{fila['supuesto']}</TD>
             </TR>
         </TABLE>>'''
-        dot.node(f'node{i}', label=label, shape='plaintext')
-    
+        
+        dot.node(f'block_{i}', label=label, shape='plaintext')
+        
+        # Conexión invisible para forzar el apilamiento vertical perfecto
+        if i > 0:
+            dot.edge(f'block_{i-1}', f'block_{i}', style='invis')
+            
     return dot.pipe(format='png')
 
-# --- PANEL LATERAL (SIDEBAR) ---
+# --- PANEL LATERAL ---
 with st.sidebar:
     st.header("⚙️ Exportación")
-    st.write("Descarga la matriz en formato de imagen para tus informes.")
+    st.write("Genera una imagen de la matriz tal como se ve en pantalla.")
     
-    # Botón de descarga
-    imagen_png = generar_png_mml(datos_ejemplo)
+    # Generar la imagen vertical
+    imagen_final = generar_png_vertical(datos_ejemplo)
     st.download_button(
-        label="🖼️ Descargar Matriz como PNG",
-        data=imagen_png,
-        file_name="matriz_marco_logico.png",
+        label="🖼️ Descargar MML (Vertical)",
+        data=imagen_final,
+        file_name="matriz_marco_logico_vertical.png",
         mime="image/png",
         use_container_width=True
     )
-    st.divider()
 
-# --- ENCABEZADO PRINCIPAL ---
+# --- CUERPO DE LA PÁGINA ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Estructura validada del proyecto.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Vista de validación operativa.</div>', unsafe_allow_html=True)
     st.progress(0.60)
 with col_img:
     if os.path.exists("unnamed.jpg"):
@@ -120,7 +125,7 @@ with col_img:
 
 st.divider()
 
-# --- RENDERIZADO DE LAS TARJETAS (VISTA PREVIA) ---
+# --- RENDER EN PANTALLA ---
 for fila in datos_ejemplo:
     conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
     st.markdown(f"""
@@ -129,22 +134,10 @@ for fila in datos_ejemplo:
                 {fila['tipo']}
             </div>
             <div style="display: flex; flex-direction: row; gap: 15px;">
-                <div style="flex: 2;">
-                    <div class="col-title" style="color: {conf['color']}; border-bottom-color: {conf['color']}33;">🎯 Objetivo</div>
-                    <div class="col-content">{fila['objetivo']}</div>
-                </div>
-                <div style="flex: 1.5;">
-                    <div class="col-title" style="color: {conf['color']}; border-bottom-color: {conf['color']}33;">📊 Indicador</div>
-                    <div class="col-content">{fila['indicador']}</div>
-                </div>
-                <div style="flex: 1;">
-                    <div class="col-title" style="color: {conf['color']}; border-bottom-color: {conf['color']}33;">🏁 Meta</div>
-                    <div class="col-content">{fila['meta']}</div>
-                </div>
-                <div style="flex: 1.5;">
-                    <div class="col-title" style="color: {conf['color']}; border-bottom-color: {conf['color']}33;">🛡️ Supuestos</div>
-                    <div class="col-content">{fila['supuesto']}</div>
-                </div>
+                <div style="flex: 2;"><div class="col-title" style="color: {conf['color']};">🎯 Objetivo</div><div class="col-content">{fila['objetivo']}</div></div>
+                <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">📊 Indicador</div><div class="col-content">{fila['indicador']}</div></div>
+                <div style="flex: 1;"><div class="col-title" style="color: {conf['color']};">🏁 Meta</div><div class="col-content">{fila['meta']}</div></div>
+                <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">🛡️ Supuestos</div><div class="col-content">{fila['supuesto']}</div></div>
             </div>
         </div>
     """, unsafe_allow_html=True)
