@@ -7,23 +7,6 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
-
-
-def _safe_int(value, default: int) -> int:
-    try:
-        if value is None:
-            return default
-        if isinstance(value, bool):
-            return default
-        if isinstance(value, (int, float)):
-            return int(value)
-        s = str(value).strip()
-        if s == "":
-            return default
-        return int(float(s))
-    except Exception:
-        return default
-
 def _df_from_saved(obj):
     """
     Compatibilidad:
@@ -39,6 +22,113 @@ def _df_from_saved(obj):
     return pd.DataFrame()
 
 
+
+
+def _safe_int(value, default: int = 2026) -> int:
+    try:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).strip()
+        if s == "":
+            return default
+        return int(float(s))
+    except Exception:
+        return default
+
+
+def _normalize_tabla_deficit(obj):
+    """Normaliza tabla_deficit al formato esperado por Hoja 14:
+    dict[str, {"dem": float, "ofe": float}]
+    Acepta:
+      - dict ya normalizado
+      - dict con otras llaves
+      - list[dict] tipo records (AÑO, CANTIDAD DEMANDADA, CANTIDAD OFERTADA)
+      - DataFrame (convertido a records)
+    """
+    if obj is None:
+        return {}
+
+    # DataFrame -> records
+    if isinstance(obj, pd.DataFrame):
+        obj = obj.to_dict(orient="records")
+
+    # records
+    if isinstance(obj, list):
+        out = {}
+        for row in obj:
+            if not isinstance(row, dict):
+                continue
+            # claves posibles
+            a = row.get("AÑO", row.get("Año", row.get("anio", row.get("year"))))
+            if a is None:
+                continue
+            k = str(int(float(a))) if str(a).strip() != "" else None
+            if not k:
+                continue
+
+            dem = row.get("dem", row.get("Demanda", row.get("CANTIDAD DEMANDADA", row.get("cantidad_demandada", 0))))
+            ofe = row.get("ofe", row.get("Oferta", row.get("CANTIDAD OFERTADA", row.get("cantidad_ofertada", 0))))
+
+            try:
+                dem_f = float(dem) if dem is not None and str(dem).strip() != "" else 0.0
+            except Exception:
+                dem_f = 0.0
+            try:
+                ofe_f = float(ofe) if ofe is not None and str(ofe).strip() != "" else 0.0
+            except Exception:
+                ofe_f = 0.0
+
+            out[k] = {"dem": dem_f, "ofe": ofe_f}
+        return out
+
+    # dict
+    if isinstance(obj, dict):
+        # caso ya normalizado por año -> {dem, ofe}
+        # o por año -> {"Demanda":..., "Oferta":...}
+        out = {}
+        for year_key, val in obj.items():
+            try:
+                y = str(int(float(str(year_key).strip())))
+            except Exception:
+                # si la llave no es año, ignorar
+                continue
+
+            if isinstance(val, pd.DataFrame):
+                # inesperado: intentar leer primera fila
+                val = val.to_dict(orient="records")
+
+            if isinstance(val, list):
+                # si viene como lista de filas para un año
+                # tomar primera fila si tiene dem/ofe
+                if val:
+                    vv = val[0] if isinstance(val[0], dict) else {}
+                    val = vv
+                else:
+                    val = {}
+
+            if isinstance(val, dict):
+                dem = val.get("dem", val.get("Demanda", val.get("CANTIDAD DEMANDADA", val.get("cantidad_demandada", 0))))
+                ofe = val.get("ofe", val.get("Oferta", val.get("CANTIDAD OFERTADA", val.get("cantidad_ofertada", 0))))
+            else:
+                dem, ofe = 0, 0
+
+            try:
+                dem_f = float(dem) if dem is not None and str(dem).strip() != "" else 0.0
+            except Exception:
+                dem_f = 0.0
+            try:
+                ofe_f = float(ofe) if ofe is not None and str(ofe).strip() != "" else 0.0
+            except Exception:
+                ofe_f = 0.0
+
+            out[y] = {"dem": dem_f, "ofe": ofe_f}
+        return out
+
+    return {}
 def inicializar_session():
     # --- AJUSTE VISUAL PARA QUE NO TENGAS QUE HACER SCROLL ---
     st.markdown(
@@ -142,16 +232,10 @@ def inicializar_session():
     if 'meta_resultados_parciales' not in st.session_state:
         st.session_state['meta_resultados_parciales'] = {}
 
-    # NUEVO: medios de verificación (Hoja 11 - tabla final)
-    if 'medios_verificacion' not in st.session_state:
-        st.session_state['medios_verificacion'] = {}
-
-    # NUEVO: hoja 12 (Riesgos)
-    # Nota: NO inicializamos 'datos_riesgos' aquí.
-    # La Hoja 12 construye la matriz a partir de los objetivos (Hoja 7) cuando la clave NO existe.
-
-
     # --- HOJA 14 (Necesidad) ---
+    # Nota: la Hoja 14 espera tipos específicos:
+    # - anio_formulacion: int
+    # - tabla_deficit: dict[str, {"dem": float, "ofe": float}]
     if 'desc_objetivo_general' not in st.session_state:
         st.session_state['desc_objetivo_general'] = ""
     if 'necesidad_atender' not in st.session_state:
@@ -159,7 +243,15 @@ def inicializar_session():
     if 'anio_formulacion' not in st.session_state:
         st.session_state['anio_formulacion'] = 2026
     if 'tabla_deficit' not in st.session_state:
-        st.session_state['tabla_deficit'] = pd.DataFrame()
+        st.session_state['tabla_deficit'] = {}
+
+    # NUEVO: medios de verificación (Hoja 11 - tabla final)
+    if 'medios_verificacion' not in st.session_state:
+        st.session_state['medios_verificacion'] = {}
+
+    # NUEVO: hoja 12 (Riesgos)
+    # Nota: NO inicializamos 'datos_riesgos' aquí.
+    # La Hoja 12 construye la matriz a partir de los objetivos (Hoja 7) cuando la clave NO existe.
 
 
 def cargar_datos_nube(user_id):
@@ -206,13 +298,10 @@ def cargar_datos_nube(user_id):
             st.session_state['medios_verificacion'] = d.get('medios_verificacion', {})
 
             # --- HOJA 14 (Necesidad) ---
-            st.session_state['desc_objetivo_general'] = d.get('desc_objetivo_general', "")
-            st.session_state['necesidad_atender'] = d.get('necesidad_atender', "")
-            st.session_state['anio_formulacion'] = _safe_int(d.get('anio_formulacion', 2026), 2026)
-            if 'tabla_deficit' in d:
-                st.session_state['tabla_deficit'] = _df_from_saved(d.get('tabla_deficit'))
-            else:
-                st.session_state['tabla_deficit'] = pd.DataFrame()
+            st.session_state['desc_objetivo_general'] = d.get('desc_objetivo_general', st.session_state.get('desc_objetivo_general', ""))
+            st.session_state['necesidad_atender'] = d.get('necesidad_atender', st.session_state.get('necesidad_atender', ""))
+            st.session_state['anio_formulacion'] = _safe_int(d.get('anio_formulacion', st.session_state.get('anio_formulacion', 2026)), 2026)
+            st.session_state['tabla_deficit'] = _normalize_tabla_deficit(d.get('tabla_deficit', st.session_state.get('tabla_deficit', {})))
 
             # NUEVO: hoja 12 (Riesgos)
             if 'datos_riesgos' in d:
@@ -298,14 +387,12 @@ def guardar_datos_nube():
                 if isinstance(st.session_state.get('datos_riesgos', None), pd.DataFrame)
                 else pd.DataFrame(st.session_state.get('datos_riesgos', []) or []).to_dict(orient="records")
             ),
-
+       
             # --- HOJA 14 (Necesidad) ---
             "desc_objetivo_general": st.session_state.get('desc_objetivo_general', ""),
             "necesidad_atender": st.session_state.get('necesidad_atender', ""),
             "anio_formulacion": _safe_int(st.session_state.get('anio_formulacion', 2026), 2026),
-            "tabla_deficit": st.session_state.get('tabla_deficit', pd.DataFrame()).to_dict(orient="records")
-                if isinstance(st.session_state.get('tabla_deficit', None), pd.DataFrame)
-                else pd.DataFrame(st.session_state.get('tabla_deficit', []) or []).to_dict(orient="records"),
+            "tabla_deficit": _normalize_tabla_deficit(st.session_state.get('tabla_deficit', {})),
         }
 
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
