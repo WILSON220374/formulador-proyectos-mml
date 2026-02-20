@@ -97,7 +97,6 @@ else:
 
 datos_reales = []
 
-# Reconstruimos la información cruzando las memorias
 for kmap, k in mapa.items():
     partes = kmap.split("||")
     if len(partes) != 2:
@@ -106,23 +105,20 @@ for kmap, k in mapa.items():
     nivel_original = partes[0]
     objetivo_texto = partes[1]
     
-    # 1. Verificar si el indicador fue seleccionado y validado (P1 a P5)
     sel = seleccion.get(k, {})
     p_cols = ["P1", "P2", "P3", "P4", "P5"]
     is_selected = True if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in p_cols) else False
     
     if not is_selected:
-        continue # Si no fue seleccionado, lo omitimos de la Matriz Final
+        continue 
         
-    # 2. Extraer indicador formulado y meta (¡AQUÍ ESTABA EL ERROR CORREGIDO!)
-    ind_data = datos_ind.get(k, {}) 
+    ind_data = datos_ind.get(k, {})
     indicador_texto = str(ind_data.get("Indicador", "")).strip()
     
     meta_data = metas.get(k, {})
     meta_texto = str(meta_data.get("Meta", "")).strip()
     
-    # 3. Traducción de niveles al formato exacto de MML
-    tipo_mml = "OBJETIVO ESPECÍFICO" # Default
+    tipo_mml = "OBJETIVO ESPECÍFICO" 
     if "General" in nivel_original or "Fin" in nivel_original:
         tipo_mml = "OBJETIVO GENERAL"
     elif "Espec" in nivel_original or "Componente" in nivel_original or "Propósito" in nivel_original:
@@ -130,7 +126,6 @@ for kmap, k in mapa.items():
     elif "Actividad" in nivel_original:
         tipo_mml = "ACTIVIDAD"
         
-    # 4. Buscar supuesto en la matriz de riesgos (Hoja 12)
     supuesto = "Pendiente"
     for r in riesgos:
         if str(r.get("Objetivo", "")) == objetivo_texto:
@@ -145,11 +140,19 @@ for kmap, k in mapa.items():
         "supuesto": supuesto
     })
 
+# --- ORDENAMIENTO JERÁRQUICO (AQUÍ ESTÁ LA MAGIA) ---
+orden_jerarquia = {
+    "OBJETIVO GENERAL": 1,
+    "OBJETIVO ESPECÍFICO": 2,
+    "ACTIVIDAD": 3
+}
+# Ordenamos la lista basándonos en el valor que le dimos a cada nivel en el diccionario anterior
+datos_reales = sorted(datos_reales, key=lambda x: orden_jerarquia.get(x["tipo"], 99))
+
 # --- RENDERIZADO DE LA MATRIZ ---
 if not datos_reales:
     st.warning("⚠️ No se encontraron indicadores validados. Para ver datos aquí, asegúrate de haber marcado las 5 casillas de validación (P1 a P5) y generado las metas para tus objetivos en la Hoja 11.")
 else:
-    # --- ENCABEZADO GLOBAL DE LA TABLA ---
     st.markdown("""
         <div class="header-global">
             <div style="flex: 1.2;">NIVEL</div>
