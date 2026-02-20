@@ -140,13 +140,12 @@ for kmap, k in mapa.items():
         "supuesto": supuesto
     })
 
-# --- ORDENAMIENTO JERÁRQUICO (AQUÍ ESTÁ LA MAGIA) ---
+# --- ORDENAMIENTO JERÁRQUICO ---
 orden_jerarquia = {
     "OBJETIVO GENERAL": 1,
     "OBJETIVO ESPECÍFICO": 2,
     "ACTIVIDAD": 3
 }
-# Ordenamos la lista basándonos en el valor que le dimos a cada nivel en el diccionario anterior
 datos_reales = sorted(datos_reales, key=lambda x: orden_jerarquia.get(x["tipo"], 99))
 
 # --- RENDERIZADO DE LA MATRIZ ---
@@ -166,6 +165,7 @@ else:
     for fila in datos_reales:
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
         
+        # Aquí se aplica la alineación centrada forzada para las 3 columnas
         st.markdown(f"""
             <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
                 <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
@@ -173,9 +173,9 @@ else:
                         <div class="tipo-badge" style="background-color: {conf['color']};">{fila['tipo']}</div>
                     </div>
                     <div style="flex: 2;" class="col-content"><b>{fila['objetivo']}</b></div>
-                    <div style="flex: 1.5;" class="col-content">{fila['indicador']}</div>
-                    <div style="flex: 1;" class="col-content text-center">{fila['meta']}</div>
-                    <div style="flex: 1.5;" class="col-content">{fila['supuesto']}</div>
+                    <div style="flex: 1.5; justify-content: center; text-align: center;" class="col-content">{fila['indicador']}</div>
+                    <div style="flex: 1; justify-content: center; text-align: center;" class="col-content">{fila['meta']}</div>
+                    <div style="flex: 1.5; justify-content: center; text-align: center;" class="col-content">{fila['supuesto']}</div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
