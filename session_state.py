@@ -187,6 +187,13 @@ def cargar_datos_nube(user_id):
             else:
                 # Si no hay datos persistidos, eliminamos la clave para que la Hoja 12 la genere desde los objetivos.
                 st.session_state.pop('datos_riesgos', None)
+            # Validación: si se cargó un DataFrame vacío o sin la columna clave,
+            # eliminamos la clave para que la Hoja 12 regenere la matriz desde los objetivos (Hoja 7).
+            if 'datos_riesgos' in st.session_state:
+                dr = st.session_state.get('datos_riesgos')
+                if (not isinstance(dr, pd.DataFrame)) or dr.empty or ('Objetivo' not in dr.columns):
+                    st.session_state.pop('datos_riesgos', None)
+
 
             # DataFrames (compatibilidad: records o dict)
             if 'interesados' in d:
