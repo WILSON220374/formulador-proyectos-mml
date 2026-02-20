@@ -120,8 +120,9 @@ if not st.session_state['autenticado']:
         st.markdown('<div class="titulo-acceso">Acceso Grupal<br>Posgrado</div>', unsafe_allow_html=True)
 
         with st.container(border=True):
-            st.markdown('<label class="label-mediana">USUARIO (GRUPO)</label>', unsafe_allow_html=True)
-            u = st.text_input("u", label_visibility="collapsed", placeholder="Ej: grupo1")
+
+            st.markdown('<label class="label-mediana">USUARIO</label>', unsafe_allow_html=True)
+            u = st.text_input("u", label_visibility="collapsed")
 
             st.markdown('<label class="label-mediana">CONTRASEÑA</label>', unsafe_allow_html=True)
             p = st.text_input("p", type="password", label_visibility="collapsed")
@@ -210,6 +211,7 @@ pg = st.navigation({
     ],
     "Fase IV: Análisis de objetivos": [
         st.Page("views/11_indicadores.py", title="11. Indicadores", icon="📊"),
+        st.Page("views/12_riesgos.py", title="12. Riesgos", icon="⚠️"),
     ],
 })
 
