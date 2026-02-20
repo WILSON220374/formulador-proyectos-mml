@@ -116,13 +116,10 @@ def generar_png_estetico(datos):
 
 # --- PANEL LATERAL ---
 with st.sidebar:
-    st.header("⚙️ Exportación Visual")
-    st.write("Descarga una versión estética de alta resolución de tu matriz.")
-    
     # Botón de descarga con el nuevo diseño
     imagen_estetica = generar_png_estetico(datos_ejemplo)
     st.download_button(
-        label="🖼️ Descargar Matriz Estética (PNG)",
+        label="🖼️ Descargar Matriz (PNG)",
         data=imagen_estetica,
         file_name="MML_Visual.png",
         mime="image/png",
