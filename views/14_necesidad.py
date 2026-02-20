@@ -9,9 +9,30 @@ inicializar_session()
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
+    /* Aumentar el espacio al final de la página para que no se corte */
+    .block-container { padding-bottom: 12rem !important; }
+    
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     .header-tabla { font-weight: 800; color: #1E3A8A; margin-bottom: 10px; font-size: 1.1rem; text-transform: uppercase; }
+    
+    /* Estilo para las casillas de solo lectura (Texto Negro) */
+    .readonly-label {
+        font-size: 0.85rem;
+        color: #374151;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .readonly-box {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
+        background-color: #f3f4f6;
+        color: #000000; /* Texto completamente negro */
+        font-size: 0.95rem;
+        min-height: 80px;
+        line-height: 1.5;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -20,7 +41,7 @@ col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 14. Necesidad</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Identificación de la necesidad y balance automático de oferta-demanda.</div>', unsafe_allow_html=True)
-    st.progress(1.0) # 100% de avance para esta fase
+    st.progress(1.0) 
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -54,27 +75,31 @@ for kmap, k in mapa.items():
             meta_general = str(metas.get(k, {}).get("Meta", "")).strip()
             break
 
-# --- SECCIÓN 1: OBJETIVO GENERAL (AUTOMÁTICO) ---
+# --- SECCIÓN 1: OBJETIVO GENERAL (AUTOMÁTICO Y LEGIBLE) ---
 st.markdown('<div class="header-tabla">🎯 Objetivo General del Proyecto</div>', unsafe_allow_html=True)
 with st.container(border=True):
     col1, col2, col3 = st.columns([2, 1.5, 1])
-    col1.text_area("Descripción del Objetivo", value=obj_general, disabled=True, height=100)
-    col2.text_area("Indicador", value=ind_general, disabled=True, height=100)
-    col3.text_input("Meta", value=meta_general, disabled=True)
+    
+    with col1:
+        st.markdown(f'<div class="readonly-label">Descripción del Objetivo</div><div class="readonly-box">{obj_general}</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'<div class="readonly-label">Indicador</div><div class="readonly-box">{ind_general}</div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'<div class="readonly-label">Meta</div><div class="readonly-box" style="text-align: center; min-height: 45px;">{meta_general}</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# --- SECCIÓN 2: NECESIDADES (TEXTO LIBRE) ---
+# --- SECCIÓN 2: NECESIDADES (NOMBRES ACTUALIZADOS) ---
 st.markdown('<div class="header-tabla">🔍 Análisis de la Necesidad</div>', unsafe_allow_html=True)
 col_a, col_b = st.columns(2)
 with col_a:
+    desc_objetivo = st.text_area("Descripción del objetivo general", 
+                                 value=st.session_state.get('desc_objetivo_general', ""),
+                                 placeholder="Describa el objetivo general...")
+with col_b:
     nec_atender = st.text_area("Necesidad a atender", 
                                value=st.session_state.get('necesidad_atender', ""),
-                               placeholder="Describa la necesidad principal...", height=150)
-with col_b:
-    nec_satisface = st.text_area("Necesidad que satisface la alternativa", 
-                                 value=st.session_state.get('necesidad_satisface', ""),
-                                 placeholder="¿Cómo la alternativa soluciona el problema?", height=150)
+                               placeholder="¿Qué necesidad principal se está atendiendo?")
 
 st.divider()
 
@@ -85,7 +110,6 @@ st.markdown('<div class="header-tabla">📉 Cálculo del Déficit (Proyección a
 anio_form = st.number_input("Año de Formulación", min_value=1950, max_value=2070, 
                             value=st.session_state.get('anio_formulacion', 2026), step=1)
 
-# Lógica de construcción de la tabla
 def obtener_df_base(anio_central):
     anios = list(range(anio_central - 5, anio_central + 6))
     datos_guardados = st.session_state.get('tabla_deficit', {})
@@ -105,7 +129,7 @@ df_base = obtener_df_base(anio_form)
 
 st.info("💡 Ingrese la Demanda y la Oferta. El Déficit se calcula automáticamente (Oferta menos Demanda).")
 
-# Editor de datos con cálculo automático
+# Editor de datos con altura ampliada (height=450) para evitar scroll vertical
 edited_df = st.data_editor(
     df_base,
     column_config={
@@ -116,6 +140,7 @@ edited_df = st.data_editor(
     },
     hide_index=True,
     use_container_width=True,
+    height=450,  # <-- Altura forzada para que quepan las 11 filas
     key="editor_necesidad_final"
 )
 
@@ -124,8 +149,8 @@ edited_df["DÉFICIT (OFERTA - DEMANDA)"] = edited_df["CANTIDAD OFERTADA"] - edit
 
 # --- GUARDADO ---
 if st.button("💾 Guardar Información de Necesidad", type="primary"):
+    st.session_state['desc_objetivo_general'] = desc_objetivo
     st.session_state['necesidad_atender'] = nec_atender
-    st.session_state['necesidad_satisface'] = nec_satisface
     st.session_state['anio_formulacion'] = anio_form
     
     dict_final = {}
