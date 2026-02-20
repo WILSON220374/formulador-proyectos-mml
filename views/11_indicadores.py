@@ -110,19 +110,19 @@ custom_css_grid = {
         "width": "100% !important",
         "text-align": "center !important",
     },
+
+    # Importante:
+    # No usamos flex para centrar verticalmente porque rompe el autoHeight/wrapText y genera solapamiento.
+    # En su lugar dejamos que la fila crezca y damos padding/line-height para legibilidad.
     ".ag-cell": {
-        "display": "flex !important",
-        "align-items": "center !important",
-    },
-    ".ag-cell-wrapper": {
-        "display": "flex !important",
-        "align-items": "center !important",
-        "height": "100% !important",
+        "white-space": "normal !important",
+        "line-height": "1.35 !important",
+        "padding-top": "6px !important",
+        "padding-bottom": "6px !important",
     },
     ".ag-cell-value": {
-        "display": "flex !important",
-        "align-items": "center !important",
-        "height": "100% !important",
+        "white-space": "normal !important",
+        "line-height": "1.35 !important",
     },
 }
 
