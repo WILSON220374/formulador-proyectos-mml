@@ -126,6 +126,10 @@ def inicializar_session():
     if 'meta_resultados_parciales' not in st.session_state:
         st.session_state['meta_resultados_parciales'] = {}
 
+    # NUEVO: medios de verificación (Hoja 11 - tabla final)
+    if 'medios_verificacion' not in st.session_state:
+        st.session_state['medios_verificacion'] = {}
+
 
 def cargar_datos_nube(user_id):
     try:
@@ -166,6 +170,17 @@ def cargar_datos_nube(user_id):
             # NUEVO: meta y resultados parciales
             st.session_state['duracion_proyecto_periodos'] = d.get('duracion_proyecto_periodos', 4)
             st.session_state['meta_resultados_parciales'] = d.get('meta_resultados_parciales', {})
+
+            # NUEVO: medios de verificación (Hoja 11 - tabla final)
+            st.session_state['medios_verificacion'] = d.get('medios_verificacion', {})
+
+            # --- HOJA 12 (Riesgos) ---
+            # Guardado recomendado: records (list[dict])
+            if 'datos_riesgos' in d:
+                st.session_state['datos_riesgos'] = _df_from_saved(d.get('datos_riesgos'))
+            elif 'riesgos' in d:
+                # Compatibilidad por si el key se guardó como 'riesgos'
+                st.session_state['datos_riesgos'] = _df_from_saved(d.get('riesgos'))
 
             # DataFrames (compatibilidad: records o dict)
             if 'interesados' in d:
@@ -224,6 +239,15 @@ def guardar_datos_nube():
             # NUEVO: meta y resultados parciales
             "duracion_proyecto_periodos": st.session_state.get('duracion_proyecto_periodos', 4),
             "meta_resultados_parciales": st.session_state.get('meta_resultados_parciales', {}),
+            # NUEVO: medios de verificación (Hoja 11 - tabla final)
+            "medios_verificacion": st.session_state.get('medios_verificacion', {}),
+
+            # --- HOJA 12 (Riesgos) ---
+            "datos_riesgos": (
+                st.session_state.get('datos_riesgos', pd.DataFrame()).to_dict(orient="records")
+                if isinstance(st.session_state.get('datos_riesgos', None), pd.DataFrame)
+                else pd.DataFrame(st.session_state.get('datos_riesgos', []) or []).to_dict(orient="records")
+            ),
         }
 
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
