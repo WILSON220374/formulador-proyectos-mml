@@ -173,8 +173,7 @@ def generar_png_estetico(datos):
             return "<BR/>".join(textwrap.wrap(s, width=w))
 
         sup_plain = '' if fila.get('supuesto', '') is None else str(fila.get('supuesto', ''))
-        sup_plain = sup_plain.replace("
-", " ").replace("•", "-").strip()
+        sup_plain = sup_plain.replace("\n", " ").replace("•", "-").strip()
         sup_plain = html.escape(sup_plain)
 
         label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
