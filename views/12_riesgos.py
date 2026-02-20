@@ -30,34 +30,9 @@ with col_t:
         '<div style="color: #64748b; font-size: 14px; margin-bottom: 5px;">Fase IV: Análisis de riesgos y factores externos.</div>',
         unsafe_allow_html=True
     )
-
-    # Progreso estimado según celdas diligenciadas (sin afectar funcionalidad)
-    try:
-        _df_prog = st.session_state.get("datos_riesgos")
-        if isinstance(_df_prog, pd.DataFrame) and not _df_prog.empty:
-            _editable_cols = [
-                "Supuesto (Condición para éxito)", "Riesgo Identificado", "Efecto del Riesgo",
-                "Categoría", "Probabilidad", "Impacto", "Medida de Mitigación/Control"
-            ]
-            _df_tmp = _df_prog.copy()
-            _df_tmp = _df_tmp[_editable_cols] if all(c in _df_tmp.columns for c in _editable_cols) else pd.DataFrame()
-            if not _df_tmp.empty:
-                _filled = 0
-                for c in _df_tmp.columns:
-                    if c in ["Categoría", "Probabilidad", "Impacto"]:
-                        _filled += _df_tmp[c].notna().sum()
-                    else:
-                        _filled += _df_tmp[c].astype(str).str.strip().ne("").sum()
-                _total = _df_tmp.shape[0] * _df_tmp.shape[1]
-                _progreso = (_filled / _total) if _total > 0 else 0.0
-            else:
-                _progreso = 0.0
-        else:
-            _progreso = 0.0
-    except Exception:
-        _progreso = 0.0
-
-    st.progress(min(1.0, max(0.0, float(_progreso))), text=f"Avance estimado: {int(min(1.0, max(0.0, float(_progreso)))*100)}%")
+    # Progreso (se actualiza después de inicializar la matriz)
+    _progress_placeholder = st.empty()
+    _progress_placeholder.progress(0.0, text="Avance estimado: 0%")
 
 with col_img:
     if os.path.exists("unnamed.jpg"):
@@ -217,6 +192,38 @@ else:
 
 # Forzar orden de columnas (evita “desorden” al recargar)
 st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
+
+# --- ACTUALIZAR PROGRESO (después de inicializar/ordenar la matriz) ---
+try:
+    _df_prog = st.session_state.get("datos_riesgos")
+    if isinstance(_df_prog, pd.DataFrame) and not _df_prog.empty:
+        _required_cols = [
+            "Supuesto (Condición para éxito)",
+            "Riesgo Identificado",
+            "Efecto del Riesgo",
+            "Medida de Mitigación/Control",
+        ]
+        _tmp = _df_prog.copy()
+        _tmp = _tmp[_required_cols] if all(c in _tmp.columns for c in _required_cols) else pd.DataFrame()
+        if not _tmp.empty:
+            _row_done = (
+                _tmp["Supuesto (Condición para éxito)"].astype(str).str.strip().ne("") &
+                _tmp["Riesgo Identificado"].astype(str).str.strip().ne("") &
+                _tmp["Efecto del Riesgo"].astype(str).str.strip().ne("") &
+                _tmp["Medida de Mitigación/Control"].astype(str).str.strip().ne("")
+            )
+            _progreso = float(_row_done.sum() / max(1, len(_tmp)))
+        else:
+            _progreso = 0.0
+    else:
+        _progreso = 0.0
+except Exception:
+    _progreso = 0.0
+
+try:
+    _progress_placeholder.progress(min(1.0, max(0.0, _progreso)), text=f"Avance estimado: {int(min(1.0, max(0.0, _progreso))*100)}%")
+except Exception:
+    pass
 
 st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables. El texto se ajusta automáticamente y las filas crecen según el contenido.")
 
