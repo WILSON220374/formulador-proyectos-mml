@@ -47,7 +47,7 @@ st.markdown(
         text-align: center !important;
         font-size: 13px !important;
         font-weight: 800 !important;
-        color: #1E3A8A !important;
+        color: #0F2D6B !important;
     }
 
     /* AgGrid: centrado vertical de contenido (solo vertical) */
@@ -111,21 +111,21 @@ st.markdown(
         margin: 6px 0 12px 0;
     }
 
-    /* Botones (C: global en la hoja) */
-    [data-testid="stButton"] > button {
-        background-color: #1E3A8A !important;
+    /* Botón Aplicar selección (solo este) */
+    .apply-btn [data-testid="stButton"] > button {
+        background-color: #0F2D6B !important;
         color: #ffffff !important;
-        border: 1px solid #1E3A8A !important;
+        border: 1px solid #0F2D6B !important;
         border-radius: 10px !important;
         font-weight: 800 !important;
         padding: 0.6rem 0.9rem !important;
     }
-    [data-testid="stButton"] > button:hover {
+    .apply-btn [data-testid="stButton"] > button:hover {
         filter: brightness(0.92) !important;
-        border-color: #1E3A8A !important;
+        border-color: #0F2D6B !important;
     }
 
-    </style>
+</style>
     """,
     unsafe_allow_html=True
 )
@@ -681,7 +681,9 @@ grid_response_2 = AgGrid(
 # Botón de commit (backend): guarda selección y habilita metas
 c_apply_1, c_apply_2 = st.columns([1, 5], vertical_alignment="center")
 with c_apply_1:
+    st.markdown('<div class="apply-btn">', unsafe_allow_html=True)
     aplicar = st.button("Aplicar selección", use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 with c_apply_2:
     st.caption("Use este botón para guardar las selecciones y actualizar la tabla de METAS.")
 
