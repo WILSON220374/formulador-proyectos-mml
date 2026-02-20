@@ -1,8 +1,9 @@
 import streamlit as st
 import os
+import pandas as pd
 from session_state import inicializar_session
 
-# 1. Asegurar persistencia (sin conectar datos externos aún)
+# 1. Asegurar persistencia 
 inicializar_session()
 
 # --- DISEÑO DE ALTO IMPACTO (CSS CUSTOM) ---
@@ -22,7 +23,7 @@ st.markdown("""
     .col-content {
         font-size: 0.95rem;
         color: #334155;
-        text-align: left; /* Alineado a la izquierda para mejor lectura narrativa */
+        text-align: left;
         line-height: 1.4;
         display: flex;
         align-items: center;
@@ -56,7 +57,7 @@ st.markdown("""
         text-transform: uppercase;
         text-align: center;
         display: inline-block;
-        width: 100%; /* Para que el óvalo ocupe el ancho de su columna */
+        width: 100%;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -67,7 +68,7 @@ col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
-    st.progress(0.60)
+    st.progress(0.90)
     
 with col_img:
     if os.path.exists("unnamed.jpg"):
@@ -83,37 +84,51 @@ CONFIG_NIVELES = {
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}  # Ámbar
 }
 
-# --- DATOS DE PRUEBA (SOLO PARA REVISIÓN DE DISEÑO) ---
-datos_ejemplo = [
-    {
-        "tipo": "OBJETIVO GENERAL", 
-        "objetivo": "AQUÍ APARECERÁ EL OBJETIVO GENERAL", 
-        "indicador": "INDICADOR DE FIN", 
-        "meta": "META", 
-        "supuesto": "SUPUESTO DE CONTEXTO"
-    },
-    {
-        "tipo": "OBJETIVO ESPECÍFICO", 
-        "objetivo": "AQUÍ APARECERÁ EL OBJETIVO ESPECÍFICO DE LA HOJA 7", 
-        "indicador": "INDICADOR AUTOMÁTICO DE LA HOJA 11", 
-        "meta": "META DILIGENCIADA", 
-        "supuesto": "SUPUESTO DE LA HOJA 12"
-    },
-    {
-        "tipo": "COMPONENTE / PRODUCTO", 
-        "objetivo": "AQUÍ APARECERÁN LOS PRODUCTOS", 
-        "indicador": "INDICADOR DE PRODUCTO", 
-        "meta": "CANTIDAD", 
-        "supuesto": "CONDICIÓN EXTERNA"
-    },
-    {
-        "tipo": "ACTIVIDAD", 
-        "objetivo": "AQUÍ APARECERÁN LAS ACCIONES", 
-        "indicador": "PRESUPUESTO ASIGNADO", 
-        "meta": "MEDIDA", 
-        "supuesto": "RECURSOS DISPONIBLES"
-    }
-]
+# --- EXTRACCIÓN DE DATOS REALES ---
+# Traemos los Medios de Verificación de la Hoja 11 y Riesgos de la Hoja 12
+datos_mv = st.session_state.get('datos_indicadores_mv', [])
+riesgos_df = st.session_state.get('datos_riesgos', pd.DataFrame())
+
+# Convertimos riesgos a lista de diccionarios si es DataFrame para facilitar la búsqueda
+if isinstance(riesgos_df, pd.DataFrame) and not riesgos_df.empty:
+    riesgos = riesgos_df.to_dict(orient="records")
+else:
+    riesgos = []
+
+# Diccionario traductor de niveles (Hoja 11 -> Hoja 13)
+traductor_niveles = {
+    "Fin": "OBJETIVO GENERAL",
+    "Propósito": "OBJETIVO ESPECÍFICO",
+    "Componente": "COMPONENTE / PRODUCTO",
+    "Actividad": "ACTIVIDAD"
+}
+
+datos_reales = []
+
+if datos_mv:
+    for row in datos_mv:
+        nivel_hoja_11 = row.get("Nivel", "")
+        # Solo procesamos si el nivel está en nuestro traductor
+        if nivel_hoja_11 in traductor_niveles:
+            tipo_mml = traductor_niveles[nivel_hoja_11]
+            obj_texto = str(row.get("Objetivo", ""))
+            
+            # Buscar el supuesto correspondiente en los riesgos
+            supuesto_texto = "Pendiente"
+            for r in riesgos:
+                if str(r.get("Objetivo", "")) == obj_texto:
+                    supuesto_texto = str(r.get("Supuesto", "Pendiente"))
+                    break
+            
+            datos_reales.append({
+                "tipo": tipo_mml,
+                "objetivo": obj_texto,
+                "indicador": str(row.get("Indicador", "")),
+                "meta": str(row.get("Meta", "")),
+                "supuesto": supuesto_texto
+            })
+else:
+    st.warning("⚠️ No se encontraron datos. Por favor, asegúrate de diligenciar y guardar la tabla de 'Medios de Verificación' en la Hoja 11.")
 
 # --- ENCABEZADO GLOBAL DE LA TABLA ---
 st.markdown("""
@@ -126,23 +141,21 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- RENDERIZADO DE LA MATRIZ (FILAS) ---
-for fila in datos_ejemplo:
-    conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
-    
-    st.markdown(f"""
-        <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
-            <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
-                <div style="flex: 1.2;">
-                    <div class="tipo-badge" style="background-color: {conf['color']};">{fila['tipo']}</div>
+# --- RENDERIZADO DE LA MATRIZ CON DATOS REALES ---
+if datos_reales:
+    for fila in datos_reales:
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+        
+        st.markdown(f"""
+            <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
+                <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
+                    <div style="flex: 1.2;">
+                        <div class="tipo-badge" style="background-color: {conf['color']};">{fila['tipo']}</div>
+                    </div>
+                    <div style="flex: 2;" class="col-content"><b>{fila['objetivo']}</b></div>
+                    <div style="flex: 1.5;" class="col-content">{fila['indicador']}</div>
+                    <div style="flex: 1;" class="col-content text-center">{fila['meta']}</div>
+                    <div style="flex: 1.5;" class="col-content">{fila['supuesto']}</div>
                 </div>
-                <div style="flex: 2;" class="col-content"><b>{fila['objetivo']}</b></div>
-                <div style="flex: 1.5;" class="col-content">{fila['indicador']}</div>
-                <div style="flex: 1;" class="col-content text-center">{fila['meta']}</div>
-                <div style="flex: 1.5;" class="col-content">{fila['supuesto']}</div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.divider()
-st.info("ℹ️ Esta es la vista previa del diseño con el formato de tabla matricial horizontal.")
+        """, unsafe_allow_html=True)
