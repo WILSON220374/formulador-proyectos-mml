@@ -15,41 +15,66 @@ st.markdown("""
     .card-mml {
         background-color: #ffffff;
         border-radius: 12px;
-        padding: 20px;
+        padding: 18px 20px 18px 20px;
         margin-bottom: 20px;
         border: 1px solid #e2e8f0;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    .col-title {
-        color: #1E3A8A;
-        font-weight: 800;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        text-align: center;
-        margin-bottom: 8px;
-        border-bottom: 2px solid #f1f5f9;
-        padding-bottom: 5px;
-    }
-    .col-content {
-        font-size: 0.95rem;
-        color: #334155;
-        text-align: center;
-        line-height: 1.5;
-        padding: 5px;
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
+
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+
+    .mml-top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 12px;
+    }
+
     .tipo-badge {
         color: white;
         padding: 4px 14px;
         border-radius: 20px;
         font-size: 0.75rem;
-        font-weight: 700;
+        font-weight: 800;
         display: inline-block;
-        margin-bottom: 15px;
         text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .mml-head {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 0.8fr 1.3fr;
+        gap: 15px;
+        width: 100%;
+        align-items: center;
+    }
+
+    .mml-head-title {
+        font-weight: 900;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        text-align: center;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 6px;
+    }
+
+    .mml-row {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 0.8fr 1.3fr;
+        gap: 15px;
+        width: 100%;
+        align-items: start;
+    }
+
+    .col-content {
+        font-size: 0.95rem;
+        color: #334155;
+        text-align: center;
+        line-height: 1.5;
+        padding: 6px 5px;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -91,6 +116,19 @@ def _map_tipo(tipo_hoja11: str) -> str:
         return "ACTIVIDAD"
     # fallback conservador
     return "PROPÓSITO / ESPECÍFICO" if "ESPECIF" in t else ("ACTIVIDAD" if "ACTIV" in t else "COMPONENTE / PRODUCTO")
+
+
+def _badge_text(tipo_mml: str) -> str:
+    t = _norm_text(tipo_mml).upper()
+    if t == "FIN / OBJETIVO GENERAL":
+        return "OBJETIVO GENERAL"
+    if t == "PROPÓSITO / ESPECÍFICO":
+        return "OBJETIVO ESPECIFICO"
+    if t == "COMPONENTE / PRODUCTO":
+        return "COMPONENTE / PRODUCTO"
+    if t == "ACTIVIDAD":
+        return "ACTIVIDAD"
+    return _norm_text(tipo_mml)
 
 def _build_datos_mml() -> list[dict]:
     """Construye las fichas desde:
@@ -267,34 +305,25 @@ with col_t:
     st.write(f"Avance estimado: {int(round(p*100, 0))}%")
     st.progress(p)
 with col_img:
-    if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-
-st.divider()
-
-# --- RENDERIZADO EN PANTALLA (MISMO ESTILO) ---
-if not datos_mml:
-    st.info("No hay elementos para mostrar. Verifica: Hoja 11 (Selección = Sí y Metas) y Hoja 12 (Supuestos).")
-else:
-    for fila in datos_mml:
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
-        st.markdown(f"""
+    if os.path.exists("unnamed.jpst.markdown(f"""
             <div class="card-mml" style="border-left: 10px solid {conf['color']}; background-color: {conf['bg']};">
-                <div class="tipo-badge" style="background-color: {conf['color']};">
-                    {fila['tipo']}
+                <div class="mml-top">
+                    <div class="tipo-badge" style="background-color: {conf['color']};">{_badge_text(fila['tipo'])}</div>
+                    <div class="mml-head">
+                        <div class="mml-head-title" style="color: {conf['color']};">RESUMEN NARRATIVO</div>
+                        <div class="mml-head-title" style="color: {conf['color']};">INDICADOR</div>
+                        <div class="mml-head-title" style="color: {conf['color']};">META</div>
+                        <div class="mml-head-title" style="color: {conf['color']};">SUPUESTOS</div>
+                    </div>
                 </div>
-                <div style="display: flex; flex-direction: row; gap: 15px;">
-                    <div style="flex: 2;">
-                        <div class="col-title" style="color: {conf['color']};">🎯 Objetivo</div>
-                        <div class="col-content">{html.escape(_norm_text(fila['objetivo']))}</div>
-                    </div>
-                    <div style="flex: 1.5;">
-                        <div class="col-title" style="color: {conf['color']};">📊 Indicador</div>
-                        <div class="col-content">{html.escape(_norm_text(fila['indicador']))}</div>
-                    </div>
-                    <div style="flex: 1;">
-                        <div class="col-title" style="color: {conf['color']};">🏁 Meta</div>
-                        <div class="col-content">{html.escape(_norm_text(fila['meta']))}</div>
+                <div class="mml-row">
+                    <div class="col-content">{html.escape(_norm_text(fila['objetivo']))}</div>
+                    <div class="col-content">{html.escape(_norm_text(fila['indicador']))}</div>
+                    <div class="col-content">{html.escape(_norm_text(fila['meta']))}</div>
+                    <div class="col-content">{html.escape(_norm_text(fila['supuesto']))}</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)]))}</div>
                     </div>
                     <div style="flex: 1.5;">
                         <div class="col-title" style="color: {conf['color']};">🛡️ Supuestos</div>
