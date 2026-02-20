@@ -4,223 +4,171 @@ import graphviz
 import textwrap
 import html
 import pandas as pd
+
 from session_state import inicializar_session
 
 # 1. Asegurar persistencia
 inicializar_session()
 
 # --- DISEÑO DE PANTALLA (CSS) ---
-st.markdown(textwrap.dedent("""
+st.markdown(
+    """
     <style>
     .card-mml {
         background-color: #ffffff;
-        border-radius: 16px;
-        padding: 18px 18px 14px 18px;
-        margin-bottom: 22px;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 6px 14px -10px rgba(0, 0, 0, 0.18);
-        position: relative;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-    .mml-leftbar{
-        position:absolute; left:0; top:0; bottom:0; width:10px;
-        border-top-left-radius:16px; border-bottom-left-radius:16px;
-    }
-    .mml-toprow{
-        display:flex;
-        align-items:center;
-        gap: 14px;
-        margin-bottom: 10px;
-    }
-    .tipo-badge {
-        color: white;
-        padding: 6px 14px;
-        border-radius: 999px;
-        font-size: 0.78rem;
+    .col-title {
+        color: #1E3A8A;
         font-weight: 800;
-        display: inline-block;
+        font-size: 0.85rem;
         text-transform: uppercase;
-        white-space: nowrap;
-    }
-    .mml-head{
-        flex: 1;
-        display: grid;
-        grid-template-columns: 2fr 1.5fr 0.7fr 1.4fr;
-        gap: 14px;
-        align-items: center;
-    }
-    .mml-head-title{
-        color:#1E3A8A;
-        font-weight: 900;
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        text-align:center;
-        border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 6px;
-    }
-    .mml-row{
-        display:grid;
-        grid-template-columns: 2fr 1.5fr 0.7fr 1.4fr;
-        gap: 14px;
-        align-items: start;
-    }
-    .col-content{
-        font-size: 0.96rem;
-        color: #0f172a;
         text-align: center;
-        line-height: 1.45;
-        padding: 6px 4px;
+        margin-bottom: 8px;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 5px;
+    }
+    .col-content {
+        font-size: 0.95rem;
+        color: #334155;
+        text-align: center;
+        line-height: 1.5;
+        padding: 5px;
         white-space: pre-wrap;
         word-break: break-word;
     }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    </style>
-"""), unsafe_allow_html=True)
+    .tipo-badge {
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+        text-transform: uppercase;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
 
-# --- CONFIGURACIÓN DE NIVELES (MISMO ESTILO) ---
-# Se agrega FIN / OBJETIVO GENERAL manteniendo paleta sobria.
+    /* fila superior como Excel */
+    .mml-toprow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .mml-head {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 1fr 1.5fr;
+        width: 100%;
+        gap: 15px;
+        align-items: center;
+    }
+    .mml-head-title {
+        color: #1E3A8A;
+        font-weight: 800;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        text-align: center;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 5px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# -----------------------------
+# Configuración de niveles (colores iguales al diseño original)
+# -----------------------------
 CONFIG_NIVELES = {
-    "FIN / OBJETIVO GENERAL": {"color": "#1E3A8A", "bg": "#EFF6FF"},
-    "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"},
-    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"},
-    "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}
+    "OBJETIVO GENERAL": {"color": "#2563EB", "bg": "#EFF6FF", "badge": "OBJETIVO GENERAL"},
+    "OBJETIVO ESPECIFICO": {"color": "#2563EB", "bg": "#EFF6FF", "badge": "OBJETIVO ESPECIFICO"},
+    "COMPONENTE": {"color": "#059669", "bg": "#ECFDF5", "badge": "COMPONENTE / PRODUCTO"},
+    "ACTIVIDAD": {"color": "#D97706", "bg": "#FFFBEB", "badge": "ACTIVIDAD"},
 }
 
-# Orden fijo de fichas (como jerarquía MML)
-ORDEN_TIPOS = [
-    "FIN / OBJETIVO GENERAL",
-    "PROPÓSITO / ESPECÍFICO",
-    "COMPONENTE / PRODUCTO",
-    "ACTIVIDAD",
-]
+ORDEN_TIPO = {
+    "OBJETIVO GENERAL": 1,
+    "OBJETIVO ESPECIFICO": 2,
+    "COMPONENTE": 3,
+    "ACTIVIDAD": 4,
+}
+
 
 def _norm_text(v) -> str:
     if v is None:
         return ""
     return str(v).replace("\u00a0", " ").strip()
 
+
 def _norm_key(v) -> str:
     return _norm_text(v).lower()
 
-def _map_tipo(tipo_hoja11: str) -> str:
-    t = _norm_text(tipo_hoja11).upper()
-    if t == "OBJETIVO GENERAL":
-        return "FIN / OBJETIVO GENERAL"
-    if t == "OBJETIVO ESPECIFICO":
-        return "PROPÓSITO / ESPECÍFICO"
-    if t == "COMPONENTE":
-        return "COMPONENTE / PRODUCTO"
-    if t == "ACTIVIDAD":
-        return "ACTIVIDAD"
-    # fallback conservador
-    return "PROPÓSITO / ESPECÍFICO" if "ESPECIF" in t else ("ACTIVIDAD" if "ACTIV" in t else "COMPONENTE / PRODUCTO")
 
-
-def _badge_display(mapped_tipo: str) -> str:
-    """Texto del óvalo, como en el Excel."""
-    t = _norm_text(mapped_tipo)
-    if t == "FIN / OBJETIVO GENERAL":
+def _tipo_from_nivel(nivel_txt: str) -> str:
+    n = _norm_text(nivel_txt)
+    if n == "Objetivo General":
         return "OBJETIVO GENERAL"
-    if t == "PROPÓSITO / ESPECÍFICO":
+    if n.startswith("Objetivo Específico"):
         return "OBJETIVO ESPECIFICO"
-    if t == "COMPONENTE / PRODUCTO":
-        return "COMPONENTE"
-    if t == "ACTIVIDAD":
+    if n == "Actividad Clave":
         return "ACTIVIDAD"
-    return t
+    if n == "Componente":
+        return "COMPONENTE"
+    return ""
 
-def _build_datos_mml() -> list[dict]:
-    """Construye las fichas desde:
-    - Hoja 11: Objetivo + Indicador + Meta (medios de verificación)
-    - Hoja 12: Supuestos (columna interna 'Supuesto'), match SOLO por Objetivo
-    """
-    # 1) Filtrar claves seleccionadas (P1..P5 = True)
-    sel = st.session_state.get("seleccion_indicadores", {}) or {}
-    P_COLS = ["P1", "P2", "P3", "P4", "P5"]
-    keys_si = [k for k, v in sel.items() if isinstance(v, dict) and all(bool(v.get(p, False)) for p in P_COLS)]
 
-    # 2) Datos base
-    mv_dict = st.session_state.get("medios_verificacion", {}) or {}
-    datos_ind = st.session_state.get("datos_indicadores", {}) or {}
-    metas = st.session_state.get("meta_resultados_parciales", {}) or {}
+def _build_supuestos_index(df_riesgos: pd.DataFrame) -> dict:
+    """Indexa supuestos por Objetivo (match solo por Objetivo)."""
+    idx = {}
+    if not isinstance(df_riesgos, pd.DataFrame) or df_riesgos.empty:
+        return idx
+    if "Objetivo" not in df_riesgos.columns or "Supuesto" not in df_riesgos.columns:
+        return idx
 
-    # 3) Index de supuestos por objetivo (solo por Objetivo)
-    supuestos_por_obj = {}
-    df_r = st.session_state.get("datos_riesgos", None)
-    if isinstance(df_r, pd.DataFrame) and not df_r.empty and "Objetivo" in df_r.columns and "Supuesto" in df_r.columns:
-        for _, rr in df_r.iterrows():
-            obj = _norm_key(rr.get("Objetivo", ""))
-            sup = _norm_text(rr.get("Supuesto", ""))
-            if not obj or not sup:
-                continue
-            supuestos_por_obj.setdefault(obj, set()).add(sup)
+    for _, row in df_riesgos.iterrows():
+        obj = _norm_key(row.get("Objetivo", ""))
+        sup = _norm_text(row.get("Supuesto", ""))
+        if not obj or not sup:
+            continue
+        idx.setdefault(obj, set()).add(sup)
+    return idx
 
-    datos = []
-    for k in keys_si:
-        base = datos_ind.get(k, {}) if isinstance(datos_ind, dict) else {}
-        nivel = _norm_text(base.get("Nivel", ""))
-        objetivo = _norm_text(base.get("Objetivo", ""))
-        indicador = _norm_text(base.get("Indicador", ""))
 
-        # Meta desde Meta y resultados parciales
-        meta = _norm_text(metas.get(k, {}).get("Meta", "")) if isinstance(metas, dict) else ""
+def _wrap_plain(texto: str, width: int = 60) -> str:
+    t = _norm_text(texto)
+    if not t:
+        return ""
+    return "\n".join(textwrap.fill(line, width=width) for line in t.splitlines())
 
-        # Tipo desde nivel
-        tipo_hoja11 = ""
-        if nivel == "Objetivo General":
-            tipo_hoja11 = "OBJETIVO GENERAL"
-        elif str(nivel).startswith("Objetivo Espec"):
-            tipo_hoja11 = "OBJETIVO ESPECIFICO"
-        elif nivel == "Actividad Clave":
-            tipo_hoja11 = "ACTIVIDAD"
-        else:
-            # fallback: si ya existiera en base
-            tipo_hoja11 = _norm_text(base.get("Tipo", ""))
 
-        tipo = _map_tipo(tipo_hoja11)
+def _sanitize_for_graphviz(v: str) -> str:
+    """Escapa texto para labels HTML de Graphviz."""
+    s = _norm_text(v)
+    s = html.escape(s, quote=True)
+    s = s.replace("\n", " ")
+    s = " ".join(s.split())
+    return s
 
-        # Supuestos (lista)
-        sups = sorted(list(supuestos_por_obj.get(_norm_key(objetivo), set())))
-        supuesto = "\n".join([f"• {s}" for s in sups]) if sups else ""
 
-        # Permitir múltiples fichas por tipo; una por cada clave seleccionada
-        if any([objetivo, indicador, meta, supuesto]):
-            datos.append({
-                "tipo": tipo,
-                "objetivo": objetivo,
-                "indicador": indicador,
-                "meta": meta,
-                "supuesto": supuesto,
-            })
-
-    # Ordenar por jerarquía sin cambiar orden interno de cada grupo
-    orden_idx = {t:i for i,t in enumerate(ORDEN_TIPOS)}
-    datos.sort(key=lambda r: orden_idx.get(r.get("tipo",""), 99))
-    return datos
-
-datos_mml = _build_datos_mml()
-
-# --- FUNCIÓN DE EXPORTACIÓN ESTÉTICA (ROBUSTA) ---
 def generar_png_estetico(datos):
-    """Genera una imagen que imita visualmente las tarjetas. Devuelve bytes o None."""
+    """Genera un PNG con Graphviz. Si falla, retorna None."""
     try:
-        dot = graphviz.Digraph(format='png')
-        dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
+        dot = graphviz.Digraph(format="png")
+        dot.attr(rankdir="TB", nodesep="0.3", ranksep="0.2", bgcolor="white", fontname="Arial")
 
-        def wrap_html_safe(t, w=25):
-            s = _norm_text(t)
-            if not s:
-                return ""
-            # Escapar para HTML-like labels de graphviz
-            s = html.escape(s, quote=True)
-            # Mantener viñetas y saltos
-            lines = []
-            for line in s.splitlines():
-                lines.extend(textwrap.wrap(line, width=w) or [""])
-            return "<BR/>".join(lines)
+        def wrap_html(t, w=25):
+            return "<BR/>".join(textwrap.wrap(_sanitize_for_graphviz(t), width=w))
 
         for i, fila in enumerate(datos):
-            conf = CONFIG_NIVELES.get(fila.get('tipo',''), {"color": "#1E3A8A", "bg": "#f8fafc"})
+            conf = CONFIG_NIVELES.get(fila["tipo"], {"color": "#1E3A8A", "bg": "#f8fafc", "badge": fila["tipo"]})
 
             label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
                 <TR>
@@ -230,7 +178,7 @@ def generar_png_estetico(datos):
                             <TR>
                                 <TD COLSPAN="4" ALIGN="LEFT">
                                     <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
-                                        <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {html.escape(_badge_display(fila.get('tipo','')), quote=True)}  </B></FONT></TD></TR>
+                                        <TR><TD BGCOLOR="{conf['color']}"><FONT COLOR="white" POINT-SIZE="10"><B>  {wrap_html(conf['badge'], 28)}  </B></FONT></TD></TR>
                                     </TABLE>
                                 </TD>
                             </TR>
@@ -241,10 +189,10 @@ def generar_png_estetico(datos):
                                 <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>SUPUESTOS</B></FONT></TD>
                             </TR>
                             <TR>
-                                <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html_safe(fila.get('objetivo',''), 34)}</FONT></TD>
-                                <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html_safe(fila.get('indicador',''), 22)}</FONT></TD>
-                                <TD WIDTH="80"  ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html_safe(fila.get('meta',''), 12)}</FONT></TD>
-                                <TD WIDTH="160" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html_safe(fila.get('supuesto',''), 22)}</FONT></TD>
+                                <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html(fila['objetivo'], 28)}</FONT></TD>
+                                <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html(fila['indicador'], 22)}</FONT></TD>
+                                <TD WIDTH="80"  ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html(fila['meta'], 14)}</FONT></TD>
+                                <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html(fila['supuesto'], 22)}</FONT></TD>
                             </TR>
                         </TABLE>
                     </TD>
@@ -252,21 +200,72 @@ def generar_png_estetico(datos):
             </TABLE>>'''
 
             dot.node(
-                f'card_{i}',
+                f"card_{i}",
                 label=label,
-                shape='rect',
-                style='filled',
-                fillcolor='white',
-                color='#e2e8f0',
-                penwidth='2'
+                shape="rect",
+                style="filled",
+                fillcolor="white",
+                color="#e2e8f0",
+                penwidth="2",
             )
-
             if i > 0:
-                dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
+                dot.edge(f"card_{i-1}", f"card_{i}", style="invis")
 
-        return dot.pipe(format='png')
+        return dot.pipe(format="png")
     except Exception:
         return None
+
+
+# -----------------------------
+# Construir datos reales desde Hoja 11 y Hoja 12
+# -----------------------------
+P_COLS = ["P1", "P2", "P3", "P4", "P5"]
+
+keys_si = []
+for k, sel in (st.session_state.get("seleccion_indicadores", {}) or {}).items():
+    if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in P_COLS):
+        keys_si.append(_norm_text(k))
+
+# En Hoja 11 ya se almacenan:
+# - datos_indicadores[key] = {Objetivo, Nivel, Indicador, ...}
+# - meta_resultados_parciales[key] = {Meta, ...}
+datos_ind = st.session_state.get("datos_indicadores", {}) or {}
+metas = st.session_state.get("meta_resultados_parciales", {}) or {}
+
+df_riesgos = st.session_state.get("datos_riesgos", None)
+if df_riesgos is None:
+    df_riesgos = pd.DataFrame()
+
+sup_idx = _build_supuestos_index(df_riesgos)
+
+datos_mml = []
+for k in keys_si:
+    base = datos_ind.get(k, {}) if isinstance(datos_ind, dict) else {}
+    nivel = _norm_text(base.get("Nivel", ""))
+    tipo = _tipo_from_nivel(nivel)
+    if not tipo:
+        continue
+
+    objetivo = _norm_text(base.get("Objetivo", ""))
+    indicador = _norm_text(base.get("Indicador", ""))
+    meta = _norm_text(metas.get(k, {}).get("Meta", "")) if isinstance(metas, dict) else ""
+
+    sups = sorted(list(sup_idx.get(_norm_key(objetivo), set())))
+    supuesto = "\n".join([f"• {s}" for s in sups]) if sups else ""
+
+    datos_mml.append(
+        {
+            "tipo": tipo,
+            "objetivo": objetivo,
+            "indicador": indicador,
+            "meta": meta,
+            "supuesto": supuesto,
+        }
+    )
+
+# Orden jerárquico (mismo estilo esperado)
+datos_mml.sort(key=lambda r: (ORDEN_TIPO.get(r["tipo"], 99), r.get("objetivo", "")))
+
 
 # --- PANEL LATERAL ---
 with st.sidebar:
@@ -280,10 +279,11 @@ with st.sidebar:
             data=imagen_estetica,
             file_name="MML_Visual.png",
             mime="image/png",
-            use_container_width=True
+            use_container_width=True,
         )
     else:
-        st.info("La exportación PNG no está disponible en este momento (Graphviz). La vista en pantalla sí está operativa.")
+        st.info("No fue posible generar la imagen PNG en este momento. La vista en tarjetas sigue disponible.")
+
 
 # --- CUERPO DE LA PÁGINA ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
@@ -291,51 +291,58 @@ with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Vista de validación estética y operativa.</div>', unsafe_allow_html=True)
 
-    # Progreso: % de filas con indicador + meta (vista final)
+    # Progreso: % de filas con objetivo+indicador+meta
     if len(datos_mml) == 0:
-        p = 0.0
+        prog = 0.0
     else:
         completas = 0
         for r in datos_mml:
-            if _norm_text(r.get("indicador","")) and _norm_text(r.get("meta","")):
+            if _norm_text(r.get("objetivo")) and _norm_text(r.get("indicador")) and _norm_text(r.get("meta")):
                 completas += 1
-        p = completas / max(len(datos_mml), 1)
+        prog = completas / max(len(datos_mml), 1)
+    st.progress(prog)
 
-    st.write(f"Avance estimado: {int(round(p*100, 0))}%")
-    st.progress(p)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
-# --- RENDERIZADO EN PANTALLA (MISMO ESTILO) ---
 if not datos_mml:
-    st.info("No hay elementos para mostrar. Verifica: Hoja 11 (Selección = Sí y Metas) y Hoja 12 (Supuestos).")
-else:
-    for fila in datos_mml:
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
-        st.markdown(textwrap.dedent(f"""
-            <div class="card-mml" style="background-color:{conf['bg']};">
-                <div class="mml-leftbar" style="background:{conf['color']};"></div>
+    st.info("No hay elementos para construir la matriz. Verifica en Hoja 11 que existan indicadores con Selección = Sí y metas diligenciadas.")
+    st.stop()
 
-                <div class="mml-toprow">
-                    <div class="tipo-badge" style="background-color:{conf['color']};">{_badge_display(fila['tipo'])}</div>
-                    <div class="mml-head">
-                        <div class="mml-head-title" style="color:{conf['color']};">RESUMEN NARRATIVO</div>
-                        <div class="mml-head-title" style="color:{conf['color']};">INDICADOR</div>
-                        <div class="mml-head-title" style="color:{conf['color']};">META</div>
-                        <div class="mml-head-title" style="color:{conf['color']};">SUPUESTOS</div>
-                    </div>
-                </div>
 
-                <div class="mml-row">
-                    <div class="col-content">{html.escape(_norm_text(fila['objetivo']))}</div>
-                    <div class="col-content">{html.escape(_norm_text(fila['indicador']))}</div>
-                    <div class="col-content">{html.escape(_norm_text(fila['meta']))}</div>
-                    <div class="col-content">{html.escape(_norm_text(fila['supuesto']))}</div>
+# --- RENDERIZADO EN PANTALLA (tarjetas estilo original + fila de encabezados tipo Excel) ---
+for fila in datos_mml:
+    conf = CONFIG_NIVELES.get(fila["tipo"], {"color": "#64748b", "bg": "#f8fafc", "badge": fila["tipo"]})
+    color = conf["color"]
+    bg = conf["bg"]
+    badge_text = conf.get("badge", fila["tipo"])  # texto del óvalo
+
+    st.markdown(
+        f"""
+        <div class="card-mml" style="border-left: 10px solid {color}; background-color: {bg};">
+            <div class="mml-toprow">
+                <div class="tipo-badge" style="background-color: {color};">{badge_text}</div>
+                <div class="mml-head">
+                    <div class="mml-head-title" style="color: {color};">RESUMEN NARRATIVO</div>
+                    <div class="mml-head-title" style="color: {color};">INDICADOR</div>
+                    <div class="mml-head-title" style="color: {color};">META</div>
+                    <div class="mml-head-title" style="color: {color};">SUPUESTOS</div>
                 </div>
             </div>
-        """), unsafe_allow_html=True)
+
+            <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr 1.5fr; gap: 15px;">
+                <div><div class="col-content">{_wrap_plain(fila['objetivo'], 80)}</div></div>
+                <div><div class="col-content">{_wrap_plain(fila['indicador'], 48)}</div></div>
+                <div><div class="col-content">{_wrap_plain(fila['meta'], 18)}</div></div>
+                <div><div class="col-content">{_wrap_plain(fila['supuesto'], 54)}</div></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 st.divider()
+
