@@ -1,4 +1,5 @@
-iimport streamlit as st
+# -*- coding: utf-8 -*-
+import streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
@@ -193,8 +194,7 @@ else:
 # Forzar orden de columnas (evita “desorden” al recargar)
 st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
 
-# --- PROGRESO: se calcula después del editor para usar el DataFrame editado ---
-
+# --- ACTUALIZAR PROGRESO (después de inicializar/ordenar la matriz) ---
 st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables. El texto se ajusta automáticamente y las filas crecen según el contenido.")
 
 df_grid = st.session_state["datos_riesgos"].copy()
@@ -310,34 +310,27 @@ grid_response = AgGrid(
 edited_df = pd.DataFrame(grid_response.get("data", []))
 edited_df = _ensure_columns(edited_df)[COLUMN_ORDER].copy()
 
-# --- ACTUALIZAR BARRA DE AVANCE (usa el DF editado) ---
+# --- PROGRESO (calculado sobre lo que el usuario edita en pantalla) ---
 try:
-    _cols_avance = ["Supuesto", "Riesgo", "Efecto", "Medida de Mitigación"]
-    _tmp = edited_df.copy()
-    for _c in _cols_avance:
-        if _c not in _tmp.columns:
-            _tmp[_c] = ""
-    if len(_tmp) > 0:
-        _filled = (
-            _tmp[_cols_avance]
-            .astype(str)
-            .apply(lambda s: s.str.strip().ne(""))
-            .sum(axis=1)
-        )
-        _progreso = float((_filled / len(_cols_avance)).mean())
+    _required_cols = [
+        "Riesgo Identificado",
+        "Supuesto",
+        "Efecto del Riesgo",
+        "Medida de Mitigación/Control",
+    ]
+    if len(edited_df) > 0 and all(c in edited_df.columns for c in _required_cols):
+        _tmp = edited_df[_required_cols].copy()
+        # Normalizar vacíos
+        _tmp = _tmp.fillna("").astype(str).applymap(lambda x: x.strip())
+        _filled = (_tmp != "").sum().sum()
+        _total = _tmp.shape[0] * _tmp.shape[1]
+        _progreso = (_filled / _total) if _total > 0 else 0.0
     else:
         _progreso = 0.0
-except Exception:
-    _progreso = 0.0
-
-try:
-    _progress_placeholder.progress(
-        min(1.0, max(0.0, _progreso)),
-        text=f"Avance estimado: {int(min(1.0, max(0.0, _progreso)) * 100)}%",
-    )
+    _progreso = float(max(0.0, min(1.0, _progreso)))
+    _progress_placeholder.progress(_progreso, text=f"Avance estimado: {int(_progreso*100)}%")
 except Exception:
     pass
-
 
 
 # --- BOTÓN DE GUARDADO ---
