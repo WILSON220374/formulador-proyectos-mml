@@ -10,7 +10,7 @@ from session_state import inicializar_session
 inicializar_session()
 
 # --- DISEÑO DE PANTALLA (CSS) ---
-st.markdown("""
+st.markdown(textwrap.dedent("""
     <style>
     .card-mml {
         background-color: #ffffff;
@@ -75,7 +75,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     </style>
-""", unsafe_allow_html=True)
+"""), unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN DE NIVELES (MISMO ESTILO) ---
 # Se agrega FIN / OBJETIVO GENERAL manteniendo paleta sobria.
@@ -315,7 +315,7 @@ if not datos_mml:
 else:
     for fila in datos_mml:
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
-        st.markdown(f"""
+        st.markdown(textwrap.dedent(f"""
             <div class="card-mml" style="background-color:{conf['bg']};">
                 <div class="mml-leftbar" style="background:{conf['color']};"></div>
 
@@ -336,6 +336,6 @@ else:
                     <div class="col-content">{html.escape(_norm_text(fila['supuesto']))}</div>
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+        """), unsafe_allow_html=True)
 
 st.divider()
