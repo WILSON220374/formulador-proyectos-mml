@@ -20,11 +20,6 @@ st.markdown("""
         font-size: 14px !important;
         text-transform: uppercase;
     }
-
-    /* Oculta el toggle automático View more / View less del sidebar */
-    button[data-testid="stSidebarNavViewButton"]{
-        display: none !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
