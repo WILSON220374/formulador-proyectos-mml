@@ -202,7 +202,7 @@ col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
-    st.progress(0.90)
+    st.progress(1.0)
     
 with col_img:
     if os.path.exists("unnamed.jpg"):
