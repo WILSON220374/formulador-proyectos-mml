@@ -130,7 +130,7 @@ with st.sidebar:
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Vista de validación estética y operativa.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Validación.</div>', unsafe_allow_html=True)
     st.progress(0.60)
 with col_img:
     if os.path.exists("unnamed.jpg"):
