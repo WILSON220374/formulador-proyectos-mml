@@ -131,8 +131,8 @@ def inicializar_session():
         st.session_state['medios_verificacion'] = {}
 
     # NUEVO: hoja 12 (Riesgos)
-    if 'datos_riesgos' not in st.session_state:
-        st.session_state['datos_riesgos'] = pd.DataFrame()
+    # Nota: NO inicializamos 'datos_riesgos' aquí.
+    # La Hoja 12 construye la matriz a partir de los objetivos (Hoja 7) cuando la clave NO existe.
 
 
 def cargar_datos_nube(user_id):
@@ -184,6 +184,9 @@ def cargar_datos_nube(user_id):
             elif 'riesgos' in d:
                 # Compatibilidad si el key se guardó como 'riesgos'
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('riesgos'))
+            else:
+                # Si no hay datos persistidos, eliminamos la clave para que la Hoja 12 la genere desde los objetivos.
+                st.session_state.pop('datos_riesgos', None)
 
             # DataFrames (compatibilidad: records o dict)
             if 'interesados' in d:
