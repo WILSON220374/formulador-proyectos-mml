@@ -80,82 +80,39 @@ st.divider()
 CONFIG_NIVELES = {
     "OBJETIVO GENERAL":       {"color": "#4338CA", "bg": "#EEF2FF"}, # Índigo
     "OBJETIVO ESPECÍFICO":    {"color": "#2563EB", "bg": "#EFF6FF"}, # Azul
-    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"}, # Verde
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}  # Ámbar
 }
 
-# --- EXTRACCIÓN DE DATOS REALES ---
-# Traemos los Medios de Verificación de la Hoja 11 y Riesgos de la Hoja 12
-datos_mv = st.session_state.get('datos_indicadores_mv', [])
-riesgos_df = st.session_state.get('datos_riesgos', pd.DataFrame())
+# --- EXTRACCIÓN DE DATOS REALES (MÉTODO DINÁMICO HOJA 11) ---
+mapa = st.session_state.get("indicadores_mapa_objetivo", {})
+datos_ind = st.session_state.get("datos_indicadores", {})
+seleccion = st.session_state.get("seleccion_indicadores", {})
+metas = st.session_state.get("meta_resultados_parciales", {})
+riesgos_df = st.session_state.get("datos_riesgos", pd.DataFrame())
 
-# Convertimos riesgos a lista de diccionarios si es DataFrame para facilitar la búsqueda
 if isinstance(riesgos_df, pd.DataFrame) and not riesgos_df.empty:
     riesgos = riesgos_df.to_dict(orient="records")
 else:
     riesgos = []
 
-# Diccionario traductor de niveles (Hoja 11 -> Hoja 13)
-traductor_niveles = {
-    "Fin": "OBJETIVO GENERAL",
-    "Propósito": "OBJETIVO ESPECÍFICO",
-    "Componente": "COMPONENTE / PRODUCTO",
-    "Actividad": "ACTIVIDAD"
-}
-
 datos_reales = []
 
-if datos_mv:
-    for row in datos_mv:
-        nivel_hoja_11 = row.get("Nivel", "")
-        # Solo procesamos si el nivel está en nuestro traductor
-        if nivel_hoja_11 in traductor_niveles:
-            tipo_mml = traductor_niveles[nivel_hoja_11]
-            obj_texto = str(row.get("Objetivo", ""))
-            
-            # Buscar el supuesto correspondiente en los riesgos
-            supuesto_texto = "Pendiente"
-            for r in riesgos:
-                if str(r.get("Objetivo", "")) == obj_texto:
-                    supuesto_texto = str(r.get("Supuesto", "Pendiente"))
-                    break
-            
-            datos_reales.append({
-                "tipo": tipo_mml,
-                "objetivo": obj_texto,
-                "indicador": str(row.get("Indicador", "")),
-                "meta": str(row.get("Meta", "")),
-                "supuesto": supuesto_texto
-            })
-else:
-    st.warning("⚠️ No se encontraron datos. Por favor, asegúrate de diligenciar y guardar la tabla de 'Medios de Verificación' en la Hoja 11.")
-
-# --- ENCABEZADO GLOBAL DE LA TABLA ---
-st.markdown("""
-    <div class="header-global">
-        <div style="flex: 1.2;">NIVEL</div>
-        <div style="flex: 2;">RESUMEN NARRATIVO</div>
-        <div style="flex: 1.5;">INDICADOR</div>
-        <div style="flex: 1;">META</div>
-        <div style="flex: 1.5;">SUPUESTOS</div>
-    </div>
-""", unsafe_allow_html=True)
-
-# --- RENDERIZADO DE LA MATRIZ CON DATOS REALES ---
-if datos_reales:
-    for fila in datos_reales:
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+# Reconstruimos la información cruzando las memorias
+for kmap, k in mapa.items():
+    partes = kmap.split("||")
+    if len(partes) != 2:
+        continue
         
-        st.markdown(f"""
-            <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
-                <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
-                    <div style="flex: 1.2;">
-                        <div class="tipo-badge" style="background-color: {conf['color']};">{fila['tipo']}</div>
-                    </div>
-                    <div style="flex: 2;" class="col-content"><b>{fila['objetivo']}</b></div>
-                    <div style="flex: 1.5;" class="col-content">{fila['indicador']}</div>
-                    <div style="flex: 1;" class="col-content text-center">{fila['meta']}</div>
-                    <div style="flex: 1.5;" class="col-content">{fila['supuesto']}</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    nivel_original = partes[0]
+    objetivo_texto = partes[1]
+    
+    # 1. Verificar si el indicador fue seleccionado y validado (P1 a P5)
+    sel = seleccion.get(k, {})
+    p_cols = ["P1", "P2", "P3", "P4", "P5"]
+    is_selected = True if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in p_cols) else False
+    
+    if not is_selected:
+        continue # Si no fue seleccionado, lo omitimos de la Matriz Final
+        
+    # 2. Extraer indicador formulado y meta
+    ind_data = datos
