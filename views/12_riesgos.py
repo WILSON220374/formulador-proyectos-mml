@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import os
 from session_state import inicializar_session, guardar_datos_nube
@@ -193,37 +193,7 @@ else:
 # Forzar orden de columnas (evita “desorden” al recargar)
 st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
 
-# --- ACTUALIZAR PROGRESO (después de inicializar/ordenar la matriz) ---
-try:
-    _df_prog = st.session_state.get("datos_riesgos")
-    if isinstance(_df_prog, pd.DataFrame) and not _df_prog.empty:
-        _required_cols = [
-            "Supuesto (Condición para éxito)",
-            "Riesgo Identificado",
-            "Efecto del Riesgo",
-            "Medida de Mitigación/Control",
-        ]
-        _tmp = _df_prog.copy()
-        _tmp = _tmp[_required_cols] if all(c in _tmp.columns for c in _required_cols) else pd.DataFrame()
-        if not _tmp.empty:
-            _row_done = (
-                _tmp["Supuesto (Condición para éxito)"].astype(str).str.strip().ne("") &
-                _tmp["Riesgo Identificado"].astype(str).str.strip().ne("") &
-                _tmp["Efecto del Riesgo"].astype(str).str.strip().ne("") &
-                _tmp["Medida de Mitigación/Control"].astype(str).str.strip().ne("")
-            )
-            _progreso = float(_row_done.sum() / max(1, len(_tmp)))
-        else:
-            _progreso = 0.0
-    else:
-        _progreso = 0.0
-except Exception:
-    _progreso = 0.0
-
-try:
-    _progress_placeholder.progress(min(1.0, max(0.0, _progreso)), text=f"Avance estimado: {int(min(1.0, max(0.0, _progreso))*100)}%")
-except Exception:
-    pass
+# --- PROGRESO: se calcula después del editor para usar el DataFrame editado ---
 
 st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables. El texto se ajusta automáticamente y las filas crecen según el contenido.")
 
@@ -339,6 +309,36 @@ grid_response = AgGrid(
 
 edited_df = pd.DataFrame(grid_response.get("data", []))
 edited_df = _ensure_columns(edited_df)[COLUMN_ORDER].copy()
+
+# --- ACTUALIZAR BARRA DE AVANCE (usa el DF editado) ---
+try:
+    _cols_avance = ["Supuesto", "Riesgo", "Efecto", "Medida de Mitigación"]
+    _tmp = edited_df.copy()
+    for _c in _cols_avance:
+        if _c not in _tmp.columns:
+            _tmp[_c] = ""
+    if len(_tmp) > 0:
+        _filled = (
+            _tmp[_cols_avance]
+            .astype(str)
+            .apply(lambda s: s.str.strip().ne(""))
+            .sum(axis=1)
+        )
+        _progreso = float((_filled / len(_cols_avance)).mean())
+    else:
+        _progreso = 0.0
+except Exception:
+    _progreso = 0.0
+
+try:
+    _progress_placeholder.progress(
+        min(1.0, max(0.0, _progreso)),
+        text=f"Avance estimado: {int(min(1.0, max(0.0, _progreso)) * 100)}%",
+    )
+except Exception:
+    pass
+
+
 
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Matriz de Riesgos", type="primary"):
