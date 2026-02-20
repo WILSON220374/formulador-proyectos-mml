@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import graphviz
+import textwrap
 from session_state import inicializar_session
 
 # 1. Asegurar persistencia
@@ -58,57 +59,72 @@ CONFIG_NIVELES = {
 
 # --- DATOS DE PRUEBA ---
 datos_ejemplo = [
-    {"tipo": "PROPÓSITO / ESPECÍFICO", "objetivo": "Objetivo Específico de prueba", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "Participación comunitaria"},
-    {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Producto o Medios Directos", "indicador": "Indicador de Producto", "meta": "500 unidades", "supuesto": "Proveedores a tiempo"},
-    {"tipo": "ACTIVIDAD", "objetivo": "Acciones y Medios Indirectos", "indicador": "Presupuesto", "meta": "$100.000.000", "supuesto": "Recursos disponibles"}
+    {"tipo": "PROPÓSITO / ESPECÍFICO", "objetivo": "Objetivo Específico de prueba para validación", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "Participación comunitaria"},
+    {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Producto o Medios Directos generados", "indicador": "Indicador de Producto", "meta": "500 unidades", "supuesto": "Proveedores a tiempo"},
+    {"tipo": "ACTIVIDAD", "objetivo": "Acciones y Medios Indirectos ejecutados", "indicador": "Presupuesto", "meta": "$100.000.000", "supuesto": "Recursos disponibles"}
 ]
 
-# --- FUNCIÓN DE EXPORTACIÓN VERTICAL (TIPO MATRIZ APILADA) ---
-def generar_png_vertical(datos):
-    """Genera una imagen con bloques apilados uno debajo del otro."""
+# --- FUNCIÓN DE EXPORTACIÓN ESTÉTICA ---
+def generar_png_estetico(datos):
+    """Genera una imagen que imita visualmente las tarjetas de la interfaz."""
     dot = graphviz.Digraph(format='png')
-    # Forzamos dirección de arriba hacia abajo (Top to Bottom)
-    dot.attr(rankdir='TB', nodesep='0.2', ranksep='0.1', bgcolor='transparent')
+    dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
     
     for i, fila in enumerate(datos):
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A"})
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
         
-        # Estructura de tabla interna que imita la tarjeta de la pantalla
-        label = f'''<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8" BGCOLOR="white" FIXEDSIZE="FALSE">
-            <TR><TD COLSPAN="4" BGCOLOR="{conf['color']}"><FONT COLOR="white"><B>{fila['tipo']}</B></FONT></TD></TR>
+        # Función para ajustar texto en la imagen
+        def wrap(t, w=25): return "<BR/>".join(textwrap.wrap(str(t), width=w))
+
+        # El diseño usa una tabla maestra para el borde izquierdo y otra para el contenido
+        label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
             <TR>
-                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>OBJETIVO</B></FONT></TD>
-                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>INDICADOR</B></FONT></TD>
-                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>META</B></FONT></TD>
-                <TD BGCOLOR="#f1f5f9" BORDER="1"><FONT POINT-SIZE="10"><B>SUPUESTOS</B></FONT></TD>
-            </TR>
-            <TR>
-                <TD WIDTH="250" BORDER="1">{fila['objetivo']}</TD>
-                <TD WIDTH="180" BORDER="1">{fila['indicador']}</TD>
-                <TD WIDTH="100" BORDER="1">{fila['meta']}</TD>
-                <TD WIDTH="180" BORDER="1">{fila['supuesto']}</TD>
+                <TD WIDTH="10" BGCOLOR="{conf['color']}"></TD>
+                <TD BGCOLOR="{conf['bg']}">
+                    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="10" CELLPADDING="5">
+                        <TR>
+                            <TD COLSPAN="4" ALIGN="LEFT">
+                                <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
+                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {fila['tipo']}  </B></FONT></TD></TR>
+                                </TABLE>
+                            </TD>
+                        </TR>
+                        <TR>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🎯 OBJETIVO</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>📊 INDICADOR</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🏁 META</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🛡️ SUPUESTOS</B></FONT></TD>
+                        </TR>
+                        <TR>
+                            <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['objetivo'])}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['indicador'], 20)}</FONT></TD>
+                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['meta'], 12)}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['supuesto'], 20)}</FONT></TD>
+                        </TR>
+                    </TABLE>
+                </TD>
             </TR>
         </TABLE>>'''
         
-        dot.node(f'block_{i}', label=label, shape='plaintext')
+        # Creamos el nodo con estilo de tarjeta
+        dot.node(f'card_{i}', label=label, shape='rect', style='filled', fillcolor='white', color='#e2e8f0', penwidth='2')
         
-        # Conexión invisible para forzar el apilamiento vertical perfecto
         if i > 0:
-            dot.edge(f'block_{i-1}', f'block_{i}', style='invis')
+            dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
             
     return dot.pipe(format='png')
 
 # --- PANEL LATERAL ---
 with st.sidebar:
-    st.header("⚙️ Exportación")
-    st.write("Genera una imagen de la matriz tal como se ve en pantalla.")
+    st.header("⚙️ Exportación Visual")
+    st.write("Descarga una versión estética de alta resolución de tu matriz.")
     
-    # Generar la imagen vertical
-    imagen_final = generar_png_vertical(datos_ejemplo)
+    # Botón de descarga con el nuevo diseño
+    imagen_estetica = generar_png_estetico(datos_ejemplo)
     st.download_button(
-        label="🖼️ Descargar MML (Vertical)",
-        data=imagen_final,
-        file_name="matriz_marco_logico_vertical.png",
+        label="🖼️ Descargar Matriz Estética (PNG)",
+        data=imagen_estetica,
+        file_name="MML_Visual.png",
         mime="image/png",
         use_container_width=True
     )
@@ -117,7 +133,7 @@ with st.sidebar:
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Vista de validación operativa.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Vista de validación estética y operativa.</div>', unsafe_allow_html=True)
     st.progress(0.60)
 with col_img:
     if os.path.exists("unnamed.jpg"):
@@ -125,7 +141,7 @@ with col_img:
 
 st.divider()
 
-# --- RENDER EN PANTALLA ---
+# --- RENDERIZADO EN PANTALLA ---
 for fila in datos_ejemplo:
     conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
     st.markdown(f"""
@@ -141,3 +157,5 @@ for fila in datos_ejemplo:
             </div>
         </div>
     """, unsafe_allow_html=True)
+
+st.divider()
