@@ -130,6 +130,10 @@ def inicializar_session():
     if 'medios_verificacion' not in st.session_state:
         st.session_state['medios_verificacion'] = {}
 
+    # NUEVO: hoja 12 (Riesgos)
+    if 'datos_riesgos' not in st.session_state:
+        st.session_state['datos_riesgos'] = pd.DataFrame()
+
 
 def cargar_datos_nube(user_id):
     try:
@@ -174,12 +178,11 @@ def cargar_datos_nube(user_id):
             # NUEVO: medios de verificación (Hoja 11 - tabla final)
             st.session_state['medios_verificacion'] = d.get('medios_verificacion', {})
 
-            # --- HOJA 12 (Riesgos) ---
-            # Guardado recomendado: records (list[dict])
+            # NUEVO: hoja 12 (Riesgos)
             if 'datos_riesgos' in d:
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('datos_riesgos'))
             elif 'riesgos' in d:
-                # Compatibilidad por si el key se guardó como 'riesgos'
+                # Compatibilidad si el key se guardó como 'riesgos'
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('riesgos'))
 
             # DataFrames (compatibilidad: records o dict)
@@ -239,10 +242,11 @@ def guardar_datos_nube():
             # NUEVO: meta y resultados parciales
             "duracion_proyecto_periodos": st.session_state.get('duracion_proyecto_periodos', 4),
             "meta_resultados_parciales": st.session_state.get('meta_resultados_parciales', {}),
+
             # NUEVO: medios de verificación (Hoja 11 - tabla final)
             "medios_verificacion": st.session_state.get('medios_verificacion', {}),
 
-            # --- HOJA 12 (Riesgos) ---
+            # NUEVO: hoja 12 (Riesgos) - guardado como records
             "datos_riesgos": (
                 st.session_state.get('datos_riesgos', pd.DataFrame()).to_dict(orient="records")
                 if isinstance(st.session_state.get('datos_riesgos', None), pd.DataFrame)
