@@ -76,14 +76,14 @@ st.divider()
 # --- MAPEO DE COLORES POR NIVEL ---
 # Definimos colores únicos para identificar cada nivel rápidamente
 CONFIG_NIVELES = {
-    "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"}, # Azul vibrante
+    "PROPÓSITO / OBJETIVO GENERAL": {"color": "#2563EB", "bg": "#EFF6FF"}, # Azul vibrante
     "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"}, # Esmeralda
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}  # Ámbar
 }
 
 # --- DATOS DE EJEMPLO (SIN LA FILA DE FIN) ---
 datos_ejemplo = [
-    {"tipo": "PROPÓSITO / ESPECÍFICO", "objetivo": "Resultado directo que se espera lograr con el proyecto", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "La comunidad participa activamente"},
+    {"tipo": "PROPÓSITO / OBJETIVOS GENERAL", "objetivo": "Resultado directo que se espera lograr con el proyecto", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "La comunidad participa activamente"},
     {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Bienes o servicios producidos por el proyecto", "indicador": "Número de servicios entregados", "meta": "500 unidades", "supuesto": "Proveedores cumplen tiempos"},
     {"tipo": "ACTIVIDAD", "objetivo": "Acciones necesarias para generar los productos", "indicador": "Presupuesto ejecutado", "meta": "$100.000.000", "supuesto": "Recursos disponibles oportunamente"}
 ]
