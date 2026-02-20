@@ -313,10 +313,10 @@ edited_df = _ensure_columns(edited_df)[COLUMN_ORDER].copy()
 # --- PROGRESO (calculado sobre lo que el usuario edita en pantalla) ---
 try:
     _required_cols = [
-        "Riesgo Identificado",
         "Supuesto",
-        "Efecto del Riesgo",
-        "Medida de Mitigación/Control",
+        "Riesgo",
+        "Efecto",
+        "Medida de Mitigación",
     ]
     if len(edited_df) > 0 and all(c in edited_df.columns for c in _required_cols):
         _tmp = edited_df[_required_cols].copy()
