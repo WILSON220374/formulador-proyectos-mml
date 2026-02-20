@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 import pandas as pd
+import graphviz
+import textwrap
 from session_state import inicializar_session
 
 # 1. Asegurar persistencia 
@@ -61,20 +63,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-
-# --- ENCABEZADO CON IMAGEN Y AVANCE ---
-col_t, col_img = st.columns([4, 1], vertical_alignment="center")
-
-with col_t:
-    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
-    st.progress(0.90)
-    
-with col_img:
-    if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-
-st.divider()
 
 # --- CONFIGURACIÓN DE COLORES POR NIVEL ---
 CONFIG_NIVELES = {
@@ -148,7 +136,83 @@ orden_jerarquia = {
 }
 datos_reales = sorted(datos_reales, key=lambda x: orden_jerarquia.get(x["tipo"], 99))
 
-# --- RENDERIZADO DE LA MATRIZ ---
+# --- FUNCIÓN DE EXPORTACIÓN ESTÉTICA EN PNG ---
+def generar_png_estetico(datos):
+    dot = graphviz.Digraph(format='png')
+    dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
+    
+    def wrap(t, w=25): return "<BR/>".join(textwrap.wrap(str(t), width=w))
+
+    for i, fila in enumerate(datos):
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
+        
+        label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+            <TR>
+                <TD WIDTH="10" BGCOLOR="{conf['color']}"></TD>
+                <TD BGCOLOR="{conf['bg']}">
+                    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="10" CELLPADDING="5">
+                        <TR>
+                            <TD COLSPAN="4" ALIGN="LEFT">
+                                <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
+                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {fila['tipo']}  </B></FONT></TD></TR>
+                                </TABLE>
+                            </TD>
+                        </TR>
+                        <TR>
+                            <TD ALIGN="LEFT"><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>RESUMEN NARRATIVO</B></FONT></TD>
+                            <TD ALIGN="CENTER"><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>INDICADOR</B></FONT></TD>
+                            <TD ALIGN="CENTER"><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>META</B></FONT></TD>
+                            <TD ALIGN="CENTER"><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>SUPUESTOS</B></FONT></TD>
+                        </TR>
+                        <TR>
+                            <TD WIDTH="200" ALIGN="LEFT"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['objetivo'], 35)}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['indicador'], 20)}</FONT></TD>
+                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['meta'], 12)}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['supuesto'], 20)}</FONT></TD>
+                        </TR>
+                    </TABLE>
+                </TD>
+            </TR>
+        </TABLE>>'''
+        
+        dot.node(f'card_{i}', label=label, shape='rect', style='filled', fillcolor='white', color='#e2e8f0', penwidth='2')
+        
+        if i > 0:
+            dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
+            
+    return dot.pipe(format='png')
+
+# --- PANEL LATERAL PARA EXPORTACIÓN ---
+with st.sidebar:
+    st.header("⚙️ Exportación")
+    st.write("Descarga una versión estética de alta resolución de tu matriz.")
+    if datos_reales:
+        imagen_estetica = generar_png_estetico(datos_reales)
+        st.download_button(
+            label="🖼️ Descargar Matriz (PNG)",
+            data=imagen_estetica,
+            file_name="Matriz_Marco_Logico.png",
+            mime="image/png",
+            use_container_width=True
+        )
+    else:
+        st.warning("Completa los datos para habilitar la descarga.")
+
+# --- ENCABEZADO CON IMAGEN Y AVANCE ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+
+with col_t:
+    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
+    st.progress(0.90)
+    
+with col_img:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
+
+# --- RENDERIZADO DE LA MATRIZ EN PANTALLA ---
 if not datos_reales:
     st.warning("⚠️ No se encontraron indicadores validados. Para ver datos aquí, asegúrate de haber marcado las 5 casillas de validación (P1 a P5) y generado las metas para tus objetivos en la Hoja 11.")
 else:
@@ -165,7 +229,6 @@ else:
     for fila in datos_reales:
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
         
-        # Aquí se aplica la alineación centrada forzada para las 3 columnas
         st.markdown(f"""
             <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
                 <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
