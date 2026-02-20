@@ -118,12 +118,26 @@ df_base = pd.DataFrame(rows_base)
 # -----------------------------
 opciones_probabilidad = ["Muy Baja", "Baja", "Media", "Alta", "Muy Alta"]
 opciones_impacto = ["Insignificante", "Menor", "Moderado", "Mayor", "Catastrófico"]
-opciones_categoria = ["Financiero", "Operativo", "Social", "Ambiental", "Político", "Técnico"]
+opciones_categoria = [
+    'Administrativos',
+    'Asociados a fenómenos de origen biológico: plagas, epidemias',
+    'Asociados a fenómenos de origen humano no intencionales: aglomeración de público',
+    'Asociados a fenómenos de origen natural: atmosféricos, hidrológicos, geológicos, otros',
+    'Asociados a fenómenos de origen socio-natural: inundaciones, movimientos en masa, incendios forestales',
+    'Asociados a fenómenos de origen tecnológico: químicos, eléctricos, mecánicos, térmicos',
+    'De calendario',
+    'De costos',
+    'De mercado',
+    'Financieros',
+    'Legales',
+    'Operacionales',
+    'Sanitarios',
+]
 
 DEFAULTS_EDITABLE = {
     "Supuesto": "",
     "Riesgo": "",
-    "Categoría": "Técnico",
+    "Categoría": "Administrativos",
     "Probabilidad": "Media",
     "Impacto": "Moderado",
     "Efecto": "",
