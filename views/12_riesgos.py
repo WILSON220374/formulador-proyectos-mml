@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from session_state import inicializar_session, guardar_datos_nube
 
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
+
 # 1. Asegurar persistencia y memoria
 inicializar_session()
 
@@ -161,7 +163,6 @@ def _rebuild_from_base_keep_edits(df_old: pd.DataFrame, df_new_base: pd.DataFram
 # INICIALIZACIÓN / SINCRONIZACIÓN
 # -----------------------------
 if "datos_riesgos" not in st.session_state or not isinstance(st.session_state.get("datos_riesgos"), pd.DataFrame):
-    # Si viene de nube como list[dict], session_state ya lo convirtió a DataFrame
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(pd.DataFrame(), df_base)
 else:
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(st.session_state["datos_riesgos"], df_base)
@@ -169,39 +170,119 @@ else:
 # Forzar orden de columnas (evita “desorden” al recargar)
 st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
 
-# --- TABLA EDITABLE ---
-st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables.")
+st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables. El texto se ajusta automáticamente y las filas crecen según el contenido.")
 
-# Ocultar columna técnica _key: la usamos como índice (oculto) para mantener identidad estable por fila
-df_for_editor = st.session_state["datos_riesgos"].set_index("_key", drop=True)
+df_grid = st.session_state["datos_riesgos"].copy()
 
-column_config = {
-    "Tipo": st.column_config.TextColumn("Tipo", disabled=True, width="small"),
-    "Objetivo": st.column_config.TextColumn("Objetivo", disabled=True, width="large"),
-    "Supuesto": st.column_config.TextColumn("Supuesto (Condición para éxito)", width="medium"),
-    "Riesgo": st.column_config.TextColumn("Riesgo Identificado", width="medium"),
-    "Categoría": st.column_config.SelectboxColumn("Categoría", options=opciones_categoria),
-    "Probabilidad": st.column_config.SelectboxColumn("Probabilidad", options=opciones_probabilidad),
-    "Impacto": st.column_config.SelectboxColumn("Impacto", options=opciones_impacto),
-    "Efecto": st.column_config.TextColumn("Efecto del Riesgo"),
-    "Medida de Mitigación": st.column_config.TextColumn("Medida de Mitigación/Control", width="large"),
-}
+# -----------------------------
+# AGGRID: Wrap + AutoHeight (sin perder funcionalidades)
+# -----------------------------
+gob = GridOptionsBuilder.from_dataframe(df_grid)
 
-edited_view = st.data_editor(
-    df_for_editor,
-    column_config=column_config,
-    hide_index=True,  # oculta _key (índice)
-    use_container_width=True,
-    key="editor_riesgos",
+# Ocultar llave técnica
+gob.configure_column("_key", hide=True)
+
+# Columnas fijas (no editables)
+gob.configure_column("Tipo", editable=False, width=170)
+gob.configure_column("Objetivo", editable=False, width=420)
+
+# Columnas editables con wrap/autoHeight
+wrap_cellstyle = JsCode("""function(params){return {'whiteSpace': 'normal', 'lineHeight': '1.2'};}""")
+
+gob.configure_column(
+    "Supuesto",
+    header_name="Supuesto (Condición para éxito)",
+    editable=True,
+    wrapText=True,
+    autoHeight=True,
+    cellStyle=wrap_cellstyle,
+    width=260,
 )
 
-# Volver a DataFrame con _key como columna (para persistir y sincronizar)
-edited_df = edited_view.reset_index()
+gob.configure_column(
+    "Riesgo",
+    header_name="Riesgo Identificado",
+    editable=True,
+    wrapText=True,
+    autoHeight=True,
+    cellStyle=wrap_cellstyle,
+    width=240,
+)
+
+gob.configure_column(
+    "Efecto",
+    header_name="Efecto del Riesgo",
+    editable=True,
+    wrapText=True,
+    autoHeight=True,
+    cellStyle=wrap_cellstyle,
+    width=220,
+)
+
+gob.configure_column(
+    "Medida de Mitigación",
+    header_name="Medida de Mitigación/Control",
+    editable=True,
+    wrapText=True,
+    autoHeight=True,
+    cellStyle=wrap_cellstyle,
+    width=300,
+)
+
+# Selects
+gob.configure_column(
+    "Categoría",
+    editable=True,
+    cellEditor="agSelectCellEditor",
+    cellEditorParams={"values": opciones_categoria},
+    width=140,
+)
+
+gob.configure_column(
+    "Probabilidad",
+    editable=True,
+    cellEditor="agSelectCellEditor",
+    cellEditorParams={"values": opciones_probabilidad},
+    width=140,
+)
+
+gob.configure_column(
+    "Impacto",
+    editable=True,
+    cellEditor="agSelectCellEditor",
+    cellEditorParams={"values": opciones_impacto},
+    width=140,
+)
+
+# Default col def (wrap + autoHeight para no cortar al achicar columnas)
+gob.configure_default_column(
+    resizable=True,
+    sortable=True,
+    filter=True,
+    wrapText=True,
+    autoHeight=True,
+)
+
+grid_options = gob.build()
+grid_options["domLayout"] = "autoHeight"  # el componente crece hacia abajo según contenido/filas
+
+grid_response = AgGrid(
+    df_grid,
+    gridOptions=grid_options,
+    update_mode=GridUpdateMode.MODEL_CHANGED,
+    data_return_mode=DataReturnMode.AS_INPUT,
+    fit_columns_on_grid_load=False,
+    allow_unsafe_jscode=True,
+    theme="streamlit",
+    key="grid_riesgos",
+)
+
+edited_df = pd.DataFrame(grid_response.get("data", []))
+edited_df = _ensure_columns(edited_df)[COLUMN_ORDER].copy()
 
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Matriz de Riesgos", type="primary"):
-    # Reforzar orden antes de persistir
-    st.session_state["datos_riesgos"] = _ensure_columns(edited_df)[COLUMN_ORDER].copy()
+    st.session_state["datos_riesgos"] = edited_df.copy()
     guardar_datos_nube()
     st.success("✅ Matriz de riesgos actualizada y guardada en la nube.")
     st.rerun()
