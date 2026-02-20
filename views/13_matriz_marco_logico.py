@@ -14,68 +14,66 @@ st.markdown("""
     <style>
     .card-mml {
         background-color: #ffffff;
-        border-radius: 12px;
-        padding: 18px 20px 18px 20px;
-        margin-bottom: 20px;
+        border-radius: 16px;
+        padding: 18px 18px 14px 18px;
+        margin-bottom: 22px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 6px 14px -10px rgba(0, 0, 0, 0.18);
+        position: relative;
     }
-
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-
-    .mml-top {
-        display: flex;
-        align-items: center;
+    .mml-leftbar{
+        position:absolute; left:0; top:0; bottom:0; width:10px;
+        border-top-left-radius:16px; border-bottom-left-radius:16px;
+    }
+    .mml-toprow{
+        display:flex;
+        align-items:center;
         gap: 14px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
-
     .tipo-badge {
         color: white;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-size: 0.75rem;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.78rem;
         font-weight: 800;
         display: inline-block;
         text-transform: uppercase;
         white-space: nowrap;
     }
-
-    .mml-head {
+    .mml-head{
+        flex: 1;
         display: grid;
-        grid-template-columns: 2fr 1.5fr 0.8fr 1.3fr;
-        gap: 15px;
-        width: 100%;
+        grid-template-columns: 2fr 1.5fr 0.7fr 1.4fr;
+        gap: 14px;
         align-items: center;
     }
-
-    .mml-head-title {
+    .mml-head-title{
+        color:#1E3A8A;
         font-weight: 900;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         text-transform: uppercase;
-        text-align: center;
-        border-bottom: 2px solid #f1f5f9;
+        text-align:center;
+        border-bottom: 2px solid #e2e8f0;
         padding-bottom: 6px;
     }
-
-    .mml-row {
-        display: grid;
-        grid-template-columns: 2fr 1.5fr 0.8fr 1.3fr;
-        gap: 15px;
-        width: 100%;
+    .mml-row{
+        display:grid;
+        grid-template-columns: 2fr 1.5fr 0.7fr 1.4fr;
+        gap: 14px;
         align-items: start;
     }
-
-    .col-content {
-        font-size: 0.95rem;
-        color: #334155;
+    .col-content{
+        font-size: 0.96rem;
+        color: #0f172a;
         text-align: center;
-        line-height: 1.5;
-        padding: 6px 5px;
+        line-height: 1.45;
+        padding: 6px 4px;
         white-space: pre-wrap;
         word-break: break-word;
     }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -118,17 +116,18 @@ def _map_tipo(tipo_hoja11: str) -> str:
     return "PROPÓSITO / ESPECÍFICO" if "ESPECIF" in t else ("ACTIVIDAD" if "ACTIV" in t else "COMPONENTE / PRODUCTO")
 
 
-def _badge_text(tipo_mml: str) -> str:
-    t = _norm_text(tipo_mml).upper()
+def _badge_display(mapped_tipo: str) -> str:
+    """Texto del óvalo, como en el Excel."""
+    t = _norm_text(mapped_tipo)
     if t == "FIN / OBJETIVO GENERAL":
         return "OBJETIVO GENERAL"
     if t == "PROPÓSITO / ESPECÍFICO":
         return "OBJETIVO ESPECIFICO"
     if t == "COMPONENTE / PRODUCTO":
-        return "COMPONENTE / PRODUCTO"
+        return "COMPONENTE"
     if t == "ACTIVIDAD":
         return "ACTIVIDAD"
-    return _norm_text(tipo_mml)
+    return t
 
 def _build_datos_mml() -> list[dict]:
     """Construye las fichas desde:
@@ -231,15 +230,15 @@ def generar_png_estetico(datos):
                             <TR>
                                 <TD COLSPAN="4" ALIGN="LEFT">
                                     <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
-                                        <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {html.escape(fila.get('tipo',''), quote=True)}  </B></FONT></TD></TR>
+                                        <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {html.escape(_badge_display(fila.get('tipo','')), quote=True)}  </B></FONT></TD></TR>
                                     </TABLE>
                                 </TD>
                             </TR>
                             <TR>
-                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🎯 OBJETIVO</B></FONT></TD>
-                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>📊 INDICADOR</B></FONT></TD>
-                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🏁 META</B></FONT></TD>
-                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🛡️ SUPUESTOS</B></FONT></TD>
+                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>RESUMEN NARRATIVO</B></FONT></TD>
+                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>INDICADOR</B></FONT></TD>
+                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>META</B></FONT></TD>
+                                <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>SUPUESTOS</B></FONT></TD>
                             </TR>
                             <TR>
                                 <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap_html_safe(fila.get('objetivo',''), 34)}</FONT></TD>
@@ -305,30 +304,36 @@ with col_t:
     st.write(f"Avance estimado: {int(round(p*100, 0))}%")
     st.progress(p)
 with col_img:
-    if os.path.exists("unnamed.jpst.markdown(f"""
-            <div class="card-mml" style="border-left: 10px solid {conf['color']}; background-color: {conf['bg']};">
-                <div class="mml-top">
-                    <div class="tipo-badge" style="background-color: {conf['color']};">{_badge_text(fila['tipo'])}</div>
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+
+st.divider()
+
+# --- RENDERIZADO EN PANTALLA (MISMO ESTILO) ---
+if not datos_mml:
+    st.info("No hay elementos para mostrar. Verifica: Hoja 11 (Selección = Sí y Metas) y Hoja 12 (Supuestos).")
+else:
+    for fila in datos_mml:
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+        st.markdown(f"""
+            <div class="card-mml" style="background-color:{conf['bg']};">
+                <div class="mml-leftbar" style="background:{conf['color']};"></div>
+
+                <div class="mml-toprow">
+                    <div class="tipo-badge" style="background-color:{conf['color']};">{_badge_display(fila['tipo'])}</div>
                     <div class="mml-head">
-                        <div class="mml-head-title" style="color: {conf['color']};">RESUMEN NARRATIVO</div>
-                        <div class="mml-head-title" style="color: {conf['color']};">INDICADOR</div>
-                        <div class="mml-head-title" style="color: {conf['color']};">META</div>
-                        <div class="mml-head-title" style="color: {conf['color']};">SUPUESTOS</div>
+                        <div class="mml-head-title" style="color:{conf['color']};">RESUMEN NARRATIVO</div>
+                        <div class="mml-head-title" style="color:{conf['color']};">INDICADOR</div>
+                        <div class="mml-head-title" style="color:{conf['color']};">META</div>
+                        <div class="mml-head-title" style="color:{conf['color']};">SUPUESTOS</div>
                     </div>
                 </div>
+
                 <div class="mml-row">
                     <div class="col-content">{html.escape(_norm_text(fila['objetivo']))}</div>
                     <div class="col-content">{html.escape(_norm_text(fila['indicador']))}</div>
                     <div class="col-content">{html.escape(_norm_text(fila['meta']))}</div>
                     <div class="col-content">{html.escape(_norm_text(fila['supuesto']))}</div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)]))}</div>
-                    </div>
-                    <div style="flex: 1.5;">
-                        <div class="col-title" style="color: {conf['color']};">🛡️ Supuestos</div>
-                        <div class="col-content">{html.escape(_norm_text(fila['supuesto']))}</div>
-                    </div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
