@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import graphviz
 import textwrap
+import html
 import pandas as pd
 from session_state import inicializar_session
 
@@ -167,9 +168,14 @@ def generar_png_estetico(datos):
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
 
         def wrap(t, w=25):
-            return "<BR/>".join(textwrap.wrap(str(t), width=w))
+            s = '' if t is None else str(t)
+            s = html.escape(s)
+            return "<BR/>".join(textwrap.wrap(s, width=w))
 
-        sup_plain = str(fila.get("supuesto", "")).replace("\n", " ").replace("•", "-").strip()
+        sup_plain = '' if fila.get('supuesto', '') is None else str(fila.get('supuesto', ''))
+        sup_plain = sup_plain.replace("
+", " ").replace("•", "-").strip()
+        sup_plain = html.escape(sup_plain)
 
         label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
             <TR>
@@ -203,7 +209,10 @@ def generar_png_estetico(datos):
         if i > 0:
             dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
 
-    return dot.pipe(format='png')
+    try:
+        return dot.pipe(format='png')
+    except Exception:
+        return None
 
 # --- PANEL LATERAL ---
 with st.sidebar:
