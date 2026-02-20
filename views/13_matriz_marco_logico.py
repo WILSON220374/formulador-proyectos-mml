@@ -184,8 +184,6 @@ def generar_png_estetico(datos):
 
 # --- PANEL LATERAL PARA EXPORTACIÓN ---
 with st.sidebar:
-    st.header("⚙️ Exportación")
-    st.write("Descarga una versión estética de alta resolución de tu matriz.")
     if datos_reales:
         imagen_estetica = generar_png_estetico(datos_reales)
         st.download_button(
