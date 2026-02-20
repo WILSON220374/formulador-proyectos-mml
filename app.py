@@ -21,11 +21,8 @@ st.markdown("""
         text-transform: uppercase;
     }
 
-    /* Oculta los toggles automáticos del sidebar nav (View more / View less) */
-    div[data-testid="stSidebarNav"] button[aria-label="View less"],
-    div[data-testid="stSidebarNav"] button[aria-label="View more"],
-    div[data-testid="stSidebarNav"] button[title="View less"],
-    div[data-testid="stSidebarNav"] button[title="View more"]{
+    /* Oculta el toggle automático View more / View less del sidebar */
+    button[data-testid="stSidebarNavViewButton"]{
         display: none !important;
     }
     </style>
