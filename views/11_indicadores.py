@@ -17,17 +17,57 @@ inicializar_session()
 st.markdown(
     """
     <style>
+
     .block-container { padding-bottom: 220px !important; }
-    .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
-    .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
-    .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
-    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 22px 0 8px 0; }
+
+    /* Títulos (mismo patrón Hoja 10) */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A !important; line-height: 1.2 !important; margin-bottom: 2px !important; }
+    .subtitulo-gris { color: #64748b !important; font-size: 14px !important; margin-bottom: 5px !important; }
+
+    /* Títulos de sección */
+    .subtitulo-seccion, .subtitulo-seccion-2 {
+        font-size: 20px !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+        margin: 18px 0 8px 0 !important;
+    }
+
     [data-testid="stImage"] img { border-radius: 12px; }
 
-    .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
-    .ag-header-cell-label { justify-content: center !important; text-align: center !important; }
-    .ag-header-cell-text { width: 100%; text-align: center; }
+    /* AgGrid: contenedor */
+    .ag-root-wrapper { border-radius: 10px !important; border: 1px solid #eee !important; margin-bottom: 6px !important; }
 
+    /* AgGrid: encabezados (color sobrio + negrilla) */
+    .ag-header, .ag-header-viewport, .ag-header-container, .ag-header-row, .ag-header-cell {
+        background-color: #F1F5F9 !important;
+    }
+    .ag-header-cell-label { justify-content: center !important; text-align: center !important; }
+    .ag-header-cell-text {
+        width: 100% !important;
+        text-align: center !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        color: #1E3A8A !important;
+    }
+
+    /* AgGrid: centrado vertical de contenido (solo vertical) */
+    .ag-cell {
+        display: flex !important;
+        align-items: center !important;
+        line-height: 1.35 !important;
+        white-space: normal !important;
+    }
+    .ag-cell-wrapper {
+        display: flex !important;
+        align-items: center !important;
+        height: 100% !important;
+        width: 100% !important;
+    }
+    .ag-cell-value {
+        width: 100% !important;
+    }
+
+    /* Cajas informativas */
     .info-box {
         padding: 10px 12px;
         border-radius: 12px;
@@ -38,7 +78,6 @@ st.markdown(
         font-size: 13px;
         margin: 6px 0 14px 0;
     }
-
     .info-box-2 {
         padding: 10px 12px;
         border-radius: 12px;
@@ -49,7 +88,6 @@ st.markdown(
         font-size: 13px;
         margin: 6px 0 12px 0;
     }
-
     .legend-box {
         padding: 10px 12px;
         border-radius: 12px;
@@ -62,7 +100,6 @@ st.markdown(
     }
     .legend-box ul { margin: 8px 0 0 18px; }
     .legend-box li { margin: 4px 0; font-weight: 600; }
-
     .info-box-3 {
         padding: 10px 12px;
         border-radius: 12px;
@@ -73,36 +110,19 @@ st.markdown(
         font-size: 13px;
         margin: 6px 0 12px 0;
     }
-    
-    /* AGGRID: encabezados sobrios + alineación vertical en celdas */
-    .ag-header, .ag-header-row, .ag-header-cell, .ag-header-group-cell {
-        background-color: #f1f5f9 !important;
-    }
-    .ag-header-cell-text {
-        font-weight: 900 !important;
-        color: #1E3A8A !important;
-    }
 
-    /* Solo centrado vertical (no horizontal) */
-    .ag-cell, .ag-cell-wrapper, .ag-cell-value {
-        height: 100% !important;
-    }
-    .ag-cell-wrapper, .ag-cell-value {
-        display: flex !important;
-        align-items: center !important;
-    }
-
-    /* Botón sobrio (Aplicar selección) */
-    .apply-btn [data-testid="stButton"] button {
-        background: #1E3A8A !important;
+    /* Botones (C: global en la hoja) */
+    [data-testid="stButton"] > button {
+        background-color: #1E3A8A !important;
         color: #ffffff !important;
-        font-weight: 800 !important;
-        border: 1px solid rgba(15, 23, 42, 0.12) !important;
+        border: 1px solid #1E3A8A !important;
         border-radius: 10px !important;
-        padding: 0.55rem 0.9rem !important;
+        font-weight: 800 !important;
+        padding: 0.6rem 0.9rem !important;
     }
-    .apply-btn [data-testid="stButton"] button:hover {
-        filter: brightness(0.95);
+    [data-testid="stButton"] > button:hover {
+        filter: brightness(0.92) !important;
+        border-color: #1E3A8A !important;
     }
 
     </style>
@@ -180,54 +200,64 @@ col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 
 with col_t:
     st.markdown(
-        '<div style="font-size: 30px; font-weight: 800; color: #1E3A8A; line-height: 1.2;">📊 11. INDICADORES</div>',
+        '<div class="titulo-seccion">📊 11. INDICADORES</div>',
         unsafe_allow_html=True
     )
     st.markdown(
-        '<div style="color: #64748b; font-size: 14px; margin-bottom: 5px;">Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.</div>',
+        '<div class="subtitulo-gris">Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.</div>',
         unsafe_allow_html=True
     )
 
-    # Barra de progreso (misma lógica visual que Hoja 10)
-    datos_ind = st.session_state.get("datos_indicadores", {}) if isinstance(st.session_state.get("datos_indicadores", {}), dict) else {}
-    sel_ind = st.session_state.get("seleccion_indicadores", {}) if isinstance(st.session_state.get("seleccion_indicadores", {}), dict) else {}
-    metas = st.session_state.get("meta_resultados_parciales", {}) if isinstance(st.session_state.get("meta_resultados_parciales", {}), dict) else {}
-    mv = st.session_state.get("medios_verificacion", {}) if isinstance(st.session_state.get("medios_verificacion", {}), dict) else {}
+    # Progreso (mismo patrón Hoja 10)
+    try:
+        total_campos = 0
 
-    total_campos = 0
-
-    for v in datos_ind.values():
-        if isinstance(v, dict):
-            if str(v.get("Objeto", "")).strip():
-                total_campos += 1
-            if str(v.get("Condicion", v.get("Condición", ""))).strip():
-                total_campos += 1
-            if str(v.get("Lugar", "")).strip():
-                total_campos += 1
-
-    for v in sel_ind.values():
-        if isinstance(v, dict):
-            for k in ["P1", "P2", "P3", "P4", "P5"]:
-                if bool(v.get(k, False)):
+        # Tabla 1: Objeto/Condición/Lugar diligenciados
+        df_tmp = st.session_state.get("df_indicadores", None)
+        if isinstance(df_tmp, pd.DataFrame) and not df_tmp.empty:
+            for _, rr in df_tmp.iterrows():
+                if str(rr.get("1. Objeto", "")).strip():
+                    total_campos += 1
+                if str(rr.get("2. Condición Deseada", "")).strip():
+                    total_campos += 1
+                if str(rr.get("3. Lugar", "")).strip():
                     total_campos += 1
 
-    for v in metas.values():
-        if isinstance(v, dict):
-            if str(v.get("Meta", "")).strip():
-                total_campos += 1
-            per = v.get("Periodos", {})
-            if isinstance(per, dict):
-                for pv in per.values():
-                    if str(pv).strip():
-                        total_campos += 1
+        # Selección: checks marcados
+        sel = st.session_state.get("seleccion_indicadores", {})
+        if isinstance(sel, dict):
+            for vv in sel.values():
+                if isinstance(vv, dict):
+                    for b in vv.values():
+                        total_campos += 1 if bool(b) else 0
 
-    for v in mv.values():
-        if isinstance(v, dict):
-            for pv in v.values():
-                if str(pv).strip():
-                    total_campos += 1
+        # Meta y resultados parciales: campos diligenciados
+        mrp = st.session_state.get("meta_resultados_parciales", {})
+        if isinstance(mrp, dict):
+            for vv in mrp.values():
+                if isinstance(vv, dict):
+                    for kf in ["Línea base", "Meta", "Unidad de medida"]:
+                        if str(vv.get(kf, "")).strip():
+                            total_campos += 1
+                    per = vv.get("Periodos", {})
+                    if isinstance(per, dict):
+                        for pv in per.values():
+                            if str(pv).strip():
+                                total_campos += 1
 
-    progreso = min(1.0, total_campos / 20) if total_campos > 0 else 0.0
+        # Medios de verificación: casillas libres diligenciadas
+        mv = st.session_state.get("medios_verificacion", {})
+        if isinstance(mv, dict):
+            for vv in mv.values():
+                if isinstance(vv, dict):
+                    for pv in vv.values():
+                        if str(pv).strip():
+                            total_campos += 1
+
+        progreso = min(1.0, total_campos / 80) if total_campos > 0 else 0.0
+    except Exception:
+        progreso = 0.0
+
     st.progress(progreso, text=f"Avance estimado: {int(progreso*100)}%")
 
 with col_img:
@@ -235,8 +265,6 @@ with col_img:
         st.image("unnamed.jpg", use_container_width=True)
     elif os.path.exists("unnamed-1.jpg"):
         st.image("unnamed-1.jpg", use_container_width=True)
-
-st.divider()
 
 st.markdown(
     '<div class="info-box">Diligencia: <b>1. Objeto</b>, <b>2. Condición Deseada</b> y <b>3. Lugar</b>. '
@@ -653,9 +681,7 @@ grid_response_2 = AgGrid(
 # Botón de commit (backend): guarda selección y habilita metas
 c_apply_1, c_apply_2 = st.columns([1, 5], vertical_alignment="center")
 with c_apply_1:
-    st.markdown('<div class="apply-btn">', unsafe_allow_html=True)
     aplicar = st.button("Aplicar selección", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 with c_apply_2:
     st.caption("Use este botón para guardar las selecciones y actualizar la tabla de METAS.")
 
