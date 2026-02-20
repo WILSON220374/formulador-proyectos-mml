@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 from session_state import inicializar_session, guardar_datos_nube
 
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
@@ -16,9 +17,56 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="titulo-seccion">🛡️ 12. Supuestos y Riesgos</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitulo-gris">Fase IV: Análisis de Riesgos y Factores Externos</div>', unsafe_allow_html=True)
+
+# --- ENCABEZADO CON BARRA DE PROGRESO E IMAGEN ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+
+with col_t:
+    st.markdown(
+        '<div style="font-size: 30px; font-weight: 800; color: #1E3A8A; line-height: 1.2;">🛡️ 12. SUPUESTOS Y RIESGOS</div>',
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        '<div style="color: #64748b; font-size: 14px; margin-bottom: 5px;">Fase IV: Análisis de riesgos y factores externos.</div>',
+        unsafe_allow_html=True
+    )
+
+    # Progreso estimado según celdas diligenciadas (sin afectar funcionalidad)
+    try:
+        _df_prog = st.session_state.get("datos_riesgos")
+        if isinstance(_df_prog, pd.DataFrame) and not _df_prog.empty:
+            _editable_cols = [
+                "Supuesto (Condición para éxito)", "Riesgo Identificado", "Efecto del Riesgo",
+                "Categoría", "Probabilidad", "Impacto", "Medida de Mitigación/Control"
+            ]
+            _df_tmp = _df_prog.copy()
+            _df_tmp = _df_tmp[_editable_cols] if all(c in _df_tmp.columns for c in _editable_cols) else pd.DataFrame()
+            if not _df_tmp.empty:
+                _filled = 0
+                for c in _df_tmp.columns:
+                    if c in ["Categoría", "Probabilidad", "Impacto"]:
+                        _filled += _df_tmp[c].notna().sum()
+                    else:
+                        _filled += _df_tmp[c].astype(str).str.strip().ne("").sum()
+                _total = _df_tmp.shape[0] * _df_tmp.shape[1]
+                _progreso = (_filled / _total) if _total > 0 else 0.0
+            else:
+                _progreso = 0.0
+        else:
+            _progreso = 0.0
+    except Exception:
+        _progreso = 0.0
+
+    st.progress(min(1.0, max(0.0, float(_progreso))), text=f"Avance estimado: {int(min(1.0, max(0.0, float(_progreso)))*100)}%")
+
+with col_img:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
+
 st.divider()
+
 
 # -----------------------------
 # Fuente: Hoja 11 (Medios de verificación)
@@ -273,6 +321,11 @@ grid_response = AgGrid(
     data_return_mode=DataReturnMode.AS_INPUT,
     fit_columns_on_grid_load=False,
     allow_unsafe_jscode=True,
+    custom_css={
+        ".ag-header-cell-label": {"justify-content": "center"},
+        ".ag-header-cell-text": {"color": "#1E3A8A", "font-weight": "800"},
+        ".ag-header": {"background-color": "#f8fafc"},
+    },
     theme="streamlit",
     key="grid_riesgos",
 )
