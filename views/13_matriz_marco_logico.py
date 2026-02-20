@@ -22,48 +22,55 @@ st.markdown("""
     }
     .col-title {
         color: #1E3A8A;
-        font-weight: 800;
-        font-size: 0.85rem;
+        font-weight: 900;
+        font-size: 14px;
         text-transform: uppercase;
         text-align: center;
-        margin-bottom: 8px;
-        border-bottom: 2px solid #f1f5f9;
-        padding-bottom: 5px;
+        margin-bottom: 10px;
     }
     .col-content {
-        font-size: 0.95rem;
-        color: #334155;
+        font-size: 15px;
         text-align: center;
-        line-height: 1.5;
-        padding: 5px;
+        color: #0f172a;
+        white-space: pre-wrap;
         word-break: break-word;
     }
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    .tipo-badge {
-        color: white;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 700;
+    .badge {
         display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-weight: 900;
+        font-size: 12px;
+        color: white;
         margin-bottom: 15px;
-        text-transform: uppercase;
+    }
+    .layout-grid {
+        display: grid;
+        grid-template-columns: 2fr 1.2fr 0.8fr 1.5fr;
+        gap: 14px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE NIVELES ---
-CONFIG_NIVELES = {
-    "OBJETIVO GENERAL":       {"color": "#1D4ED8", "bg": "#EFF6FF"},
-    "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"},
-    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"},
-    "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}
-}
+# --- HEADER (igual a tus otras hojas) ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Vista final (solo lectura). La información se consolida desde Hojas 11 y 12.</div>', unsafe_allow_html=True)
+with col_img:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
+    elif os.path.exists("unnamed-1.jpg"):
+        st.image("unnamed-1.jpg", use_container_width=True)
 
-# -----------------------------
-# Helpers
-# -----------------------------
+# --- BARRA DE PROGRESO (fija, como pediste) ---
+st.progress(0.60, text="Avance estimado: 60%")
+
+# ============================
+#  FUENTES DE DATOS (HOJA 11 + HOJA 12)
+# ============================
+P_COLS = ["P1", "P2", "P3", "P4", "P5"]
+
 def _norm_text(v) -> str:
     if v is None:
         return ""
@@ -72,75 +79,71 @@ def _norm_text(v) -> str:
 def _norm_key(v) -> str:
     return _norm_text(v).lower()
 
-def _tipo_from_nivel(nivel: str) -> str:
-    n = _norm_text(nivel)
+def _tipo_from_nivel(nivel_txt: str) -> str:
+    n = _norm_text(nivel_txt)
     if n == "Objetivo General":
         return "OBJETIVO GENERAL"
     if n.startswith("Objetivo Específico"):
-        return "PROPÓSITO / ESPECÍFICO"
+        return "OBJETIVO ESPECIFICO"
     if n == "Actividad Clave":
         return "ACTIVIDAD"
     return n.upper() if n else ""
 
-def _build_supuestos_map(df_riesgos: pd.DataFrame) -> dict:
-    out = {}
-    if not isinstance(df_riesgos, pd.DataFrame) or df_riesgos.empty:
-        return out
-    if "Objetivo" not in df_riesgos.columns or "Supuesto" not in df_riesgos.columns:
-        return out
-    for _, r in df_riesgos.iterrows():
+def _safe_label(s: str, max_len: int = 180) -> str:
+    """
+    Sanitiza textos para Graphviz labels.
+    - evita comillas dobles
+    - recorta longitudes extremas
+    """
+    s = _norm_text(s)
+    s = s.replace('"', "'")
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    if len(s) > max_len:
+        s = s[: max_len - 1] + "…"
+    return s
+
+def _collect_keys_si() -> list[str]:
+    keys = []
+    sel = st.session_state.get("seleccion_indicadores", {}) or {}
+    if isinstance(sel, dict):
+        for k, v in sel.items():
+            if isinstance(v, dict) and all(bool(v.get(p, False)) for p in P_COLS):
+                keys.append(_norm_text(k))
+    return keys
+
+def _supuestos_por_objetivo() -> dict[str, list[str]]:
+    """
+    Hoja 12 (Riesgos): usa columna interna 'Objetivo' para match y 'Supuesto' para texto.
+    """
+    out: dict[str, set[str]] = {}
+    df = st.session_state.get("datos_riesgos", None)
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return {}
+    if "Objetivo" not in df.columns:
+        return {}
+    sup_col = "Supuesto" if "Supuesto" in df.columns else None
+    if sup_col is None:
+        return {}
+    for _, r in df.iterrows():
         obj = _norm_key(r.get("Objetivo", ""))
-        sup = _norm_text(r.get("Supuesto", ""))
+        sup = _norm_text(r.get(sup_col, ""))
         if not obj or not sup:
             continue
-        out.setdefault(obj, [])
-        if sup not in out[obj]:
-            out[obj].append(sup)
-    return out
+        out.setdefault(obj, set()).add(sup)
+    return {k: sorted(list(v)) for k, v in out.items()}
 
-def _safe_html(s: str) -> str:
-    return (s.replace("&", "&amp;")
-             .replace("<", "&lt;")
-             .replace(">", "&gt;"))
-
-# -----------------------------
-# Construir datos reales (Hoja 11 + Hoja 12)
-# -----------------------------
-P_COLS = ["P1", "P2", "P3", "P4", "P5"]
-
-seleccion = st.session_state.get("seleccion_indicadores", {}) or {}
+# Construir "medios de verificación" desde Hoja 11 (sin depender de Excel)
+keys_si = _collect_keys_si()
 datos_ind = st.session_state.get("datos_indicadores", {}) or {}
 metas = st.session_state.get("meta_resultados_parciales", {}) or {}
-df_riesgos = st.session_state.get("datos_riesgos", pd.DataFrame())
-supuestos_map = _build_supuestos_map(df_riesgos)
-
-df_indicadores = st.session_state.get("df_indicadores", None)
-mapa = st.session_state.get("indicadores_mapa_objetivo", {}) or {}
-
-ordered_keys = []
-if isinstance(df_indicadores, pd.DataFrame) and ("Nivel" in df_indicadores.columns) and ("Objetivo" in df_indicadores.columns):
-    for _, r in df_indicadores.iterrows():
-        nivel = _norm_text(r.get("Nivel", ""))
-        obj = _norm_text(r.get("Objetivo", ""))
-        mk = f"{nivel}||{obj}"
-        k = mapa.get(mk, "")
-        if k:
-            ordered_keys.append(k)
-
-if not ordered_keys:
-    ordered_keys = list(seleccion.keys())
-
-keys_si = []
-for k in ordered_keys:
-    sel = seleccion.get(k, {})
-    if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in P_COLS):
-        keys_si.append(k)
+sup_map = _supuestos_por_objetivo()
 
 datos_mml = []
 for k in keys_si:
     base = datos_ind.get(k, {}) if isinstance(datos_ind, dict) else {}
     nivel = _norm_text(base.get("Nivel", ""))
     tipo = _tipo_from_nivel(nivel)
+
     objetivo = _norm_text(base.get("Objetivo", ""))
     indicador = _norm_text(base.get("Indicador", ""))
 
@@ -148,125 +151,179 @@ for k in keys_si:
     if isinstance(metas, dict):
         meta = _norm_text(metas.get(k, {}).get("Meta", ""))
 
-    sups = supuestos_map.get(_norm_key(objetivo), [])
+    sups = sup_map.get(_norm_key(objetivo), [])
     supuesto = "\n".join([f"• {s}" for s in sups]) if sups else ""
 
-    datos_mml.append({
-        "tipo": tipo,
-        "objetivo": objetivo,
-        "indicador": indicador,
-        "meta": meta,
-        "supuesto": supuesto
-    })
+    # Solo tarjetas con contenido mínimo
+    if objetivo or indicador or meta or supuesto:
+        datos_mml.append({
+            "tipo": tipo,
+            "objetivo": objetivo,
+            "indicador": indicador,
+            "meta": meta,
+            "supuestos": supuesto,
+        })
 
-# --- FUNCIÓN DE EXPORTACIÓN ESTÉTICA ---
-def generar_png_estetico(datos):
-    dot = graphviz.Digraph(format='png')
-    dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
+# ============================
+#  CONFIG / ESTILOS POR TIPO
+# ============================
+CONFIG_NIVELES = {
+    "OBJETIVO GENERAL": {
+        "label": "FIN / OBJETIVO GENERAL",
+        "color": "#1d4ed8",
+        "badge": "#2563eb"
+    },
+    "OBJETIVO ESPECIFICO": {
+        "label": "PROPÓSITO / ESPECÍFICO",
+        "color": "#1d4ed8",
+        "badge": "#2563eb"
+    },
+    "COMPONENTE": {
+        "label": "COMPONENTE / PRODUCTO",
+        "color": "#16a34a",
+        "badge": "#16a34a"
+    },
+    "ACTIVIDAD": {
+        "label": "ACTIVIDAD",
+        "color": "#ea580c",
+        "badge": "#ea580c"
+    }
+}
 
-    for i, fila in enumerate(datos):
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
+def _config_tipo(tipo: str) -> dict:
+    t = _norm_text(tipo)
+    if t in CONFIG_NIVELES:
+        return CONFIG_NIVELES[t]
+    # fallback
+    return {"label": t if t else "MML", "color": "#475569", "badge": "#475569"}
 
-        def wrap(t, w=25):
-            s = '' if t is None else str(t)
-            s = html.escape(s)
-            return "<BR/>".join(textwrap.wrap(s, width=w))
-
-        sup_plain = '' if fila.get('supuesto', '') is None else str(fila.get('supuesto', ''))
-        sup_plain = sup_plain.replace("\n", " ").replace("•", "-").strip()
-        sup_plain = html.escape(sup_plain)
-
-        label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
-            <TR>
-                <TD WIDTH="10" BGCOLOR="{conf['color']}"></TD>
-                <TD BGCOLOR="{conf['bg']}">
-                    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="10" CELLPADDING="5">
-                        <TR>
-                            <TD COLSPAN="4" ALIGN="LEFT">
-                                <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
-                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {fila['tipo']}  </B></FONT></TD></TR>
-                                </TABLE>
-                            </TD>
-                        </TR>
-                        <TR>
-                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🎯 OBJETIVO</B></FONT></TD>
-                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>📊 INDICADOR</B></FONT></TD>
-                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🏁 META</B></FONT></TD>
-                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🛡️ SUPUESTOS</B></FONT></TD>
-                        </TR>
-                        <TR>
-                            <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['objetivo'])}</FONT></TD>
-                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['indicador'], 20)}</FONT></TD>
-                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['meta'], 12)}</FONT></TD>
-                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(sup_plain, 20)}</FONT></TD>
-                        </TR>
-                    </TABLE>
-                </TD>
-            </TR>
-        </TABLE>>'''
-        dot.node(f'card_{i}', label=label, shape='rect', style='filled', fillcolor='white', color='#e2e8f0', penwidth='2')
-        if i > 0:
-            dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
-
+# ============================
+#  EXPORTACIÓN PNG (Graphviz)
+# ============================
+def generar_png_estetico(items: list[dict]) -> bytes | None:
     try:
-        return dot.pipe(format='png')
+        dot = graphviz.Digraph(format="png")
+        dot.attr(rankdir="TB", bgcolor="white", pad="0.2")
+        dot.attr("node", shape="box", style="rounded,filled", fontname="Helvetica", fontsize="10", color="#e2e8f0")
+
+        # Agrupar por tipo en el orden deseado
+        orden = ["OBJETIVO GENERAL", "OBJETIVO ESPECIFICO", "COMPONENTE", "ACTIVIDAD"]
+        grouped = {k: [] for k in orden}
+        other = []
+        for it in items:
+            t = _norm_text(it.get("tipo", ""))
+            if t in grouped:
+                grouped[t].append(it)
+            else:
+                other.append(it)
+
+        idx = 0
+        prev_cluster_last = None
+
+        def add_item_node(it, idx_local: int):
+            cfg = _config_tipo(it.get("tipo", ""))
+            objetivo = _safe_label(it.get("objetivo", ""))
+            indicador = _safe_label(it.get("indicador", ""))
+            meta = _safe_label(it.get("meta", ""))
+            sup = _safe_label(it.get("supuestos", ""), max_len=220)
+
+            label = f"{cfg['label']}\n\nOBJETIVO:\n{objetivo}\n\nINDICADOR:\n{indicador}\n\nMETA:\n{meta}\n\nSUPUESTOS:\n{sup}"
+            node_id = f"n{idx_local}"
+            dot.node(node_id, label=label, fillcolor="#ffffff")
+            return node_id
+
+        # Crear nodos por grupos; conectar con flechas suaves entre grupos
+        for t in orden:
+            items_t = grouped.get(t, [])
+            if not items_t:
+                continue
+
+            with dot.subgraph(name=f"cluster_{t}") as c:
+                c.attr(color="white")
+                for it in items_t:
+                    node_id = add_item_node(it, idx)
+                    idx += 1
+                    # cadenas dentro del cluster (opcional)
+                    if prev_cluster_last is not None:
+                        dot.edge(prev_cluster_last, node_id, color="#94a3b8")
+                        prev_cluster_last = node_id
+                    else:
+                        prev_cluster_last = node_id
+
+        # otros
+        for it in other:
+            node_id = add_item_node(it, idx)
+            idx += 1
+            if prev_cluster_last is not None:
+                dot.edge(prev_cluster_last, node_id, color="#94a3b8")
+            prev_cluster_last = node_id
+
+        return dot.pipe(format="png")
     except Exception:
         return None
 
-# --- PANEL LATERAL ---
+# Sidebar: exportación estética
 with st.sidebar:
-    st.header("⚙️ Exportación Visual")
-    st.write("Descarga una versión estética de alta resolución de tu matriz.")
-
-    if datos_mml:
-        imagen_estetica = generar_png_estetico(datos_mml)
+    st.markdown("### 🖼️ Exportación")
+    imagen_estetica = generar_png_estetico(datos_mml)
+    if isinstance(imagen_estetica, (bytes, bytearray)) and len(imagen_estetica) > 0:
         st.download_button(
             label="🖼️ Descargar Matriz Estética (PNG)",
-            data=imagen_estetica,
-            file_name="MML_Visual.png",
+            data=bytes(imagen_estetica),
+            file_name="matriz_marco_logico.png",
             mime="image/png",
             use_container_width=True
         )
     else:
-        st.info("Aún no hay elementos para exportar (verifica selección en Hoja 11).")
+        st.info("Exportación PNG no disponible (Graphviz no pudo generar la imagen con los datos actuales).")
 
-# --- CUERPO DE LA PÁGINA ---
-col_t, col_img = st.columns([4, 1], vertical_alignment="center")
-with col_t:
-    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Vista de validación estética y operativa.</div>', unsafe_allow_html=True)
-    st.progress(0.60)
-with col_img:
-    if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-
-st.divider()
-
-# --- RENDERIZADO EN PANTALLA ---
+# ============================
+#  RENDER DE TARJETAS
+# ============================
 if not datos_mml:
-    st.info("No hay datos para mostrar. Verifica en Hoja 11 que existan indicadores con Selección = Sí y metas diligenciadas.")
-    st.divider()
-else:
-    for fila in datos_mml:
-        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+    st.info("No hay datos para mostrar. Verifica que en Hoja 11 existan indicadores con Selección = Sí y Meta diligenciada.")
+    st.stop()
 
-        objetivo_html = _safe_html(fila.get("objetivo", ""))
-        indicador_html = _safe_html(fila.get("indicador", ""))
-        meta_html = _safe_html(fila.get("meta", ""))
-        supuesto_html = _safe_html(fila.get("supuesto", "")).replace("\n", "<br>")
+for item in datos_mml:
+    cfg = _config_tipo(item.get("tipo", ""))
 
-        st.markdown(f"""
-            <div class="card-mml" style="border-left: 10px solid {conf['color']}; background-color: {conf['bg']};">
-                <div class="tipo-badge" style="background-color: {conf['color']};">
-                    {fila['tipo']}
+    badge = cfg["badge"]
+    label = cfg["label"]
+
+    objetivo = _norm_text(item.get("objetivo", ""))
+    indicador = _norm_text(item.get("indicador", ""))
+    meta = _norm_text(item.get("meta", ""))
+    supuestos = _norm_text(item.get("supuestos", ""))
+
+    # Ajuste de texto para tarjetas (sin romper HTML)
+    objetivo = html.escape(objetivo)
+    indicador = html.escape(indicador)
+    meta = html.escape(meta)
+    supuestos = html.escape(supuestos)
+
+    st.markdown(
+        f"""
+        <div class="card-mml">
+            <div class="badge" style="background:{badge};">{label}</div>
+            <div class="layout-grid">
+                <div>
+                    <div class="col-title">OBJETIVOS</div>
+                    <div class="col-content">{objetivo}</div>
                 </div>
-                <div style="display: flex; flex-direction: row; gap: 15px;">
-                    <div style="flex: 2;"><div class="col-title" style="color: {conf['color']};">🎯 Objetivo</div><div class="col-content">{objetivo_html}</div></div>
-                    <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">📊 Indicador</div><div class="col-content">{indicador_html}</div></div>
-                    <div style="flex: 1;"><div class="col-title" style="color: {conf['color']};">🏁 Meta</div><div class="col-content">{meta_html}</div></div>
-                    <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">🛡️ Supuestos</div><div class="col-content">{supuesto_html}</div></div>
+                <div>
+                    <div class="col-title">INDICADOR</div>
+                    <div class="col-content">{indicador}</div>
+                </div>
+                <div>
+                    <div class="col-title">META</div>
+                    <div class="col-content">{meta}</div>
+                </div>
+                <div>
+                    <div class="col-title">SUPUESTOS</div>
+                    <div class="col-content">{supuestos}</div>
                 </div>
             </div>
-        """, unsafe_allow_html=True)
-
-st.divider()
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
