@@ -134,6 +134,17 @@ def inicializar_session():
     # La Hoja 12 construye la matriz a partir de los objetivos (Hoja 7) cuando la clave NO existe.
 
 
+    # --- HOJA 14 (Necesidad) ---
+    if 'desc_objetivo_general' not in st.session_state:
+        st.session_state['desc_objetivo_general'] = ""
+    if 'necesidad_atender' not in st.session_state:
+        st.session_state['necesidad_atender'] = ""
+    if 'anio_formulacion' not in st.session_state:
+        st.session_state['anio_formulacion'] = ""
+    if 'tabla_deficit' not in st.session_state:
+        st.session_state['tabla_deficit'] = pd.DataFrame()
+
+
 def cargar_datos_nube(user_id):
     try:
         db = conectar_db()
@@ -176,6 +187,15 @@ def cargar_datos_nube(user_id):
 
             # NUEVO: medios de verificación (Hoja 11 - tabla final)
             st.session_state['medios_verificacion'] = d.get('medios_verificacion', {})
+
+            # --- HOJA 14 (Necesidad) ---
+            st.session_state['desc_objetivo_general'] = d.get('desc_objetivo_general', "")
+            st.session_state['necesidad_atender'] = d.get('necesidad_atender', "")
+            st.session_state['anio_formulacion'] = d.get('anio_formulacion', "")
+            if 'tabla_deficit' in d:
+                st.session_state['tabla_deficit'] = _df_from_saved(d.get('tabla_deficit'))
+            else:
+                st.session_state['tabla_deficit'] = pd.DataFrame()
 
             # NUEVO: hoja 12 (Riesgos)
             if 'datos_riesgos' in d:
@@ -261,6 +281,14 @@ def guardar_datos_nube():
                 if isinstance(st.session_state.get('datos_riesgos', None), pd.DataFrame)
                 else pd.DataFrame(st.session_state.get('datos_riesgos', []) or []).to_dict(orient="records")
             ),
+
+            # --- HOJA 14 (Necesidad) ---
+            "desc_objetivo_general": st.session_state.get('desc_objetivo_general', ""),
+            "necesidad_atender": st.session_state.get('necesidad_atender', ""),
+            "anio_formulacion": st.session_state.get('anio_formulacion', ""),
+            "tabla_deficit": st.session_state.get('tabla_deficit', pd.DataFrame()).to_dict(orient="records")
+                if isinstance(st.session_state.get('tabla_deficit', None), pd.DataFrame)
+                else pd.DataFrame(st.session_state.get('tabla_deficit', []) or []).to_dict(orient="records"),
         }
 
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
