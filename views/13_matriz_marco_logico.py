@@ -1,130 +1,161 @@
 import streamlit as st
-import pandas as pd
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
-from session_state import inicializar_session, guardar_datos_nube
+import os
+import graphviz
+import textwrap
+from session_state import inicializar_session
 
-# 1. Asegurar persistencia y memoria
+# 1. Asegurar persistencia
 inicializar_session()
 
-# --- DISEÑO PROFESIONAL Y ESTILO CSS PARA AGGRID ---
+# --- DISEÑO DE PANTALLA (CSS) ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 5rem !important; }
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 25px; }
-    
-    /* Formato para los encabezados de AgGrid */
-    .ag-header-cell-label { justify-content: center; }
-    .ag-header { background-color: #1E3A8A !important; }
-    .ag-header-cell-text { color: white !important; font-weight: bold !important; text-transform: uppercase; }
-    
-    /* Oculta columna interna auto_unique_id si aparece */
-    .ag-header-cell[col-id="::auto_unique_id::"], .ag-cell[col-id="::auto_unique_id::"] {
-        display: none !important;
-        width: 0px !important;
-        min-width: 0px !important;
-        max-width: 0px !important;
-        padding: 0 !important;
-        margin: 0 !important;
+    .card-mml {
+        background-color: #ffffff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
-
+    .col-title {
+        color: #1E3A8A;
+        font-weight: 800;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        text-align: center;
+        margin-bottom: 8px;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 5px;
+    }
+    .col-content {
+        font-size: 0.95rem;
+        color: #334155;
+        text-align: center;
+        line-height: 1.5;
+        padding: 5px;
+    }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+    .tipo-badge {
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-block;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitulo-gris">Estructura operativa: Objetivos, Indicadores, Metas y Supuestos.</div>', unsafe_allow_html=True)
+# --- CONFIGURACIÓN DE NIVELES ---
+CONFIG_NIVELES = {
+    "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"},
+    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"},
+    "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}
+}
 
-# --- LÓGICA DE DATOS ---
-def preparar_matriz():
-    arbol = st.session_state.get('arbol_objetivos_final', {})
-    ind_db = st.session_state.get('datos_indicadores', {})
-    riesgos_df = st.session_state.get('datos_riesgos', pd.DataFrame())
+# --- DATOS DE PRUEBA ---
+datos_ejemplo = [
+    {"tipo": "PROPÓSITO / ESPECÍFICO", "objetivo": "Objetivo Específico de prueba para validación", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "Participación comunitaria"},
+    {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Producto o Medios Directos generados", "indicador": "Indicador de Producto", "meta": "500 unidades", "supuesto": "Proveedores a tiempo"},
+    {"tipo": "ACTIVIDAD", "objetivo": "Acciones y Medios Indirectos ejecutados", "indicador": "Presupuesto", "meta": "$100.000.000", "supuesto": "Recursos disponibles"}
+]
+
+# --- FUNCIÓN DE EXPORTACIÓN ESTÉTICA ---
+def generar_png_estetico(datos):
+    """Genera una imagen que imita visualmente las tarjetas de la interfaz."""
+    dot = graphviz.Digraph(format='png')
+    dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
     
-    filas = []
-    # Definimos el orden lógico de la MML
-    mapeo = [
-        ("Objetivo General", "FIN / OBJETIVO GENERAL"),
-        ("Fines Directos", "PROPÓSITO"),
-        ("Medios Directos", "COMPONENTE"),
-        ("Medios Indirectos", "ACTIVIDAD")
-    ]
+    for i, fila in enumerate(datos):
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
+        
+        # Función para ajustar texto en la imagen
+        def wrap(t, w=25): return "<BR/>".join(textwrap.wrap(str(t), width=w))
 
-    for nivel_orig, nivel_mml in mapeo:
-        items = arbol.get(nivel_orig, [])
-        for item in items:
-            texto_obj = item.get("texto", str(item)) if isinstance(item, dict) else str(item)
+        # El diseño usa una tabla maestra para el borde izquierdo y otra para el contenido
+        label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+            <TR>
+                <TD WIDTH="10" BGCOLOR="{conf['color']}"></TD>
+                <TD BGCOLOR="{conf['bg']}">
+                    <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="10" CELLPADDING="5">
+                        <TR>
+                            <TD COLSPAN="4" ALIGN="LEFT">
+                                <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
+                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {fila['tipo']}  </B></FONT></TD></TR>
+                                </TABLE>
+                            </TD>
+                        </TR>
+                        <TR>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🎯 OBJETIVO</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>📊 INDICADOR</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🏁 META</B></FONT></TD>
+                            <TD><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>🛡️ SUPUESTOS</B></FONT></TD>
+                        </TR>
+                        <TR>
+                            <TD WIDTH="180" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['objetivo'])}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['indicador'], 20)}</FONT></TD>
+                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['meta'], 12)}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['supuesto'], 20)}</FONT></TD>
+                        </TR>
+                    </TABLE>
+                </TD>
+            </TR>
+        </TABLE>>'''
+        
+        # Creamos el nodo con estilo de tarjeta
+        dot.node(f'card_{i}', label=label, shape='rect', style='filled', fillcolor='white', color='#e2e8f0', penwidth='2')
+        
+        if i > 0:
+            dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
             
-            # Buscar Indicador (Hoja 11)
-            indicador = ind_db.get(texto_obj, {}).get("Indicador", "")
-            
-            # Buscar Supuesto (Hoja 12)
-            supuesto = ""
-            if not riesgos_df.empty and "Objetivo" in riesgos_df.columns:
-                match = riesgos_df[riesgos_df["Objetivo"] == texto_obj]
-                if not match.empty:
-                    supuesto = match.iloc[0].get("Supuesto", "")
+    return dot.pipe(format='png')
 
-            filas.append({
-                "TIPO": nivel_mml,
-                "OBJETIVOS": texto_obj,
-                "INDICADOR": indicador,
-                "META": "",
-                "SUPUESTOS": supuesto
-            })
-    return pd.DataFrame(filas)
+# --- PANEL LATERAL ---
+with st.sidebar:
+    st.header("⚙️ Exportación Visual")
+    st.write("Descarga una versión estética de alta resolución de tu matriz.")
+    
+    # Botón de descarga con el nuevo diseño
+    imagen_estetica = generar_png_estetico(datos_ejemplo)
+    st.download_button(
+        label="🖼️ Descargar Matriz Estética (PNG)",
+        data=imagen_estetica,
+        file_name="MML_Visual.png",
+        mime="image/png",
+        use_container_width=True
+    )
 
-# Cargar o inicializar
-if 'mml_data' not in st.session_state or st.session_state['mml_data'].empty:
-    st.session_state['mml_data'] = preparar_matriz()
+# --- CUERPO DE LA PÁGINA ---
+col_t, col_img = st.columns([4, 1], vertical_alignment="center")
+with col_t:
+    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Vista de validación estética y operativa.</div>', unsafe_allow_html=True)
+    st.progress(0.60)
+with col_img:
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", use_container_width=True)
 
-df_mml = st.session_state['mml_data']
+st.divider()
 
-# --- BARRA DE AVANCE ---
-# Calculamos avance basado en si la columna "META" tiene contenido
-metas_llenadas = df_mml["META"].apply(lambda x: str(x).strip() != "").sum()
-total_filas = len(df_mml)
-avance = metas_llenadas / total_filas if total_filas > 0 else 0
-st.progress(avance)
-st.caption(f"Progreso de la Matriz: {int(avance*100)}%")
+# --- RENDERIZADO EN PANTALLA ---
+for fila in datos_ejemplo:
+    conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+    st.markdown(f"""
+        <div class="card-mml" style="border-left: 10px solid {conf['color']}; background-color: {conf['bg']};">
+            <div class="tipo-badge" style="background-color: {conf['color']};">
+                {fila['tipo']}
+            </div>
+            <div style="display: flex; flex-direction: row; gap: 15px;">
+                <div style="flex: 2;"><div class="col-title" style="color: {conf['color']};">🎯 Objetivo</div><div class="col-content">{fila['objetivo']}</div></div>
+                <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">📊 Indicador</div><div class="col-content">{fila['indicador']}</div></div>
+                <div style="flex: 1;"><div class="col-title" style="color: {conf['color']};">🏁 Meta</div><div class="col-content">{fila['meta']}</div></div>
+                <div style="flex: 1.5;"><div class="col-title" style="color: {conf['color']};">🛡️ Supuestos</div><div class="col-content">{fila['supuesto']}</div></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE AGGRID ---
-gb = GridOptionsBuilder.from_dataframe(df_mml)
-
-# Configuración Global: Centrado de texto y autoajuste (Wrap Text)
-gb.configure_default_column(
-    resizable=True,
-    filterable=True,
-    sortable=True,
-    editable=True,
-    wrapText=True,        # <-- Esto hace que el texto baje
-    autoHeight=True,      # <-- Esto ajusta la altura de la celda
-    cellStyle={'textAlign': 'center'}
-)
-
-# Configuración específica de columnas
-gb.configure_column("TIPO", width=150, editable=False, cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f4f8'})
-gb.configure_column("OBJETIVOS", width=300, editable=False)
-gb.configure_column("INDICADOR", width=300, editable=False)
-gb.configure_column("META", width=250, cellStyle={'backgroundColor': '#fffbeb'})
-gb.configure_column("SUPUESTOS", width=250, editable=False)
-
-# Opciones de la grilla
-grid_options = gb.build()
-
-# Estilo de encabezado (Azul oscuro vía inyección de CSS en AgGrid)
-grid_response = AgGrid(
-    df_mml,
-    gridOptions=grid_options,
-    data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-    update_mode=GridUpdateMode.MODEL_CHANGED,
-    fit_columns_on_grid_load=True,
-    theme='streamlit', # O 'balham', 'alpine'
-    key="mml_aggrid"
-)
-
-# --- GUARDADO ---
-if st.button("💾 Guardar Matriz de Marco Lógico", type="primary"):
-    st.session_state['mml_data'] = pd.DataFrame(grid_response['data'])
-    guardar_datos_nube()
-    st.success("✅ ¡Matriz guardada con éxito!")
-    st.rerun()
+st.divider()
