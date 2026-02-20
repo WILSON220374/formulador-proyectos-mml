@@ -27,8 +27,7 @@ def inicializar_session():
     st.markdown(
         """
         <style>
-        header[data-testid="stHeader"] { display: none !important; }
-        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+       .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
         h1 { margin-top: 0 !important; padding-top: 0 !important; }
         </style>
         """,
