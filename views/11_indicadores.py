@@ -112,23 +112,58 @@ st.markdown(
     }
 
     /* Botón Aplicar selección (solo este) */
-    .apply-btn [data-testid="stButton"] > button {
-        background-color: #0F2D6B !important;
-        color: #ffffff !important;
-        border: 1px solid #0F2D6B !important;
-        border-radius: 10px !important;
-        font-weight: 800 !important;
-        padding: 0.6rem 0.9rem !important;
-    }
-    .apply-btn [data-testid="stButton"] > button:hover {
-        filter: brightness(0.92) !important;
-        border-color: #0F2D6B !important;
-    }
-
+[data-testid="stFormSubmitButton"] button {
+    background-color: #0F2D6B !important;
+    color: #ffffff !important;
+    border: 1px solid #0F2D6B !important;
+    border-radius: 10px !important;
+    font-weight: 800 !important;
+    padding: 0.6rem 0.9rem !important;
+}
+[data-testid="stFormSubmitButton"] button:hover {
+    filter: brightness(0.92) !important;
+    border-color: #0F2D6B !important;
+}
 </style>
     """,
     unsafe_allow_html=True
 )
+
+
+# -----------------------------
+# AgGrid CSS (aplicado dentro del iframe del componente)
+# -----------------------------
+CUSTOM_AGGRID_CSS = {
+    ".ag-header, .ag-header-viewport, .ag-header-container, .ag-header-row, .ag-header-cell": {
+        "background-color": "#F1F5F9 !important",
+    },
+    ".ag-header-cell-label": {
+        "justify-content": "center !important",
+        "text-align": "center !important",
+    },
+    ".ag-header-cell-text": {
+        "width": "100% !important",
+        "text-align": "center !important",
+        "font-size": "13px !important",
+        "font-weight": "800 !important",
+        "color": "#0F2D6B !important",
+    },
+    ".ag-cell": {
+        "display": "flex !important",
+        "align-items": "center !important",
+        "line-height": "1.35 !important",
+        "white-space": "normal !important",
+    },
+    ".ag-cell-wrapper": {
+        "display": "flex !important",
+        "align-items": "center !important",
+        "height": "100% !important",
+        "width": "100% !important",
+    },
+    ".ag-cell-value": {
+        "width": "100% !important",
+    },
+}
 
 # -----------------------------
 # Helpers
@@ -450,6 +485,7 @@ grid_response = AgGrid(
     gridOptions=gridOptions,
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
+    custom_css=CUSTOM_AGGRID_CSS,
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
     key="grid_indicadores"
@@ -673,6 +709,7 @@ grid_response_2 = AgGrid(
     gridOptions=gridOptions2,
     update_mode=GridUpdateMode.MODEL_CHANGED,  # mantiene el modelo actualizado para el "Aplicar"
     theme="streamlit",
+    custom_css=CUSTOM_AGGRID_CSS,
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
     key="grid_seleccion_indicadores"
@@ -681,9 +718,8 @@ grid_response_2 = AgGrid(
 # Botón de commit (backend): guarda selección y habilita metas
 c_apply_1, c_apply_2 = st.columns([1, 5], vertical_alignment="center")
 with c_apply_1:
-    st.markdown('<div class="apply-btn">', unsafe_allow_html=True)
-    aplicar = st.button("Aplicar selección", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.form("apply_selection_form", clear_on_submit=False):
+        aplicar = st.form_submit_button("Aplicar selección", use_container_width=True)
 with c_apply_2:
     st.caption("Use este botón para guardar las selecciones y actualizar la tabla de METAS.")
 
@@ -841,6 +877,7 @@ else:
         gridOptions=gridOptions3,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         theme="streamlit",
+    custom_css=CUSTOM_AGGRID_CSS,
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         key="grid_meta_resultados_parciales"
