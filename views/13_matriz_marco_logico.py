@@ -17,6 +17,17 @@ st.markdown("""
     .ag-header-cell-label { justify-content: center; }
     .ag-header { background-color: #1E3A8A !important; }
     .ag-header-cell-text { color: white !important; font-weight: bold !important; text-transform: uppercase; }
+    
+    /* Oculta columna interna auto_unique_id si aparece */
+    .ag-header-cell[col-id="::auto_unique_id::"], .ag-cell[col-id="::auto_unique_id::"] {
+        display: none !important;
+        width: 0px !important;
+        min-width: 0px !important;
+        max-width: 0px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -57,7 +68,7 @@ def preparar_matriz():
                 "TIPO": nivel_mml,
                 "OBJETIVOS": texto_obj,
                 "INDICADOR": indicador,
-                "META / MEDIO VERIFICACIÓN": "",
+                "META": "",
                 "SUPUESTOS": supuesto
             })
     return pd.DataFrame(filas)
@@ -70,7 +81,7 @@ df_mml = st.session_state['mml_data']
 
 # --- BARRA DE AVANCE ---
 # Calculamos avance basado en si la columna "META" tiene contenido
-metas_llenadas = df_mml["META / MEDIO VERIFICACIÓN"].apply(lambda x: str(x).strip() != "").sum()
+metas_llenadas = df_mml["META"].apply(lambda x: str(x).strip() != "").sum()
 total_filas = len(df_mml)
 avance = metas_llenadas / total_filas if total_filas > 0 else 0
 st.progress(avance)
@@ -94,7 +105,7 @@ gb.configure_default_column(
 gb.configure_column("TIPO", width=150, editable=False, cellStyle={'fontWeight': 'bold', 'backgroundColor': '#f0f4f8'})
 gb.configure_column("OBJETIVOS", width=300, editable=False)
 gb.configure_column("INDICADOR", width=300, editable=False)
-gb.configure_column("META / MEDIO VERIFICACIÓN", width=350, cellStyle={'backgroundColor': '#fffbeb'})
+gb.configure_column("META", width=250, cellStyle={'backgroundColor': '#fffbeb'})
 gb.configure_column("SUPUESTOS", width=250, editable=False)
 
 # Opciones de la grilla
