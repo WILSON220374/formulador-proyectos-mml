@@ -41,7 +41,10 @@ col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 14. Necesidad</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-gris">Identificación de la necesidad y balance automático de oferta-demanda.</div>', unsafe_allow_html=True)
-    st.progress(1.0) 
+    
+    # Creamos un "espacio reservado" para la barra de progreso que actualizaremos al final
+    progress_placeholder = st.empty()
+    
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -64,7 +67,6 @@ for kmap, k in mapa.items():
     
     nivel_original = partes[0]
     if "General" in nivel_original or "Fin" in nivel_original:
-        # Verificar si fue validado con P1 a P5
         sel = seleccion.get(k, {})
         p_cols = ["P1", "P2", "P3", "P4", "P5"]
         is_selected = True if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in p_cols) else False
@@ -106,7 +108,6 @@ st.divider()
 # --- SECCIÓN 3: CÁLCULO DEL DÉFICIT ---
 st.markdown('<div class="header-tabla">📉 Cálculo del Déficit (Proyección a 10 años)</div>', unsafe_allow_html=True)
 
-# Año de formulación (Validación 1950 - 2070)
 anio_form = st.number_input("Año de Formulación", min_value=1950, max_value=2070, 
                             value=st.session_state.get('anio_formulacion', 2026), step=1)
 
@@ -129,23 +130,39 @@ df_base = obtener_df_base(anio_form)
 
 st.info("💡 Ingrese la Demanda y la Oferta. El Déficit se calcula automáticamente (Oferta menos Demanda).")
 
-# Editor de datos con altura ampliada (height=450) para evitar scroll vertical
+# Editor de datos con altura ampliada para evitar scroll
 edited_df = st.data_editor(
     df_base,
     column_config={
         "AÑO": st.column_config.NumberColumn("Año", disabled=True, format="%d"),
         "CANTIDAD DEMANDADA": st.column_config.NumberColumn("Demanda", min_value=0.0, format="%.2f"),
         "CANTIDAD OFERTADA": st.column_config.NumberColumn("Oferta", min_value=0.0, format="%.2f"),
-        "DÉFICIT (OFERTA - DEMANDA)": st.column_config.NumberColumn("Déficit", disabled=True, format="%.2f", help="Calculado: Oferta menos Demanda"),
+        "DÉFICIT (OFERTA - DEMANDA)": st.column_config.NumberColumn("Déficit", disabled=True, format="%.2f"),
     },
     hide_index=True,
     use_container_width=True,
-    height=450,  # <-- Altura forzada para que quepan las 11 filas
+    height=450, 
     key="editor_necesidad_final"
 )
 
 # RECALCULAR DÉFICIT TRAS EDICIÓN
 edited_df["DÉFICIT (OFERTA - DEMANDA)"] = edited_df["CANTIDAD OFERTADA"] - edited_df["CANTIDAD DEMANDADA"]
+
+
+# --- LÓGICA DE CÁLCULO DE LA BARRA DE PROGRESO ---
+# Inicia en 90%. Sube a medida que se llenan los 3 elementos clave.
+progreso_actual = 0.90 
+
+if desc_objetivo and len(desc_objetivo.strip()) > 2:
+    progreso_actual += 0.03
+if nec_atender and len(nec_atender.strip()) > 2:
+    progreso_actual += 0.03
+if edited_df["CANTIDAD DEMANDADA"].sum() > 0 or edited_df["CANTIDAD OFERTADA"].sum() > 0:
+    progreso_actual += 0.04
+
+# Inyectamos el cálculo en el espacio reservado arriba
+progress_placeholder.progress(min(1.0, progreso_actual))
+
 
 # --- GUARDADO ---
 if st.button("💾 Guardar Información de Necesidad", type="primary"):
