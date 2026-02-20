@@ -135,6 +135,3 @@ for fila in datos_ejemplo:
             </div>
         </div>
     """, unsafe_allow_html=True)
-
-st.divider()
-st.info("ℹ️ Esta es una vista previa del diseño. Los datos se cargarán automáticamente cuando confirmes la revisión.")
