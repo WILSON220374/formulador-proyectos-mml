@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import textwrap
+import pandas as pd
 from session_state import inicializar_session
 
 # 1) Asegurar persistencia
@@ -114,7 +115,6 @@ with col_img:
 # Construcción de filas desde HOJA 11 + SUPUESTO desde HOJA 12
 # Fuente:
 #   - Objetivo/Indicador/Meta: "Medios de verificación" (Hoja 11)
-#     (en la práctica, vienen de datos_indicadores + meta_resultados_parciales)
 #   - Supuesto: Hoja 12 (datos_riesgos) por match SOLO con Objetivo
 # -----------------------------
 P_COLS = ["P1", "P2", "P3", "P4", "P5"]
@@ -215,44 +215,54 @@ def _tipo_label_and_style(tipo: str):
         return STYLE["OBJETIVO GENERAL"]
     if t in ("ACTIVIDAD", "ACTIVIDAD CLAVE"):
         return STYLE["ACTIVIDAD"]
-    # fallback
     return {"label": t if t else "MML", "bar": "#334155", "bg": "#f8fafc", "badge": "#475569"}
 
-if not rows:
-    st.info("Aún no hay datos para mostrar. Primero complete selección/medios (Hoja 11) y supuestos (Hoja 12).")
-else:
-    # orden visual por tipo
-    order_rank = {"OBJETIVO GENERAL": 0, "OBJETIVO ESPECIFICO": 1, "COMPONENTE": 2, "ACTIVIDAD": 3}
-    rows_sorted = sorted(rows, key=lambda r: order_rank.get(_norm_text(r.get("tipo","")), 99))
+def _wrap(s: str, width: int = 60) -> str:
+    s2 = _norm_text(s)
+    if not s2:
+        return ""
+    return "\n".join(textwrap.fill(line, width=width) for line in s2.splitlines())
 
-    for r in rows_sorted:
-        conf = _tipo_label_and_style(r.get("tipo", ""))
-        st.markdown(
-            f"""
-            <div class="card-mml" style="background-color:{conf['bg']};">
-                <div class="mml-leftbar" style="background-color:{conf['bar']};"></div>
-                <div style="padding-left:10px;">
-                    <span class="mml-badge" style="background:{conf['badge']};">{conf['label']}</span>
-                    <div class="mml-grid">
-                        <div>
-                            <div class="mml-coltitle">🎯 OBJETIVO</div>
-                            <div class="mml-text">{_norm_text(r.get("objetivo",""))}</div>
-                        </div>
-                        <div>
-                            <div class="mml-coltitle">📊 INDICADOR</div>
-                            <div class="mml-text">{_norm_text(r.get("indicador",""))}</div>
-                        </div>
-                        <div>
-                            <div class="mml-coltitle">🏁 META</div>
-                            <div class="mml-text">{_norm_text(r.get("meta",""))}</div>
-                        </div>
-                        <div>
-                            <div class="mml-coltitle">🛡️ SUPUESTOS</div>
-                            <div class="mml-text">{_norm_text(r.get("supuesto",""))}</div>
-                        </div>
-                    </div>
+if not rows:
+    st.info("No hay datos suficientes para construir la Matriz (verifica selección en Hoja 11 y supuestos en Hoja 12).")
+    st.stop()
+
+for r in rows:
+    stl = _tipo_label_and_style(r.get("tipo", ""))
+    label = stl["label"]
+    bar = stl["bar"]
+    badge = stl["badge"]
+
+    objetivo = _wrap(r.get("objetivo", ""), 66)
+    indicador = _wrap(r.get("indicador", ""), 42)
+    meta = _wrap(r.get("meta", ""), 26)
+    supuesto = _wrap(r.get("supuesto", ""), 46)
+
+    st.markdown(
+        f"""
+        <div class="card-mml">
+            <div class="mml-leftbar" style="background:{bar};"></div>
+            <div class="mml-badge" style="background:{badge};">{label}</div>
+
+            <div class="mml-grid">
+                <div>
+                    <div class="mml-coltitle">OBJETIVOS</div>
+                    <div class="mml-text">{objetivo}</div>
+                </div>
+                <div>
+                    <div class="mml-coltitle">INDICADOR</div>
+                    <div class="mml-text">{indicador}</div>
+                </div>
+                <div>
+                    <div class="mml-coltitle">META</div>
+                    <div class="mml-text">{meta}</div>
+                </div>
+                <div>
+                    <div class="mml-coltitle">SUPUESTOS</div>
+                    <div class="mml-text">{supuesto}</div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
