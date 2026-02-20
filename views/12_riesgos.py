@@ -172,8 +172,10 @@ st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_ries
 # --- TABLA EDITABLE ---
 st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables.")
 
+# Ocultar columna técnica _key: la usamos como índice (oculto) para mantener identidad estable por fila
+df_for_editor = st.session_state["datos_riesgos"].set_index("_key", drop=True)
+
 column_config = {
-    "_key": st.column_config.TextColumn("_key", disabled=True, width="small"),
     "Tipo": st.column_config.TextColumn("Tipo", disabled=True, width="small"),
     "Objetivo": st.column_config.TextColumn("Objetivo", disabled=True, width="large"),
     "Supuesto": st.column_config.TextColumn("Supuesto (Condición para éxito)", width="medium"),
@@ -185,13 +187,16 @@ column_config = {
     "Medida de Mitigación": st.column_config.TextColumn("Medida de Mitigación/Control", width="large"),
 }
 
-edited_df = st.data_editor(
-    st.session_state["datos_riesgos"],
+edited_view = st.data_editor(
+    df_for_editor,
     column_config=column_config,
-    hide_index=True,
+    hide_index=True,  # oculta _key (índice)
     use_container_width=True,
     key="editor_riesgos",
 )
+
+# Volver a DataFrame con _key como columna (para persistir y sincronizar)
+edited_df = edited_view.reset_index()
 
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Matriz de Riesgos", type="primary"):
