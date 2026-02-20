@@ -7,6 +7,23 @@ def conectar_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
+
+
+def _safe_int(value, default: int) -> int:
+    try:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).strip()
+        if s == "":
+            return default
+        return int(float(s))
+    except Exception:
+        return default
+
 def _df_from_saved(obj):
     """
     Compatibilidad:
@@ -140,7 +157,7 @@ def inicializar_session():
     if 'necesidad_atender' not in st.session_state:
         st.session_state['necesidad_atender'] = ""
     if 'anio_formulacion' not in st.session_state:
-        st.session_state['anio_formulacion'] = ""
+        st.session_state['anio_formulacion'] = 2026
     if 'tabla_deficit' not in st.session_state:
         st.session_state['tabla_deficit'] = pd.DataFrame()
 
@@ -191,7 +208,7 @@ def cargar_datos_nube(user_id):
             # --- HOJA 14 (Necesidad) ---
             st.session_state['desc_objetivo_general'] = d.get('desc_objetivo_general', "")
             st.session_state['necesidad_atender'] = d.get('necesidad_atender', "")
-            st.session_state['anio_formulacion'] = d.get('anio_formulacion', "")
+            st.session_state['anio_formulacion'] = _safe_int(d.get('anio_formulacion', 2026), 2026)
             if 'tabla_deficit' in d:
                 st.session_state['tabla_deficit'] = _df_from_saved(d.get('tabla_deficit'))
             else:
@@ -285,7 +302,7 @@ def guardar_datos_nube():
             # --- HOJA 14 (Necesidad) ---
             "desc_objetivo_general": st.session_state.get('desc_objetivo_general', ""),
             "necesidad_atender": st.session_state.get('necesidad_atender', ""),
-            "anio_formulacion": st.session_state.get('anio_formulacion', ""),
+            "anio_formulacion": _safe_int(st.session_state.get('anio_formulacion', 2026), 2026),
             "tabla_deficit": st.session_state.get('tabla_deficit', pd.DataFrame()).to_dict(orient="records")
                 if isinstance(st.session_state.get('tabla_deficit', None), pd.DataFrame)
                 else pd.DataFrame(st.session_state.get('tabla_deficit', []) or []).to_dict(orient="records"),
