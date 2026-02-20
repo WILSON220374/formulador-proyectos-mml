@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from session_state import inicializar_session
 
-# 1. Asegurar persistencia
+# 1. Asegurar persistencia (sin conectar datos externos aún)
 inicializar_session()
 
 # --- DISEÑO DE ALTO IMPACTO (CSS CUSTOM) ---
@@ -18,9 +18,9 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
-    /* Títulos de columnas */
+    /* Títulos de columnas internos */
     .col-title {
-        color: #1E3A8A;
+        color: #1E3A8A; /* Azul Oscuro */
         font-weight: 800;
         font-size: 0.85rem;
         text-transform: uppercase;
@@ -42,7 +42,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     
-    /* Estilo base de los badges */
+    /* Etiquetas de nivel (Badges) */
     .tipo-badge {
         color: white;
         padding: 4px 14px;
@@ -56,14 +56,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO CON IMAGEN ---
+# --- ENCABEZADO CON IMAGEN Y AVANCE ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 
 with col_t:
     st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Validación de la coherencia operativa por niveles.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
     
-    # Barra de avance
+    # Barra de avance visual
     st.progress(0.60)
     st.caption("Progreso de validación: 60%")
 
@@ -73,23 +73,41 @@ with col_img:
 
 st.divider()
 
-# --- MAPEO DE COLORES POR NIVEL ---
-# Definimos colores únicos para identificar cada nivel rápidamente
+# --- CONFIGURACIÓN DE COLORES POR NIVEL ---
 CONFIG_NIVELES = {
-    "PROPÓSITO / OBJETIVO GENERAL": {"color": "#2563EB", "bg": "#EFF6FF"}, # Azul vibrante
-    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"}, # Esmeralda
+    "PROPÓSITO / ESPECÍFICO": {"color": "#2563EB", "bg": "#EFF6FF"}, # Azul
+    "COMPONENTE / PRODUCTO":  {"color": "#059669", "bg": "#ECFDF5"}, # Verde
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}  # Ámbar
 }
 
-# --- DATOS DE EJEMPLO (SIN LA FILA DE FIN) ---
+# --- DATOS DE PRUEBA (SOLO PARA REVISIÓN DE DISEÑO) ---
 datos_ejemplo = [
-    {"tipo": "PROPÓSITO / OBJETIVOS GENERAL", "objetivo": "Resultado directo que se espera lograr con el proyecto", "indicador": "Indicador de Propósito", "meta": "100%", "supuesto": "La comunidad participa activamente"},
-    {"tipo": "COMPONENTE / PRODUCTO", "objetivo": "Bienes o servicios producidos por el proyecto", "indicador": "Número de servicios entregados", "meta": "500 unidades", "supuesto": "Proveedores cumplen tiempos"},
-    {"tipo": "ACTIVIDAD", "objetivo": "Acciones necesarias para generar los productos", "indicador": "Presupuesto ejecutado", "meta": "$100.000.000", "supuesto": "Recursos disponibles oportunamente"}
+    {
+        "tipo": "PROPÓSITO / ESPECÍFICO", 
+        "objetivo": "AQUÍ APARECERÁ EL OBJETIVO ESPECÍFICO DE LA HOJA 7", 
+        "indicador": "INDICADOR AUTOMÁTICO DE LA HOJA 11", 
+        "meta": "META DILIGENCIADA", 
+        "supuesto": "SUPUESTO DE LA HOJA 12"
+    },
+    {
+        "tipo": "COMPONENTE / PRODUCTO", 
+        "objetivo": "AQUÍ APARECERÁN LOS PRODUCTOS O MEDIOS DIRECTOS", 
+        "indicador": "INDICADOR DE PRODUCTO", 
+        "meta": "CANTIDAD TOTAL", 
+        "supuesto": "CONDICIÓN EXTERNA"
+    },
+    {
+        "tipo": "ACTIVIDAD", 
+        "objetivo": "AQUÍ APARECERÁN LAS ACCIONES Y MEDIOS INDIRECTOS", 
+        "indicador": "PRESUPUESTO ASIGNADO", 
+        "meta": "UNIDAD DE MEDIDA", 
+        "supuesto": "RECURSOS DISPONIBLES"
+    }
 ]
 
-# --- RENDERIZADO DE BLOQUES DINÁMICOS ---
+# --- RENDERIZADO DE LA MATRIZ ---
 for fila in datos_ejemplo:
+    # Obtener colores según el tipo
     conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
     
     st.markdown(f"""
@@ -119,3 +137,4 @@ for fila in datos_ejemplo:
     """, unsafe_allow_html=True)
 
 st.divider()
+st.info("ℹ️ Esta es una vista previa del diseño. Los datos se cargarán automáticamente cuando confirmes la revisión.")
