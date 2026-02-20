@@ -116,7 +116,7 @@ df_base = pd.DataFrame(rows_base)
 # -----------------------------
 # Estructura de la matriz (mantener nombres y funcionalidades)
 # -----------------------------
-opciones_probabilidad = ["Muy Baja", "Baja", "Media", "Alta", "Muy Alta"]
+opciones_probabilidad = ["Raro", "Improbable", "Moderado", "Probable", "Casi seguro"]
 opciones_impacto = ["Insignificante", "Menor", "Moderado", "Mayor", "Catastrófico"]
 opciones_categoria = [
     'Administrativos',
@@ -138,7 +138,7 @@ DEFAULTS_EDITABLE = {
     "Supuesto": "",
     "Riesgo": "",
     "Categoría": "Administrativos",
-    "Probabilidad": "Media",
+    "Probabilidad": "Moderado",
     "Impacto": "Moderado",
     "Efecto": "",
     "Medida de Mitigación": ""
