@@ -12,62 +12,21 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 inicializar_session()
 
 # -----------------------------
-# CSS
+# CSS (alineado a Hoja 10)
 # -----------------------------
 st.markdown(
     """
     <style>
-
     .block-container { padding-bottom: 220px !important; }
 
-    /* Títulos (mismo patrón Hoja 10) */
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A !important; line-height: 1.2 !important; margin-bottom: 2px !important; }
-    .subtitulo-gris { color: #64748b !important; font-size: 14px !important; margin-bottom: 5px !important; }
+    /* Títulos */
+    .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
+    .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
+    .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
+    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 22px 0 8px 0; }
 
-    /* Títulos de sección */
-    .subtitulo-seccion, .subtitulo-seccion-2 {
-        font-size: 20px !important;
-        font-weight: 800 !important;
-        color: #0f172a !important;
-        margin: 18px 0 8px 0 !important;
-    }
+    .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
 
-    [data-testid="stImage"] img { border-radius: 12px; }
-
-    /* AgGrid: contenedor */
-    .ag-root-wrapper { border-radius: 10px !important; border: 1px solid #eee !important; margin-bottom: 6px !important; }
-
-    /* AgGrid: encabezados (color sobrio + negrilla) */
-    .ag-header, .ag-header-viewport, .ag-header-container, .ag-header-row, .ag-header-cell {
-        background-color: #F1F5F9 !important;
-    }
-    .ag-header-cell-label { justify-content: center !important; text-align: center !important; }
-    .ag-header-cell-text {
-        width: 100% !important;
-        text-align: center !important;
-        font-size: 13px !important;
-        font-weight: 800 !important;
-        color: #0F2D6B !important;
-    }
-
-    /* AgGrid: centrado vertical de contenido (solo vertical) */
-    .ag-cell {
-        display: flex !important;
-        align-items: center !important;
-        line-height: 1.35 !important;
-        white-space: normal !important;
-    }
-    .ag-cell-wrapper {
-        display: flex !important;
-        align-items: center !important;
-        height: 100% !important;
-        width: 100% !important;
-    }
-    .ag-cell-value {
-        width: 100% !important;
-    }
-
-    /* Cajas informativas */
     .info-box {
         padding: 10px 12px;
         border-radius: 12px;
@@ -100,6 +59,7 @@ st.markdown(
     }
     .legend-box ul { margin: 8px 0 0 18px; }
     .legend-box li { margin: 4px 0; font-weight: 600; }
+
     .info-box-3 {
         padding: 10px 12px;
         border-radius: 12px;
@@ -111,57 +71,58 @@ st.markdown(
         margin: 6px 0 12px 0;
     }
 
-    /* Botón Aplicar selección (solo este) */
-[data-testid="stFormSubmitButton"] button {
-    background-color: #0F2D6B !important;
-    color: #ffffff !important;
-    border: 1px solid #0F2D6B !important;
-    border-radius: 10px !important;
-    font-weight: 800 !important;
-    padding: 0.6rem 0.9rem !important;
-}
-[data-testid="stFormSubmitButton"] button:hover {
-    filter: brightness(0.92) !important;
-    border-color: #0F2D6B !important;
-}
-</style>
+    /* Botón Aplicar selección (solo submit button del formulario) */
+    div[data-testid="stFormSubmitButton"] > button,
+    div[data-testid="stFormSubmitButton"] button {
+        background-color: #0F2D6B !important;
+        color: #ffffff !important;
+        border: 1px solid #0F2D6B !important;
+        border-radius: 10px !important;
+        font-weight: 900 !important;
+    }
+    div[data-testid="stFormSubmitButton"] > button:hover,
+    div[data-testid="stFormSubmitButton"] button:hover {
+        background-color: #0B2458 !important;
+        border-color: #0B2458 !important;
+        color: #ffffff !important;
+    }
+    </style>
     """,
     unsafe_allow_html=True
 )
 
-
 # -----------------------------
-# AgGrid CSS (aplicado dentro del iframe del componente)
+# Estilos AgGrid (headers + alineación vertical)
 # -----------------------------
-CUSTOM_AGGRID_CSS = {
-    ".ag-header, .ag-header-viewport, .ag-header-container, .ag-header-row, .ag-header-cell": {
+custom_css_grid = {
+    ".ag-header": {
         "background-color": "#F1F5F9 !important",
+        "border-bottom": "1px solid #E5E7EB !important",
     },
     ".ag-header-cell-label": {
         "justify-content": "center !important",
         "text-align": "center !important",
     },
     ".ag-header-cell-text": {
+        "color": "#0F2D6B !important",
+        "font-weight": "900 !important",
+        "font-size": "13px !important",
         "width": "100% !important",
         "text-align": "center !important",
-        "font-size": "13px !important",
-        "font-weight": "800 !important",
-        "color": "#0F2D6B !important",
     },
     ".ag-cell": {
         "display": "flex !important",
         "align-items": "center !important",
-        "line-height": "1.35 !important",
-        "white-space": "normal !important",
     },
     ".ag-cell-wrapper": {
         "display": "flex !important",
         "align-items": "center !important",
         "height": "100% !important",
-        "width": "100% !important",
     },
     ".ag-cell-value": {
-        "width": "100% !important",
+        "display": "flex !important",
+        "align-items": "center !important",
+        "height": "100% !important",
     },
 }
 
@@ -194,18 +155,6 @@ def _generar_indicador(obj, cond, lugar):
         return ""
     return _clean_spaces(f"{obj} {cond} {lugar}")
 
-def _resolve_key(nivel, objetivo_txt):
-    if "indicadores_mapa_objetivo" not in st.session_state or not isinstance(st.session_state.get("indicadores_mapa_objetivo"), dict):
-        st.session_state["indicadores_mapa_objetivo"] = {}
-
-    kmap = _mk_map_key(nivel, objetivo_txt)
-    if kmap in st.session_state["indicadores_mapa_objetivo"]:
-        return st.session_state["indicadores_mapa_objetivo"][kmap]
-
-    new_key = str(uuid.uuid4())
-    st.session_state["indicadores_mapa_objetivo"][kmap] = new_key
-    return new_key
-
 def _ensure_columns(df, cols_defaults):
     if df is None or not isinstance(df, pd.DataFrame):
         df = pd.DataFrame()
@@ -229,70 +178,41 @@ def _stable_hash_df(df, cols_for_hash):
         return ""
 
 # -----------------------------
-# Encabezado
+# Header + barra de progreso (patrón Hoja 10)
 # -----------------------------
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
-
 with col_t:
-    st.markdown(
-        '<div class="titulo-seccion">📊 11. INDICADORES</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        '<div class="subtitulo-gris">Fuente única: Tabla superior de Hoja 7 (Alternativa Seleccionada). Guardado automático en nube.</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="titulo-seccion">11. Indicadores</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Definición, selección, metas y medios de verificación.</div>', unsafe_allow_html=True)
 
-    # Progreso (mismo patrón Hoja 10)
+    # Progreso (estimado)
+    datos_ind = st.session_state.get("datos_indicadores", {})
+    sel_ind = st.session_state.get("seleccion_indicadores", {})
+    meta_par = st.session_state.get("meta_resultados_parciales", {})
+    mv = st.session_state.get("medios_verificacion", {})
+
+    total_campos = 0
     try:
+        if isinstance(datos_ind, dict):
+            for v in datos_ind.values():
+                if isinstance(v, dict):
+                    total_campos += sum(1 for k in ["Objeto", "Condicion", "Lugar"] if _norm_text(v.get(k, "")))
+        if isinstance(sel_ind, dict):
+            for v in sel_ind.values():
+                if isinstance(v, dict):
+                    total_campos += sum(1 for k in ["P1", "P2", "P3", "P4", "P5"] if bool(v.get(k, False)))
+        if isinstance(meta_par, dict):
+            for v in meta_par.values():
+                if isinstance(v, dict):
+                    total_campos += sum(1 for k in ["Línea base", "Meta", "Unidad de medida"] if _norm_text(v.get(k, "")))
+        if isinstance(mv, dict):
+            for v in mv.values():
+                if isinstance(v, dict):
+                    total_campos += sum(1 for k in ["FUENTE DE INFORMACION", "METODO DE ANALISIS", "FRECUENCIA DE RECOLECCION", "RESPONSABLE"] if _norm_text(v.get(k, "")))
+    except Exception:
         total_campos = 0
 
-        # Tabla 1: Objeto/Condición/Lugar diligenciados
-        df_tmp = st.session_state.get("df_indicadores", None)
-        if isinstance(df_tmp, pd.DataFrame) and not df_tmp.empty:
-            for _, rr in df_tmp.iterrows():
-                if str(rr.get("1. Objeto", "")).strip():
-                    total_campos += 1
-                if str(rr.get("2. Condición Deseada", "")).strip():
-                    total_campos += 1
-                if str(rr.get("3. Lugar", "")).strip():
-                    total_campos += 1
-
-        # Selección: checks marcados
-        sel = st.session_state.get("seleccion_indicadores", {})
-        if isinstance(sel, dict):
-            for vv in sel.values():
-                if isinstance(vv, dict):
-                    for b in vv.values():
-                        total_campos += 1 if bool(b) else 0
-
-        # Meta y resultados parciales: campos diligenciados
-        mrp = st.session_state.get("meta_resultados_parciales", {})
-        if isinstance(mrp, dict):
-            for vv in mrp.values():
-                if isinstance(vv, dict):
-                    for kf in ["Línea base", "Meta", "Unidad de medida"]:
-                        if str(vv.get(kf, "")).strip():
-                            total_campos += 1
-                    per = vv.get("Periodos", {})
-                    if isinstance(per, dict):
-                        for pv in per.values():
-                            if str(pv).strip():
-                                total_campos += 1
-
-        # Medios de verificación: casillas libres diligenciadas
-        mv = st.session_state.get("medios_verificacion", {})
-        if isinstance(mv, dict):
-            for vv in mv.values():
-                if isinstance(vv, dict):
-                    for pv in vv.values():
-                        if str(pv).strip():
-                            total_campos += 1
-
-        progreso = min(1.0, total_campos / 80) if total_campos > 0 else 0.0
-    except Exception:
-        progreso = 0.0
-
+    progreso = min(1.0, total_campos / 30) if total_campos > 0 else 0.0
     st.progress(progreso, text=f"Avance estimado: {int(progreso*100)}%")
 
 with col_img:
@@ -303,7 +223,7 @@ with col_img:
 
 st.markdown(
     '<div class="info-box">Diligencia: <b>1. Objeto</b>, <b>2. Condición Deseada</b> y <b>3. Lugar</b>. '
-    'El indicador se genera al instante dentro de la tabla y se guarda automáticamente en la nube.</div>',
+    'Luego valida P1..P5 y define metas. El guardado es automático.</div>',
     unsafe_allow_html=True
 )
 
@@ -316,28 +236,36 @@ if not isinstance(arbol, dict):
 
 ref = arbol.get("referencia_manual", None)
 if not isinstance(ref, dict):
-    st.error("Falta la tabla superior de Hoja 7 (arbol_objetivos_final → referencia_manual). En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
+    st.error("Falta la tabla superior de Hoja 7 (referencia_manual). En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
     st.stop()
 
 obj_general = _norm_text(ref.get("objetivo", ""))
 especificos = _as_list(ref.get("especificos", []))
 actividades = _as_list(ref.get("actividades", []))
 
-especificos = [_norm_text(x) for x in especificos if _norm_text(x)]
-actividades = [_norm_text(x) for x in actividades if _norm_text(x)]
-
 if not obj_general and len(especificos) == 0 and len(actividades) == 0:
     st.error("La tabla superior de Hoja 7 está vacía. En Hoja 7 pestaña 2 presiona: “Sincronizar con Árbol”.")
     st.stop()
 
+especificos = [_norm_text(x) for x in especificos if _norm_text(x)]
+actividades = [_norm_text(x) for x in actividades if _norm_text(x)]
+
 # -----------------------------
-# State Hoja 11
+# Estado hoja 11
 # -----------------------------
+if "indicadores_mapa_objetivo" not in st.session_state or not isinstance(st.session_state.get("indicadores_mapa_objetivo"), dict):
+    st.session_state["indicadores_mapa_objetivo"] = {}
+
+def _resolve_key(nivel, objetivo_txt):
+    kmap = _mk_map_key(nivel, objetivo_txt)
+    if kmap in st.session_state["indicadores_mapa_objetivo"]:
+        return st.session_state["indicadores_mapa_objetivo"][kmap]
+    new_key = str(uuid.uuid4())
+    st.session_state["indicadores_mapa_objetivo"][kmap] = new_key
+    return new_key
+
 if "datos_indicadores" not in st.session_state or not isinstance(st.session_state.get("datos_indicadores"), dict):
     st.session_state["datos_indicadores"] = {}
-
-if "df_indicadores" not in st.session_state or not isinstance(st.session_state.get("df_indicadores"), pd.DataFrame):
-    st.session_state["df_indicadores"] = pd.DataFrame()
 
 if "hash_indicadores" not in st.session_state:
     st.session_state["hash_indicadores"] = ""
@@ -353,6 +281,12 @@ if "meta_resultados_parciales" not in st.session_state or not isinstance(st.sess
 
 if "hash_meta_resultados_parciales" not in st.session_state:
     st.session_state["hash_meta_resultados_parciales"] = ""
+
+if "medios_verificacion" not in st.session_state or not isinstance(st.session_state.get("medios_verificacion"), dict):
+    st.session_state["medios_verificacion"] = {}
+
+if "hash_medios_verificacion" not in st.session_state:
+    st.session_state["hash_medios_verificacion"] = ""
 
 # -----------------------------
 # Construcción filas base desde referencia_manual Hoja 7
@@ -381,184 +315,94 @@ cols_defaults = {
 }
 target_cols = list(cols_defaults.keys())
 
-def _build_df_from_ref():
-    rows = []
-    for nivel, objetivo_txt in _build_rows_from_ref():
-        key_estable = _resolve_key(nivel, objetivo_txt)
-        guardado = st.session_state["datos_indicadores"].get(key_estable, {})
+rows = []
+for nivel, objetivo_txt in _build_rows_from_ref():
+    k = _resolve_key(nivel, objetivo_txt)
+    guard = st.session_state["datos_indicadores"].get(k, {})
 
-        obj = _norm_text(guardado.get("Objeto", ""))
-        cond = _norm_text(guardado.get("Condicion", guardado.get("Condición", "")))
-        lugar = _norm_text(guardado.get("Lugar", ""))
+    rows.append({
+        "_key": k,
+        "Nivel": nivel,
+        "Objetivo": objetivo_txt,
+        "1. Objeto": _norm_text(guard.get("Objeto", "")),
+        "2. Condición Deseada": _norm_text(guard.get("Condicion", "")),
+        "3. Lugar": _norm_text(guard.get("Lugar", "")),
+        "Indicador Generado": "",
+    })
 
-        rows.append({
-            "_key": key_estable,
-            "Nivel": nivel,
-            "Objetivo": objetivo_txt,
-            "1. Objeto": obj,
-            "2. Condición Deseada": cond,
-            "3. Lugar": lugar,
-            "Indicador Generado": "",
-        })
+df_ind = pd.DataFrame(rows)
+df_ind = _ensure_columns(df_ind, cols_defaults)
+df_ind = df_ind[target_cols].copy()
 
-    df = pd.DataFrame(rows)
-    df = _ensure_columns(df, cols_defaults)
-    return df[target_cols].copy()
-
-def _sync_df_keep_user_edits(df_old):
-    df_new = _build_df_from_ref()
-    if df_old is None or df_old.empty:
-        return df_new
-
-    df_old = _ensure_columns(df_old, cols_defaults)
-
-    if "_key" not in df_old.columns:
-        df_old["_key"] = df_old.apply(
-            lambda r: _resolve_key(_norm_text(r.get("Nivel", "")), _norm_text(r.get("Objetivo", ""))),
-            axis=1
-        )
-
-    df_old = df_old.drop_duplicates(subset=["_key"], keep="first").copy()
-    df_merge = df_new.copy()
-
-    edit_cols = ["1. Objeto", "2. Condición Deseada", "3. Lugar"]
-    old_ix = df_old.set_index("_key", drop=False)
-
-    present_mask = df_merge["_key"].isin(old_ix.index)
-    if present_mask.any():
-        for col_edit in edit_cols:
-            if col_edit in old_ix.columns:
-                mapped = df_merge.loc[present_mask, "_key"].map(old_ix[col_edit])
-                df_merge.loc[present_mask, col_edit] = mapped.values
-
-    df_merge["Indicador Generado"] = ""
-    df_merge = _ensure_columns(df_merge, cols_defaults)
-    return df_merge[target_cols].copy()
-
-df_old_ui = st.session_state.get("df_indicadores", pd.DataFrame())
-df_ui = _sync_df_keep_user_edits(df_old_ui)
-
-if df_old_ui is None or df_old_ui.empty:
-    st.session_state["df_indicadores"] = df_ui.copy()
-else:
-    if list(getattr(df_old_ui, "columns", [])) != list(df_ui.columns) or len(df_old_ui) != len(df_ui):
-        st.session_state["df_indicadores"] = df_ui.copy()
-
-df_work = st.session_state["df_indicadores"].copy()
-df_work = _ensure_columns(df_work, cols_defaults)
-df_work = df_work[target_cols].copy()
-
-gb = GridOptionsBuilder.from_dataframe(df_work)
+gb = GridOptionsBuilder.from_dataframe(df_ind)
 gb.configure_column("_key", headerName="_key", editable=False, hide=True)
-gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=250)
+gb.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=220)
 gb.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=560)
 gb.configure_column("1. Objeto", headerName="1. Objeto", editable=True, wrapText=True, autoHeight=True, width=250)
 gb.configure_column("2. Condición Deseada", headerName="2. Condición Deseada", editable=True, wrapText=True, autoHeight=True, width=300)
-gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=200)
+gb.configure_column("3. Lugar", headerName="3. Lugar", editable=True, wrapText=True, autoHeight=True, width=190)
 
-value_getter_indicador = JsCode(
-    """
-    function(params) {
-        let obj = (params.data['1. Objeto'] || '').toString().trim();
-        let cond = (params.data['2. Condición Deseada'] || '').toString().trim();
-        let lugar = (params.data['3. Lugar'] || '').toString().trim();
-        let txt = (obj + ' ' + cond + ' ' + lugar).replace(/\\s+/g,' ').trim();
-        return txt;
-    }
-    """
-)
-gb.configure_column(
-    "Indicador Generado",
-    headerName="Indicador Generado",
-    editable=False,
-    valueGetter=value_getter_indicador,
-    wrapText=True,
-    autoHeight=True,
-    width=420
-)
-
-gb.configure_grid_options(domLayout="autoHeight")
+value_getter_indicador = JsCode("""
+function(params) {
+  const a = (params.data && params.data["1. Objeto"]) ? String(params.data["1. Objeto"]).trim() : "";
+  const b = (params.data && params.data["2. Condición Deseada"]) ? String(params.data["2. Condición Deseada"]).trim() : "";
+  const c = (params.data && params.data["3. Lugar"]) ? String(params.data["3. Lugar"]).trim() : "";
+  let s = (a + " " + b + " " + c).replace(/\s+/g, " ").trim();
+  return s;
+}
+""")
+gb.configure_column("Indicador Generado", headerName="Indicador Generado", editable=False, wrapText=True, autoHeight=True, width=520, valueGetter=value_getter_indicador)
+gb.configure_grid_options(domLayout="autoHeight", enableCellTextSelection=True, ensureDomOrder=True)
 gridOptions = gb.build()
 
 grid_response = AgGrid(
-    df_work,
+    df_ind,
     gridOptions=gridOptions,
+    custom_css=custom_css_grid,
     update_mode=GridUpdateMode.VALUE_CHANGED,
     theme="streamlit",
-    custom_css=CUSTOM_AGGRID_CSS,
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
     key="grid_indicadores"
 )
 
-df_live = pd.DataFrame(grid_response.get("data", []))
-df_live = _ensure_columns(df_live, cols_defaults)
+df_ind_live = pd.DataFrame(grid_response.get("data", []))
+df_ind_live = _ensure_columns(df_ind_live, cols_defaults)
+df_ind_live = df_ind_live[target_cols].copy()
 
-if "_key" not in df_live.columns or df_live["_key"].astype(str).eq("").all():
-    try:
-        base_keys = df_work.get("_key", pd.Series(dtype=str)).astype(str).values
-        df_live["_key"] = base_keys[: len(df_live)]
-    except Exception:
-        df_live["_key"] = df_live.apply(
-            lambda r: _resolve_key(_norm_text(r.get("Nivel", "")), _norm_text(r.get("Objetivo", ""))),
-            axis=1
-        )
-
-df_live = df_live[target_cols].copy()
-
-cols_hash_1 = ["_key", "Nivel", "Objetivo", "1. Objeto", "2. Condición Deseada", "3. Lugar"]
-hash_actual_1 = _stable_hash_df(df_live, cols_hash_1)
-hash_prev_1 = st.session_state.get("hash_indicadores", "")
-
-if hash_actual_1 and (hash_actual_1 != hash_prev_1):
+hash_actual_1 = _stable_hash_df(df_ind_live, ["_key", "1. Objeto", "2. Condición Deseada", "3. Lugar"])
+if hash_actual_1 and hash_actual_1 != st.session_state.get("hash_indicadores", ""):
     st.session_state["hash_indicadores"] = hash_actual_1
-    st.session_state["df_indicadores"] = df_live
-
-    for _, r in df_live.iterrows():
-        nivel = _norm_text(r.get("Nivel", ""))
-        objetivo_txt = _norm_text(r.get("Objetivo", ""))
-
+    for _, r in df_ind_live.iterrows():
+        k = _norm_text(r.get("_key", ""))
+        if not k:
+            continue
         obj = _norm_text(r.get("1. Objeto", ""))
         cond = _norm_text(r.get("2. Condición Deseada", ""))
         lugar = _norm_text(r.get("3. Lugar", ""))
-
-        key_estable = _norm_text(r.get("_key", "")) or _resolve_key(nivel, objetivo_txt)
-
-        if not obj and not cond and not lugar:
-            st.session_state["datos_indicadores"].pop(key_estable, None)
-            st.session_state.get("seleccion_indicadores", {}).pop(key_estable, None)
-            st.session_state.get("meta_resultados_parciales", {}).pop(key_estable, None)
-            continue
-
-        indicador = _generar_indicador(obj, cond, lugar)
-        st.session_state["datos_indicadores"][key_estable] = {
-            "Objetivo": objetivo_txt,
-            "Nivel": nivel,
+        st.session_state["datos_indicadores"][k] = {
+            "Nivel": _norm_text(r.get("Nivel", "")),
+            "Objetivo": _norm_text(r.get("Objetivo", "")),
             "Objeto": obj,
             "Condicion": cond,
             "Lugar": lugar,
-            "Indicador": indicador
+            "Indicador": _generar_indicador(obj, cond, lugar),
         }
-
     guardar_datos_nube()
 
 # -----------------------------
-# Tabla 2: Selección de indicadores (HÍBRIDO)
-# - UI reactiva en frontend (Sí/No + color instantáneo)
-# - Persistencia en backend solo al presionar "Aplicar selección"
+# Tabla 2: Selección de indicadores
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion">Selección de indicadores</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="info-box-2">Marca las validaciones. La columna <b>Selección</b> será <b>Sí</b> solo si todas están chuleadas. '
-    'Fila verde tenue si es <b>Sí</b>, rojo tenue si es <b>No</b>. Para guardar y habilitar la tabla de metas, presiona <b>Aplicar selección</b>.</div>',
+    'Fila verde tenue si es <b>Sí</b>, rojo tenue si es <b>No</b>. Para fijar la selección presiona <b>Aplicar selección</b>.</div>',
     unsafe_allow_html=True
 )
 
-# Columnas cortas
 P1, P2, P3, P4, P5 = "P1", "P2", "P3", "P4", "P5"
 P_COLS = [P1, P2, P3, P4, P5]
 
-# Textos largos (para convención)
 Q1 = "El Sentido del indicador es claro"
 Q2 = "Existe información disponible o se puede recolectar fácilmente"
 Q3 = "El indicador es tangible y se puede observar"
@@ -581,162 +425,89 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-sel_cols_defaults = {
-    "_key": "",
-    "Nivel": "",
-    "Objetivo": "",
-    "Indicador": "",
-    P1: False,
-    P2: False,
-    P3: False,
-    P4: False,
-    P5: False,
-    "Selección": "No"
+sel_rows = []
+for nivel, objetivo_txt in _build_rows_from_ref():
+    k = _resolve_key(nivel, objetivo_txt)
+    ind = _norm_text(st.session_state.get("datos_indicadores", {}).get(k, {}).get("Indicador", ""))
+    sel = st.session_state.get("seleccion_indicadores", {}).get(k, {})
+    a = bool(sel.get(P1, False))
+    b = bool(sel.get(P2, False))
+    c = bool(sel.get(P3, False))
+    d = bool(sel.get(P4, False))
+    e = bool(sel.get(P5, False))
+    sel_rows.append({
+        "_key": k,
+        "Nivel": nivel,
+        "Objetivo": objetivo_txt,
+        "Indicador": ind,
+        P1: a, P2: b, P3: c, P4: d, P5: e,
+        "Selección": "Sí" if (a and b and c and d and e) else "No"
+    })
+
+df_sel = pd.DataFrame(sel_rows)
+df_sel = _ensure_columns(df_sel, {"_key":"", "Nivel":"", "Objetivo":"", "Indicador":"", P1:False, P2:False, P3:False, P4:False, P5:False, "Selección":"No"})
+df_sel = df_sel[["_key","Nivel","Objetivo","Indicador",P1,P2,P3,P4,P5,"Selección"]].copy()
+
+js_value_getter_sel = JsCode("""
+function(params) {
+    const a = !!params.data['P1'];
+    const b = !!params.data['P2'];
+    const c = !!params.data['P3'];
+    const d = !!params.data['P4'];
+    const e = !!params.data['P5'];
+    return (a && b && c && d && e) ? 'Sí' : 'No';
 }
-sel_cols = list(sel_cols_defaults.keys())
-
-def _get_sel_bool(sel_dict, short_key, long_key):
-    if not isinstance(sel_dict, dict):
-        return False
-    if short_key in sel_dict:
-        return bool(sel_dict.get(short_key, False))
-    if long_key in sel_dict:
-        return bool(sel_dict.get(long_key, False))
-    return False
-
-def _build_df_seleccion_from_state():
-    rows = []
-    for nivel, objetivo_txt in _build_rows_from_ref():
-        k = _resolve_key(nivel, objetivo_txt)
-        guardado = st.session_state["datos_indicadores"].get(k, {})
-        ind = _norm_text(guardado.get("Indicador", ""))
-
-        sel = st.session_state.get("seleccion_indicadores", {}).get(k, {})
-        a = _get_sel_bool(sel, P1, Q1)
-        b = _get_sel_bool(sel, P2, Q2)
-        c = _get_sel_bool(sel, P3, Q3)
-        d = _get_sel_bool(sel, P4, Q4)
-        e = _get_sel_bool(sel, P5, Q5)
-
-        # Esta columna se mostrará reactiva en frontend, pero aquí dejamos un valor base coherente
-        seleccion_txt = "Sí" if (a and b and c and d and e) else "No"
-
-        rows.append({
-            "_key": k,
-            "Nivel": nivel,
-            "Objetivo": objetivo_txt,
-            "Indicador": ind,
-            P1: a,
-            P2: b,
-            P3: c,
-            P4: d,
-            P5: e,
-            "Selección": seleccion_txt
-        })
-
-    df = pd.DataFrame(rows)
-    df = _ensure_columns(df, sel_cols_defaults)
-    return df[sel_cols].copy()
-
-df_base_sel = _build_df_seleccion_from_state()
-
-# JS: cálculo reactivo de "Selección" con base en P1..P5 (frontend)
-js_value_getter_sel = JsCode(
-    """
-    function(params) {
-        const a = !!params.data['P1'];
-        const b = !!params.data['P2'];
-        const c = !!params.data['P3'];
-        const d = !!params.data['P4'];
-        const e = !!params.data['P5'];
-        return (a && b && c && d && e) ? 'Sí' : 'No';
-    }
-    """
-)
-
-# JS: color reactivo (frontend) con base en P1..P5 (no depende de "Selección" persistida)
-js_row_style = JsCode(
-    """
-    function(params) {
-        const a = !!params.data['P1'];
-        const b = !!params.data['P2'];
-        const c = !!params.data['P3'];
-        const d = !!params.data['P4'];
-        const e = !!params.data['P5'];
-        const ok = (a && b && c && d && e);
-        if (ok) {
-            return {'backgroundColor': '#ecfdf5'};
-        }
-        return {'backgroundColor': '#fef2f2'};
-    }
-    """
-)
-
-gb2 = GridOptionsBuilder.from_dataframe(df_base_sel)
+""")
+js_row_style = JsCode("""
+function(params) {
+    const a = !!params.data['P1'];
+    const b = !!params.data['P2'];
+    const c = !!params.data['P3'];
+    const d = !!params.data['P4'];
+    const e = !!params.data['P5'];
+    const ok = (a && b && c && d && e);
+    return ok ? {'backgroundColor': '#ecfdf5'} : {'backgroundColor': '#fef2f2'};
+}
+""")
+gb2 = GridOptionsBuilder.from_dataframe(df_sel)
 gb2.configure_column("_key", headerName="_key", editable=False, hide=True)
-gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=240)
+gb2.configure_column("Nivel", headerName="Nivel", editable=False, wrapText=True, autoHeight=True, width=220)
 gb2.configure_column("Objetivo", headerName="Objetivo", editable=False, wrapText=True, autoHeight=True, width=520)
-gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=420)
-
-# Checkbox real en columnas P1..P5
+gb2.configure_column("Indicador", headerName="Indicador", editable=False, wrapText=True, autoHeight=True, width=520)
 for p in P_COLS:
-    gb2.configure_column(
-        p,
-        headerName=p,
-        editable=True,
-        width=80,
-        type=["booleanColumn"],
-        cellRenderer="agCheckboxCellRenderer",
-        cellEditor="agCheckboxCellEditor",
-        suppressMenu=True,
-        filter=False
-    )
-
-# Columna Selección reactiva (frontend)
-gb2.configure_column(
-    "Selección",
-    headerName="Selección",
-    editable=False,
-    width=120,
-    valueGetter=js_value_getter_sel
-)
-
+    gb2.configure_column(p, headerName=p, editable=True, width=80, cellRenderer="agCheckboxCellRenderer", cellEditor="agCheckboxCellEditor")
+gb2.configure_column("Selección", headerName="Selección", editable=False, width=110, valueGetter=js_value_getter_sel)
 gb2.configure_grid_options(getRowStyle=js_row_style, domLayout="autoHeight")
 gridOptions2 = gb2.build()
 
 grid_response_2 = AgGrid(
-    df_base_sel,
+    df_sel,
     gridOptions=gridOptions2,
-    update_mode=GridUpdateMode.MODEL_CHANGED,  # mantiene el modelo actualizado para el "Aplicar"
+    custom_css=custom_css_grid,
+    update_mode=GridUpdateMode.MODEL_CHANGED,
     theme="streamlit",
-    custom_css=CUSTOM_AGGRID_CSS,
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
     key="grid_seleccion_indicadores"
 )
 
-# Botón de commit (backend): guarda selección y habilita metas
 c_apply_1, c_apply_2 = st.columns([1, 5], vertical_alignment="center")
 with c_apply_1:
-    with st.form("apply_selection_form", clear_on_submit=False):
+    with st.form("form_aplicar_seleccion", clear_on_submit=False):
         aplicar = st.form_submit_button("Aplicar selección", use_container_width=True)
 with c_apply_2:
-    st.caption("Use este botón para guardar las selecciones y actualizar la tabla de METAS.")
+    st.caption("Use este botón para guardar las selecciones y actualizar las tablas siguientes.")
 
 if aplicar:
     df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
-    df_sel_live = _ensure_columns(df_sel_live, sel_cols_defaults)
-
-    # Resiliencia: si _key no viene en data (por oculto)
+    df_sel_live = _ensure_columns(df_sel_live, {"_key":"", P1:False, P2:False, P3:False, P4:False, P5:False})
     if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
-        df_sel_live["_key"] = df_base_sel["_key"].values[: len(df_sel_live)]
+        df_sel_live["_key"] = df_sel["_key"].values[: len(df_sel_live)]
 
-    # Persistir selección por fila
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
             continue
-
         st.session_state["seleccion_indicadores"][k] = {
             P1: bool(r.get(P1, False)),
             P2: bool(r.get(P2, False)),
@@ -745,29 +516,27 @@ if aplicar:
             P5: bool(r.get(P5, False)),
         }
 
-    # Limpiar metas de indicadores que dejaron de estar seleccionados (por consistencia)
-    try:
-        keys_si = []
-        for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
-            if all(bool(sel.get(p, False)) for p in P_COLS):
-                keys_si.append(k)
-        actuales = set(keys_si)
-        existentes_meta = set(st.session_state.get("meta_resultados_parciales", {}).keys())
-        for k in list(existentes_meta - actuales):
-            st.session_state["meta_resultados_parciales"].pop(k, None)
-    except Exception:
-        pass
+    # limpieza: solo conservar meta/mv de seleccionados
+    keys_si_now = []
+    for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
+        if all(bool(sel.get(p, False)) for p in P_COLS):
+            keys_si_now.append(k)
+
+    actuales = set(keys_si_now)
+    for k in list(set(st.session_state.get("meta_resultados_parciales", {}).keys()) - actuales):
+        st.session_state["meta_resultados_parciales"].pop(k, None)
+    for k in list(set(st.session_state.get("medios_verificacion", {}).keys()) - actuales):
+        st.session_state["medios_verificacion"].pop(k, None)
 
     guardar_datos_nube()
     st.rerun()
 
 # -----------------------------
-# META Y RESULTADOS PARCIALES (usa el state guardado con "Aplicar selección")
+# META Y RESULTADOS PARCIALES
 # -----------------------------
 st.markdown('<div class="subtitulo-seccion-2">META Y RESULTADOS PARCIALES</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="info-box-3">Indica la cantidad de periodos (número entero). Se crearán columnas dinámicas '
-    'Periodo 1..N. La suma de periodos por fila debe coincidir con la Meta (si no coincide, la fila se marca en color tenue).</div>',
+    '<div class="info-box-3">Indica la cantidad de periodos (número entero). Se crearán columnas dinámicas Periodo 1..N.</div>',
     unsafe_allow_html=True
 )
 
@@ -782,82 +551,40 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
     st.session_state["duracion_proyecto_periodos"] = dur
     guardar_datos_nube()
 
-# Determinar keys en Sí desde state
-df_sel_for_meta = _build_df_seleccion_from_state()
-keys_si = df_sel_for_meta.loc[df_sel_for_meta["Selección"] == "Sí", "_key"].astype(str).tolist()
-
-indicador_txt_por_key = {}
-for _, r in df_sel_for_meta.iterrows():
-    k = _norm_text(r.get("_key", ""))
-    if not k:
-        continue
-    indicador_txt_por_key[k] = _norm_text(r.get("Indicador", ""))
+# claves seleccionadas Sí
+keys_si = []
+for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
+    if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in P_COLS):
+        keys_si.append(k)
 
 if not keys_si:
-    st.info("Aún no hay indicadores con Selección = Sí. Marca las 5 validaciones (P1..P5) y presiona “Aplicar selección”.")
+    st.info("Aún no hay indicadores con Selección = Sí. Marca P1..P5 y presiona “Aplicar selección”.")
 else:
     period_cols = [f"Periodo {i}" for i in range(1, dur + 1)]
-
-    cols_meta_defaults = {
-        "_key": "",
-        "Indicador": "",
-        "Línea base": "",
-        "Meta": "",
-        "Unidad de medida": "",
-    }
+    meta_defaults = {"_key":"", "Indicador":"", "Línea base":"", "Meta":"", "Unidad de medida":""}
     for pc in period_cols:
-        cols_meta_defaults[pc] = ""
-
-    meta_cols = list(cols_meta_defaults.keys())
+        meta_defaults[pc] = ""
 
     rows_meta = []
     for k in keys_si:
+        ind_txt = _norm_text(st.session_state.get("datos_indicadores", {}).get(k, {}).get("Indicador", ""))
         guard = st.session_state.get("meta_resultados_parciales", {}).get(k, {})
-        linea_base = _norm_text(guard.get("Línea base", ""))
-        meta = _norm_text(guard.get("Meta", ""))
-        um = _norm_text(guard.get("Unidad de medida", ""))
-
         per_guard = guard.get("Periodos", {}) if isinstance(guard.get("Periodos", {}), dict) else {}
-
         row = {
             "_key": k,
-            "Indicador": indicador_txt_por_key.get(k, ""),
-            "Línea base": linea_base,
-            "Meta": meta,
-            "Unidad de medida": um,
+            "Indicador": ind_txt,
+            "Línea base": _norm_text(guard.get("Línea base", "")),
+            "Meta": _norm_text(guard.get("Meta", "")),
+            "Unidad de medida": _norm_text(guard.get("Unidad de medida", "")),
         }
         for pc in period_cols:
             row[pc] = _norm_text(per_guard.get(pc, ""))
-
         rows_meta.append(row)
 
     df_meta = pd.DataFrame(rows_meta)
-    df_meta = _ensure_columns(df_meta, cols_meta_defaults)
+    df_meta = _ensure_columns(df_meta, meta_defaults)
+    meta_cols = ["_key","Indicador","Línea base","Meta","Unidad de medida"] + period_cols
     df_meta = df_meta[meta_cols].copy()
-
-    row_style_meta_js = JsCode(
-        """
-        function(params) {
-            let meta = (params.data['Meta'] || '').toString().trim().replace(',', '.');
-            let metaNum = parseFloat(meta);
-            if (isNaN(metaNum)) { return {}; }
-
-            let sum = 0.0;
-            Object.keys(params.data).forEach(function(k){
-                if (k.startsWith('Periodo ')) {
-                    let v = (params.data[k] || '').toString().trim().replace(',', '.');
-                    let n = parseFloat(v);
-                    if (!isNaN(n)) { sum += n; }
-                }
-            });
-
-            if (Math.abs(sum - metaNum) > 1e-9) {
-                return {'backgroundColor': '#fff7ed'};
-            }
-            return {};
-        }
-        """
-    )
 
     gb3 = GridOptionsBuilder.from_dataframe(df_meta)
     gb3.configure_column("_key", headerName="_key", editable=False, hide=True)
@@ -865,49 +592,130 @@ else:
     gb3.configure_column("Línea base", headerName="Línea base", editable=True, width=140)
     gb3.configure_column("Meta", headerName="Meta", editable=True, width=110)
     gb3.configure_column("Unidad de medida", headerName="Unidad de medida", editable=True, width=180)
-
     for pc in period_cols:
         gb3.configure_column(pc, headerName=pc, editable=True, width=120)
-
-    gb3.configure_grid_options(getRowStyle=row_style_meta_js, domLayout="autoHeight")
+    gb3.configure_grid_options(domLayout="autoHeight")
     gridOptions3 = gb3.build()
 
     grid_response_3 = AgGrid(
         df_meta,
         gridOptions=gridOptions3,
+        custom_css=custom_css_grid,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         theme="streamlit",
-    custom_css=CUSTOM_AGGRID_CSS,
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=True,
         key="grid_meta_resultados_parciales"
     )
 
     df_meta_live = pd.DataFrame(grid_response_3.get("data", []))
-    df_meta_live = _ensure_columns(df_meta_live, cols_meta_defaults)
-
+    df_meta_live = _ensure_columns(df_meta_live, meta_defaults)
     if "_key" not in df_meta_live.columns or df_meta_live["_key"].astype(str).eq("").all():
         df_meta_live["_key"] = df_meta["_key"].values[: len(df_meta_live)]
-
     df_meta_live = df_meta_live[meta_cols].copy()
 
-    cols_hash_3 = ["_key", "Línea base", "Meta", "Unidad de medida"] + period_cols
-    hash_actual_3 = _stable_hash_df(df_meta_live, cols_hash_3)
-    hash_prev_3 = st.session_state.get("hash_meta_resultados_parciales", "")
-
-    if hash_actual_3 and (hash_actual_3 != hash_prev_3):
-        st.session_state["hash_meta_resultados_parciales"] = hash_actual_3
-
+    hash_meta = _stable_hash_df(df_meta_live, ["_key","Línea base","Meta","Unidad de medida"] + period_cols)
+    if hash_meta and hash_meta != st.session_state.get("hash_meta_resultados_parciales", ""):
+        st.session_state["hash_meta_resultados_parciales"] = hash_meta
         for _, r in df_meta_live.iterrows():
             k = _norm_text(r.get("_key", ""))
             if not k:
                 continue
-
             st.session_state["meta_resultados_parciales"][k] = {
                 "Línea base": _norm_text(r.get("Línea base", "")),
                 "Meta": _norm_text(r.get("Meta", "")),
                 "Unidad de medida": _norm_text(r.get("Unidad de medida", "")),
                 "Periodos": {pc: _norm_text(r.get(pc, "")) for pc in period_cols}
             }
+        guardar_datos_nube()
 
+# -----------------------------
+# MEDIOS DE VERIFICACIÓN
+# -----------------------------
+st.markdown('<div class="subtitulo-seccion-2">MEDIOS DE VERIFICACIÓN</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="info-box-2">Tipo, Objetivo, Indicador y Meta se cargan automáticamente. Las demás casillas son de libre diligenciamiento.</div>',
+    unsafe_allow_html=True
+)
+
+MV_LIBRES = ["FUENTE DE INFORMACION", "METODO DE ANALISIS", "FRECUENCIA DE RECOLECCION", "RESPONSABLE"]
+
+def _tipo_from_nivel(nivel_txt: str) -> str:
+    n = _norm_text(nivel_txt)
+    if n == "Objetivo General":
+        return "OBJETIVO GENERAL"
+    if n.startswith("Objetivo Específico"):
+        return "OBJETIVO ESPECIFICO"
+    if n == "Actividad Clave":
+        return "ACTIVIDAD"
+    return n.upper() if n else ""
+
+if not keys_si:
+    st.info("Aún no hay indicadores con Selección = Sí. Marca P1..P5 y presiona “Aplicar selección”.")
+else:
+    rows_mv = []
+    for k in keys_si:
+        base = st.session_state.get("datos_indicadores", {}).get(k, {})
+        nivel = _norm_text(base.get("Nivel", ""))
+        objetivo_txt = _norm_text(base.get("Objetivo", ""))
+        indicador_txt = _norm_text(base.get("Indicador", ""))
+
+        meta_txt = _norm_text(st.session_state.get("meta_resultados_parciales", {}).get(k, {}).get("Meta", ""))
+
+        guard = st.session_state.get("medios_verificacion", {}).get(k, {})
+        row = {
+            "_key": k,
+            "Tipo": _tipo_from_nivel(nivel),
+            "Objetivo": objetivo_txt,
+            "Indicador": indicador_txt,
+            "Meta": meta_txt,
+        }
+        for c in MV_LIBRES:
+            row[c] = _norm_text(guard.get(c, ""))
+        rows_mv.append(row)
+
+    df_mv = pd.DataFrame(rows_mv)
+    mv_defaults = {"_key":"", "Tipo":"", "Objetivo":"", "Indicador":"", "Meta":""}
+    for c in MV_LIBRES:
+        mv_defaults[c] = ""
+    df_mv = _ensure_columns(df_mv, mv_defaults)
+    mv_cols = ["_key","Tipo","Objetivo","Indicador","Meta"] + MV_LIBRES
+    df_mv = df_mv[mv_cols].copy()
+
+    gb4 = GridOptionsBuilder.from_dataframe(df_mv)
+    gb4.configure_column("_key", headerName="_key", editable=False, hide=True)
+    gb4.configure_column("Tipo", headerName="Tipo", editable=False, width=190, wrapText=True, autoHeight=True)
+    gb4.configure_column("Objetivo", headerName="Objetivo", editable=False, width=520, wrapText=True, autoHeight=True)
+    gb4.configure_column("Indicador", headerName="Indicador", editable=False, width=520, wrapText=True, autoHeight=True)
+    gb4.configure_column("Meta", headerName="Meta", editable=False, width=110)
+    for c in MV_LIBRES:
+        gb4.configure_column(c, headerName=c, editable=True, width=220, wrapText=True, autoHeight=True)
+    gb4.configure_grid_options(domLayout="autoHeight")
+    gridOptions4 = gb4.build()
+
+    grid_response_4 = AgGrid(
+        df_mv,
+        gridOptions=gridOptions4,
+        custom_css=custom_css_grid,
+        update_mode=GridUpdateMode.VALUE_CHANGED,
+        theme="streamlit",
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,
+        key="grid_medios_verificacion"
+    )
+
+    df_mv_live = pd.DataFrame(grid_response_4.get("data", []))
+    df_mv_live = _ensure_columns(df_mv_live, mv_defaults)
+    if "_key" not in df_mv_live.columns or df_mv_live["_key"].astype(str).eq("").all():
+        df_mv_live["_key"] = df_mv["_key"].values[: len(df_mv_live)]
+    df_mv_live = df_mv_live[mv_cols].copy()
+
+    hash_mv = _stable_hash_df(df_mv_live, ["_key"] + MV_LIBRES)
+    if hash_mv and hash_mv != st.session_state.get("hash_medios_verificacion", ""):
+        st.session_state["hash_medios_verificacion"] = hash_mv
+        for _, r in df_mv_live.iterrows():
+            k = _norm_text(r.get("_key", ""))
+            if not k:
+                continue
+            st.session_state["medios_verificacion"][k] = {c: _norm_text(r.get(c, "")) for c in MV_LIBRES}
         guardar_datos_nube()
