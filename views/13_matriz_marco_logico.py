@@ -114,5 +114,65 @@ for kmap, k in mapa.items():
     if not is_selected:
         continue # Si no fue seleccionado, lo omitimos de la Matriz Final
         
-    # 2. Extraer indicador formulado y meta
-    ind_data = datos
+    # 2. Extraer indicador formulado y meta (¡AQUÍ ESTABA EL ERROR CORREGIDO!)
+    ind_data = datos_ind.get(k, {}) 
+    indicador_texto = str(ind_data.get("Indicador", "")).strip()
+    
+    meta_data = metas.get(k, {})
+    meta_texto = str(meta_data.get("Meta", "")).strip()
+    
+    # 3. Traducción de niveles al formato exacto de MML
+    tipo_mml = "OBJETIVO ESPECÍFICO" # Default
+    if "General" in nivel_original or "Fin" in nivel_original:
+        tipo_mml = "OBJETIVO GENERAL"
+    elif "Espec" in nivel_original or "Componente" in nivel_original or "Propósito" in nivel_original:
+        tipo_mml = "OBJETIVO ESPECÍFICO"
+    elif "Actividad" in nivel_original:
+        tipo_mml = "ACTIVIDAD"
+        
+    # 4. Buscar supuesto en la matriz de riesgos (Hoja 12)
+    supuesto = "Pendiente"
+    for r in riesgos:
+        if str(r.get("Objetivo", "")) == objetivo_texto:
+            supuesto = str(r.get("Supuesto", "Pendiente"))
+            break
+            
+    datos_reales.append({
+        "tipo": tipo_mml,
+        "objetivo": objetivo_texto,
+        "indicador": indicador_texto,
+        "meta": meta_texto,
+        "supuesto": supuesto
+    })
+
+# --- RENDERIZADO DE LA MATRIZ ---
+if not datos_reales:
+    st.warning("⚠️ No se encontraron indicadores validados. Para ver datos aquí, asegúrate de haber marcado las 5 casillas de validación (P1 a P5) y generado las metas para tus objetivos en la Hoja 11.")
+else:
+    # --- ENCABEZADO GLOBAL DE LA TABLA ---
+    st.markdown("""
+        <div class="header-global">
+            <div style="flex: 1.2;">NIVEL</div>
+            <div style="flex: 2;">RESUMEN NARRATIVO</div>
+            <div style="flex: 1.5;">INDICADOR</div>
+            <div style="flex: 1;">META</div>
+            <div style="flex: 1.5;">SUPUESTOS</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    for fila in datos_reales:
+        conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#64748b", "bg": "#f8fafc"})
+        
+        st.markdown(f"""
+            <div class="card-mml" style="border-left: 6px solid {conf['color']}; background-color: {conf['bg']};">
+                <div style="display: flex; flex-direction: row; gap: 15px; align-items: center;">
+                    <div style="flex: 1.2;">
+                        <div class="tipo-badge" style="background-color: {conf['color']};">{fila['tipo']}</div>
+                    </div>
+                    <div style="flex: 2;" class="col-content"><b>{fila['objetivo']}</b></div>
+                    <div style="flex: 1.5;" class="col-content">{fila['indicador']}</div>
+                    <div style="flex: 1;" class="col-content text-center">{fila['meta']}</div>
+                    <div style="flex: 1.5;" class="col-content">{fila['supuesto']}</div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
