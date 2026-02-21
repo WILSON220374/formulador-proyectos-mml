@@ -120,14 +120,12 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-# Hoja 15, 8, 9, 10
 plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
 justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
 loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
 loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
 loc_accesibilidad = st.session_state.get('loc_accesibilidad', 'No se ha registrado accesibilidad.')
 mapa_area = st.session_state.get('mapa_area_estudio', None) 
-# Nuevas fotos del mapa (Hoja 9)
 foto_area_1 = st.session_state.get('foto_area_1', None)
 foto_area_2 = st.session_state.get('foto_area_2', None)
 
@@ -136,23 +134,19 @@ df_magnitud = st.session_state.get('df_magnitud_problema', None)
 desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
 antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
-# Datos Hoja 9 (Población)
 df_poblacion_general = st.session_state.get('df_poblacion_general', None)
 df_pob_sexo = st.session_state.get('df_pob_sexo', None)
 df_pob_edad = st.session_state.get('df_pob_edad', None)
 analisis_poblacion = st.session_state.get('analisis_poblacion', 'No se ha registrado análisis de población.')
 
-# Datos Hoja 3 (Participantes)
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
 df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
 df_analisis_participantes = st.session_state.get('df_analisis_participantes', None)
 
-# Datos Hoja 7 (Objetivos)
 arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
 objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
 objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
 
-# Datos Hoja de Alternativas
 alternativas_consolidadas = st.session_state.get('alternativas_consolidadas', 'No se han registrado alternativas consolidadas.')
 df_evaluacion_alt = st.session_state.get('df_evaluacion_alt', None)
 alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No se ha seleccionado ninguna alternativa.')
@@ -175,7 +169,9 @@ def agregar_tabla_word(doc, df):
             for i, item in enumerate(row):
                 row_cells[i].text = str(item)
     else:
-        doc.add_paragraph("No se registraron datos en esta tabla.", style='Italic')
+        # CORRECCIÓN AQUÍ: Evitamos usar "style='Italic'" y aplicamos la cursiva directamente
+        p = doc.add_paragraph()
+        p.add_run("No se registraron datos en esta tabla.").italic = True
 
 def generar_word():
     doc = Document()
@@ -374,7 +370,7 @@ def generar_word():
                 p_f2.add_run().add_picture(io.BytesIO(foto_area_2.getvalue()), width=Inches(4.5))
             except: pass
 
-    # 7. POBLACIÓN (NUEVO)
+    # 7. POBLACIÓN 
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     
@@ -387,7 +383,7 @@ def generar_word():
     doc.add_heading("Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # 8. PARTICIPANTES (NUEVO)
+    # 8. PARTICIPANTES
     doc.add_heading("8. Análisis de Participantes", level=1)
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
@@ -396,7 +392,7 @@ def generar_word():
     doc.add_heading("Análisis de Participantes", level=2)
     agregar_tabla_word(doc, df_analisis_participantes)
 
-    # 9. OBJETIVOS (NUEVO)
+    # 9. OBJETIVOS
     doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
     if arbol_objetivos_img is not None:
         try:
@@ -412,7 +408,7 @@ def generar_word():
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     doc.add_paragraph(str(objetivos_especificos))
 
-    # 10. ALTERNATIVAS (NUEVO)
+    # 10. ALTERNATIVAS
     doc.add_heading("10. Alternativas", level=1)
     doc.add_heading("Alternativas Consolidadas", level=2)
     doc.add_paragraph(str(alternativas_consolidadas))
@@ -421,19 +417,16 @@ def generar_word():
     agregar_tabla_word(doc, df_evaluacion_alt)
     
     doc.add_heading("Alternativa Seleccionada", level=2)
-    # Crear el recuadro verde con la alternativa ganadora
     t_verde = doc.add_table(rows=1, cols=1)
     celda = t_verde.cell(0, 0)
     celda.text = str(alternativa_seleccionada)
     
-    # Pintar la celda de verde claro
     shading_elm = OxmlElement('w:shd')
     shading_elm.set(qn('w:val'), 'clear')
     shading_elm.set(qn('w:color'), 'auto')
-    shading_elm.set(qn('w:fill'), 'E2F0D9') # Color verde pastel (Hex: E2F0D9)
+    shading_elm.set(qn('w:fill'), 'E2F0D9') 
     celda._tc.get_or_add_tcPr().append(shading_elm)
     
-    # Poner la letra en negrita para resaltarlo más
     for paragraph in celda.paragraphs:
         for run in paragraph.runs:
             run.bold = True
@@ -458,3 +451,4 @@ with col_btn1:
     st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Proyecto_Formulado.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
     st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
+    
