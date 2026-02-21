@@ -21,20 +21,8 @@ st.markdown("""
         min-height: 50px; line-height: 1.5;
     }
     
-    /* Autoajuste general para text areas */
     .stTextArea textarea {
         min-height: 100px;
-    }
-    
-    /* ESTILO VISTOSO PARA EL NOMBRE DEL PROYECTO */
-    .proyecto-destacado textarea {
-        font-size: 1.3rem !important;
-        font-weight: 700 !important;
-        color: #1E3A8A !important;
-        text-align: center !important;
-        background-color: #EEF2FF !important;
-        border: 2px solid #2563EB !important;
-        border-radius: 10px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -51,7 +39,7 @@ with col_img:
 
 st.divider()
 
-# --- LÓGICA DE EXTRACCIÓN DEL OBJETIVO GENERAL (REAL) ---
+# --- LÓGICA DE EXTRACCIÓN DEL OBJETIVO GENERAL ---
 mapa = st.session_state.get("indicadores_mapa_objetivo", {})
 seleccion = st.session_state.get("seleccion_indicadores", {})
 obj_general = "No definido (Complete la Hoja 11)"
@@ -69,6 +57,18 @@ for kmap, k in mapa.items():
             obj_general = partes[1]
             break
 
+# =========================================================
+# 🎯 OBJETIVO GENERAL (AHORA EN LA PARTE SUPERIOR COMO TÍTULO)
+# =========================================================
+st.markdown('<div class="header-tabla" style="font-size: 1.3rem; text-align: center;">🎯 OBJETIVO GENERAL DEL PROYECTO</div>', unsafe_allow_html=True)
+st.markdown(f"""
+    <div style="background-color: #1E3A8A; color: white; padding: 20px; border-radius: 10px; text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        {obj_general}
+    </div>
+""", unsafe_allow_html=True)
+
+st.divider()
+
 # --- SECCIÓN 1: SECTOR Y PROGRAMA ---
 st.markdown('<div class="header-tabla">🏢 1. Sector y Programa de Inversión</div>', unsafe_allow_html=True)
 col_s1, col_s2 = st.columns(2)
@@ -82,31 +82,37 @@ st.divider()
 # --- SECCIÓN 2: MATRIZ DE PRODUCTO ---
 st.markdown('<div class="header-tabla">📦 2. Producto Principal</div>', unsafe_allow_html=True)
 
-st.markdown(f'<div class="readonly-label">Objetivo General</div><div class="readonly-box">{obj_general}</div><br>', unsafe_allow_html=True)
-
+# La tabla ya no tiene el objetivo arriba, se muestra directamente
 columnas_producto = ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
 df_producto_vacio = pd.DataFrame(columns=columnas_producto)
 st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# --- SECCIÓN 3: NOMBRE DEL PROYECTO (DESTACADO) ---
+# --- SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA GIGANTE) ---
 st.markdown('<div class="header-tabla">🏷️ 3. Nombre del Proyecto</div>', unsafe_allow_html=True)
 
-# Inyectamos el estilo a través de un contenedor
-st.markdown('<div class="proyecto-destacado">', unsafe_allow_html=True)
 nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto", 
                                value=st.session_state.get('nombre_proyecto_libre', ""),
                                placeholder="Ej: Construcción de la planta de tratamiento de aguas residuales en el municipio...", 
-                               height=120)
-st.markdown('</div>', unsafe_allow_html=True)
+                               height=100)
+
+# Cartel de Vista Previa Destacado (Se actualiza al escribir y dar clic fuera)
+if nombre_proyecto.strip():
+    st.markdown(f"""
+        <div style="margin-top: 15px; padding: 25px; border: 3px dashed #2563EB; border-radius: 12px; background-color: #EFF6FF; text-align: center;">
+            <div style="color: #64748B; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px;">Vista del Título del Proyecto</div>
+            <span style="font-size: 1.8rem; font-weight: 900; color: #1E3A8A; text-transform: uppercase; line-height: 1.3;">
+                {nombre_proyecto}
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
 # --- SECCIÓN 4: PLAN DE DESARROLLO (APILADO) ---
 st.markdown('<div class="header-tabla">🗺️ 4. Plan de Desarrollo</div>', unsafe_allow_html=True)
 
-# Ahora están uno debajo del otro
 nombre_plan = st.text_input("Nombre del Plan", value=st.session_state.get('plan_nombre', ""), placeholder="Ej: Plan Nacional de Desarrollo...")
 eje_plan = st.text_input("Eje", value=st.session_state.get('plan_eje', ""), placeholder="Ej: Equidad y crecimiento...")
 programa_plan = st.text_input("Programa", value=st.session_state.get('plan_programa', ""), placeholder="Ej: Saneamiento básico...")
