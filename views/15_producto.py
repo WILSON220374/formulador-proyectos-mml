@@ -58,7 +58,7 @@ for kmap, k in mapa.items():
             break
 
 # =========================================================
-# 🎯 OBJETIVO GENERAL (AHORA EN LA PARTE SUPERIOR COMO TÍTULO)
+# 🎯 OBJETIVO GENERAL (TÍTULO AZUL DESTACADO)
 # =========================================================
 st.markdown('<div class="header-tabla" style="font-size: 1.3rem; text-align: center;">🎯 OBJETIVO GENERAL DEL PROYECTO</div>', unsafe_allow_html=True)
 st.markdown(f"""
@@ -82,14 +82,15 @@ st.divider()
 # --- SECCIÓN 2: MATRIZ DE PRODUCTO ---
 st.markdown('<div class="header-tabla">📦 2. Producto Principal</div>', unsafe_allow_html=True)
 
-# La tabla ya no tiene el objetivo arriba, se muestra directamente
 columnas_producto = ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
 df_producto_vacio = pd.DataFrame(columns=columnas_producto)
 st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# --- SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA GIGANTE) ---
+# =========================================================
+# 🏷️ SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA VERDE)
+# =========================================================
 st.markdown('<div class="header-tabla">🏷️ 3. Nombre del Proyecto</div>', unsafe_allow_html=True)
 
 nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto", 
@@ -97,12 +98,12 @@ nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto",
                                placeholder="Ej: Construcción de la planta de tratamiento de aguas residuales en el municipio...", 
                                height=100)
 
-# Cartel de Vista Previa Destacado (Se actualiza al escribir y dar clic fuera)
+# Cartel de Vista Previa Destacado (Verde)
 if nombre_proyecto.strip():
     st.markdown(f"""
-        <div style="margin-top: 15px; padding: 25px; border: 3px dashed #2563EB; border-radius: 12px; background-color: #EFF6FF; text-align: center;">
-            <div style="color: #64748B; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px;">Vista del Título del Proyecto</div>
-            <span style="font-size: 1.8rem; font-weight: 900; color: #1E3A8A; text-transform: uppercase; line-height: 1.3;">
+        <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Título del Proyecto</div>
+            <span style="font-size: 1.5rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
         </div>
