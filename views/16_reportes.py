@@ -133,10 +133,8 @@ _plan_programa = str(st.session_state.get('plan_programa', '')).strip()
 
 if any([_plan_nombre, _plan_eje, _plan_programa]):
     plan_desarrollo = (
-        f"Nombre del Plan: {_plan_nombre if _plan_nombre else 'No definido'}
-"
-        f"Eje: {_plan_eje if _plan_eje else 'No definido'}
-"
+        f"Nombre del Plan: {_plan_nombre if _plan_nombre else 'No definido'}\n"
+        f"Eje: {_plan_eje if _plan_eje else 'No definido'}\n"
         f"Programa: {_plan_programa if _plan_programa else 'No definido'}"
     )
 else:
