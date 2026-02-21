@@ -7,18 +7,6 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 # 1. Asegurar persistencia 
 inicializar_session()
 
-# --- FUNCIÓN MATEMÁTICA PARA AUTOAJUSTAR ALTURA DE TEXTO ---
-def calcular_altura(texto, min_height=120):
-    if not texto:
-        return min_height
-    lineas = texto.split('\n')
-    num_lineas = len(lineas)
-    for linea in lineas:
-        # Asumimos que aproximadamente cada 80 caracteres se crea una nueva línea visual
-        num_lineas += len(linea) // 80 
-    # Cada línea suma unos 25 píxeles aprox.
-    return max(min_height, num_lineas * 25)
-
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
@@ -91,23 +79,21 @@ with st.container(border=True):
 
 st.divider()
 
-# --- SECCIÓN 2: NECESIDADES (CON AUTOAJUSTE DE ALTURA) ---
+# --- SECCIÓN 2: NECESIDADES (ALTURA FIJA AMPLIA) ---
 st.markdown('<div class="header-tabla">🔍 Análisis de la Necesidad</div>', unsafe_allow_html=True)
 col_a, col_b = st.columns(2)
 
-# Recuperar valores actuales para calcular la altura necesaria
-val_desc = st.session_state.get('desc_objetivo_general', "")
-val_nec = st.session_state.get('necesidad_atender', "")
-
 with col_a: 
+    # Altura fija de 250px para dar mucho espacio de lectura
     desc_objetivo = st.text_area("Descripción del objetivo general", 
-                                 value=val_desc, 
-                                 height=calcular_altura(val_desc),
+                                 value=st.session_state.get('desc_objetivo_general', ""), 
+                                 height=250,
                                  placeholder="Describa el objetivo general...")
 with col_b: 
+    # Altura fija de 250px
     nec_atender = st.text_area("Necesidad a atender", 
-                               value=val_nec, 
-                               height=calcular_altura(val_nec),
+                               value=st.session_state.get('necesidad_atender', ""), 
+                               height=250,
                                placeholder="¿Qué necesidad principal se está atendiendo?")
 
 st.divider()
