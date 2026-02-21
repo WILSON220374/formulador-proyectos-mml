@@ -89,7 +89,7 @@ st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 st.divider()
 
 # =========================================================
-# 🏷️ SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA VERDE)
+# 🏷️ SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA VERDE ESMERALDA)
 # =========================================================
 st.markdown('<div class="header-tabla">🏷️ 3. Nombre del Proyecto</div>', unsafe_allow_html=True)
 
@@ -98,11 +98,10 @@ nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto",
                                placeholder="Ej: Construcción de la planta de tratamiento de aguas residuales en el municipio...", 
                                height=100)
 
-# Cartel de Vista Previa Destacado (Verde)
+# Cartel de Vista Previa Destacado (Verde Esmeralda sin el subtítulo)
 if nombre_proyecto.strip():
     st.markdown(f"""
-        <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Título del Proyecto</div>
+        <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #059669; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <span style="font-size: 1.5rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
