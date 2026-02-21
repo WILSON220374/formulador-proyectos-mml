@@ -1,4 +1,4 @@
-iimport streamlit as st
+import streamlit as st
 import os
 import io
 import pandas as pd
@@ -126,7 +126,22 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
+# 15. Producto -> Plan de desarrollo (Nombre del plan / Eje / Programa)
+_plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
+_plan_eje = str(st.session_state.get('plan_eje', '')).strip()
+_plan_programa = str(st.session_state.get('plan_programa', '')).strip()
+
+if any([_plan_nombre, _plan_eje, _plan_programa]):
+    plan_desarrollo = (
+        f"Nombre del Plan: {_plan_nombre if _plan_nombre else 'No definido'}
+"
+        f"Eje: {_plan_eje if _plan_eje else 'No definido'}
+"
+        f"Programa: {_plan_programa if _plan_programa else 'No definido'}"
+    )
+else:
+    # Compatibilidad: si existía una versión anterior que guardaba el texto completo
+    plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
 justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
 loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
 loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
