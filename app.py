@@ -193,7 +193,7 @@ pg = st.navigation({
     "Configuración": [
         st.Page("views/0_equipo.py", title="Equipo", icon="👥")
     ],
-    "Fase I: Identificación": [
+    "**Fase I: Identificación**": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
         st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
@@ -215,6 +215,7 @@ pg = st.navigation({
         st.Page("views/13_matriz_marco_logico.py", title="13. Matriz Marco Lógico", icon="🧩"),
         st.Page("views/14_necesidad.py", title="14. Necesidad", icon="📌"),
         st.Page("views/15_producto.py", title="15. Producto", icon="🧾"),
+        st.Page("views/16_reportes.py", title="16. Reportes", icon="📄"),
     ],
 })
 
