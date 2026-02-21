@@ -78,7 +78,7 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-# 3. Datos de los Formuladores (Extraídos automáticamente de Hoja 1)
+# 3. Datos de los Formuladores
 nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
 if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
     df = st.session_state["df_equipo"]
@@ -86,15 +86,13 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
         nombres_lista = df["Nombre"].dropna().astype(str).tolist()
         nombres_validos = [n for n in nombres_lista if n.strip() != ""]
         if nombres_validos:
-            # Para el Word, los separamos con un salto de línea para que quede tipo lista
             nombres_formuladores = "\n".join(nombres_validos) 
-            # Para la pantalla, los separamos con comas
             nombres_display = ", ".join(nombres_validos) 
 
 st.write("**Presentado por (Equipo Formulador):**")
 st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
 
-# 4. Datos a digitar (Entidad, División, Lugar y Año)
+# 4. Datos a digitar
 col_d1, col_d2 = st.columns(2)
 with col_d1:
     entidad_formulo = st.text_input("Entidad que formula el proyecto", placeholder="Ej: Alcaldía de Tunja")
@@ -123,7 +121,7 @@ with st.container(border=True):
 st.divider()
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN WORD (SOLO PORTADA)
+# ⚙️ MOTOR DE GENERACIÓN WORD (SOLO PORTADA - AJUSTADA)
 # ==========================================
 def generar_word():
     doc = Document()
@@ -136,20 +134,22 @@ def generar_word():
         p_logo = doc.add_paragraph()
         p_logo.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         r_logo = p_logo.add_run()
-        r_logo.add_picture(logo_entidad, width=Inches(1.5))
+        r_logo.add_picture(logo_entidad, width=Inches(1.2)) # Logo un poco más pequeño
     else:
-        doc.add_paragraph("\n")
+        # Menos espacio si no hay logo
+        p_logo = doc.add_paragraph()
+        p_logo.add_run().font.size = Pt(1) 
     
-    doc.add_paragraph("\n")
+    doc.add_paragraph("\n") # Solo un Enter
     
     # 2. NOMBRE DEL PROYECTO (Centrado y Grande)
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
     r_titulo.bold = True
-    r_titulo.font.size = Pt(22)
+    r_titulo.font.size = Pt(20) # Reduje un par de puntos la letra
     
-    doc.add_paragraph("\n\n")
+    doc.add_paragraph("\n") # Solo un Enter
     
     # 3. IMAGEN CENTRAL (Centrada)
     if img_portada is not None:
@@ -157,9 +157,9 @@ def generar_word():
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r_img = p_img.add_run()
-        r_img.add_picture(img_portada, width=Inches(4.5))
+        r_img.add_picture(img_portada, width=Inches(3.8)) # Imagen ajustada para no consumir tanto alto
         
-    doc.add_paragraph("\n\n")
+    doc.add_paragraph("\n") # Solo un Enter
     
     # 4. ENTIDAD QUE FORMULA (Centrado)
     if entidad_formulo:
@@ -169,7 +169,7 @@ def generar_word():
         r_entidad.bold = True
         r_entidad.font.size = Pt(14)
         
-    # 5. DIVISIÓN (Centrado)
+    # 5. DIVISIÓN (Centrado) - Sin espacios extra entre Entidad y División
     if division:
         p_div = doc.add_paragraph()
         p_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -177,23 +177,21 @@ def generar_word():
         r_div.bold = True
         r_div.font.size = Pt(12)
         
-    doc.add_paragraph("\n")
+    doc.add_paragraph("\n") # Solo un Enter
     
     # 6. PRESENTADO POR (Centrado)
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Título "Presentado por:"
     r_presentado_lbl = p_presentado.add_run("Presentado por:\n")
     r_presentado_lbl.font.size = Pt(11)
     r_presentado_lbl.italic = True
     
-    # Nombres de los formuladores
     r_autores = p_presentado.add_run(nombres_formuladores)
     r_autores.bold = True
     r_autores.font.size = Pt(12)
     
-    doc.add_paragraph("\n\n")
+    doc.add_paragraph("\n") # Solo un Enter
     
     # 7. LUGAR Y AÑO (Centrado al final de la página)
     p_pie = doc.add_paragraph()
