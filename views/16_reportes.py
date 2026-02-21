@@ -49,21 +49,36 @@ st.divider()
 # ==========================================
 st.markdown('<div class="header-tabla">📘 1. Configuración de la Portada</div>', unsafe_allow_html=True)
 
-# 1. Traer el Nombre del Proyecto de la Hoja 15
-nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'AÚN NO SE HA DEFINIDO EL NOMBRE DEL PROYECTO (Vaya a la Hoja 15)')
+# 1. Traer el Nombre del Proyecto
+nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'ESTUDIOS PTAR') # Usando el de tu ejemplo si no hay nada
 
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
 
-# 2. Carga de Imágenes
-col_img1, col_img2 = st.columns(2)
-with col_img1:
+# 2. Carga de Imágenes (Separada de la visualización)
+col_up1, col_up2 = st.columns(2)
+with col_up1:
     st.info("🖼️ **Logo de la Entidad** (Irá en la esquina superior derecha)")
     logo_entidad = st.file_uploader("Sube el logo", type=["png", "jpg", "jpeg"], key="logo_portada")
 
-with col_img2:
+with col_up2:
     st.info("📸 **Imagen Central** (Irá en el centro de la portada)")
     img_portada = st.file_uploader("Sube la imagen central", type=["png", "jpg", "jpeg"], key="img_portada")
+
+# 2.1 VISTA PREVIA DE LAS IMÁGENES (Ahora en su propio espacio)
+if logo_entidad is not None or img_portada is not None:
+    st.markdown("<p style='color: #1E3A8A; font-weight: bold;'>🔍 Vista previa de imágenes cargadas:</p>", unsafe_allow_html=True)
+    col_prev1, col_prev2 = st.columns(2)
+    
+    with col_prev1:
+        if logo_entidad is not None:
+            # Dibujamos directamente el archivo cargado
+            st.image(logo_entidad, width=150, caption="Logo listo")
+            
+    with col_prev2:
+        if img_portada is not None:
+            # Dibujamos directamente el archivo cargado
+            st.image(img_portada, width=300, caption="Imagen Central lista")
 
 st.write("") # Espacio
 
@@ -92,14 +107,14 @@ with st.container(border=True):
 st.divider()
 
 # ==========================================
-# 🛑 TEXTOS DE PRUEBA INTERNOS (Para que los botones funcionen)
+# 🛑 TEXTOS DE PRUEBA INTERNOS
 # ==========================================
 texto_prob_prueba = "Texto de prueba: La alta tasa de accidentalidad en la vía principal debido a la falta de mantenimiento."
 texto_sintomas_prueba = "Texto de prueba: 1. Incremento en tiempos de traslado. 2. Daños constantes a los vehículos."
 texto_causas_prueba = "Texto de prueba: 1. Deterioro de la capa asfáltica. 2. Ausencia de mantenimiento."
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN WORD (Temporal sin imágenes)
+# ⚙️ MOTORES DE GENERACIÓN (Aún sin conectar las fotos al papel)
 # ==========================================
 def generar_word():
     doc = Document()
@@ -125,9 +140,6 @@ def generar_word():
     buffer.seek(0)
     return buffer
 
-# ==========================================
-# ⚙️ MOTOR DE GENERACIÓN PDF (Temporal sin imágenes)
-# ==========================================
 def generar_pdf():
     pdf = FPDF()
     pdf.add_page()
