@@ -1,13 +1,12 @@
 import streamlit as st
 import os
 import io
-from datetime import datetime
 from session_state import inicializar_session
 
 # --- IMPORTACIÓN DE LIBRERÍAS (WORD Y PDF) ---
 try:
     from docx import Document
-    from docx.shared import Pt
+    from docx.shared import Pt, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 except ImportError:
     st.error("⚠️ Falta la librería para Word. Agrega 'python-docx' a tu requirements.txt")
@@ -49,13 +48,13 @@ st.divider()
 # ==========================================
 st.markdown('<div class="header-tabla">📘 1. Configuración de la Portada</div>', unsafe_allow_html=True)
 
-# 1. Traer el Nombre del Proyecto
-nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'ESTUDIOS PTAR') # Usando el de tu ejemplo si no hay nada
+# 1. Traer el Nombre del Proyecto (de la hoja 15)
+nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROYECTO NO DEFINIDO') 
 
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
 
-# 2. Carga de Imágenes (Separada de la visualización)
+# 2. Carga de Imágenes (CON VISTA PREVIA)
 col_up1, col_up2 = st.columns(2)
 with col_up1:
     st.info("🖼️ **Logo de la Entidad** (Irá en la esquina superior derecha)")
@@ -65,22 +64,17 @@ with col_up2:
     st.info("📸 **Imagen Central** (Irá en el centro de la portada)")
     img_portada = st.file_uploader("Sube la imagen central", type=["png", "jpg", "jpeg"], key="img_portada")
 
-# 2.1 VISTA PREVIA DE LAS IMÁGENES (Ahora en su propio espacio)
 if logo_entidad is not None or img_portada is not None:
     st.markdown("<p style='color: #1E3A8A; font-weight: bold;'>🔍 Vista previa de imágenes cargadas:</p>", unsafe_allow_html=True)
     col_prev1, col_prev2 = st.columns(2)
-    
     with col_prev1:
         if logo_entidad is not None:
-            # Dibujamos directamente el archivo cargado
             st.image(logo_entidad, width=150, caption="Logo listo")
-            
     with col_prev2:
         if img_portada is not None:
-            # Dibujamos directamente el archivo cargado
             st.image(img_portada, width=300, caption="Imagen Central lista")
 
-st.write("") # Espacio
+st.write("") 
 
 # 3. Datos a digitar
 col_d1, col_d2, col_d3 = st.columns([2, 2, 1])
@@ -94,12 +88,13 @@ with col_d3:
 st.divider()
 
 # ==========================================
-# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO
+# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO (VISUAL SOLAMENTE)
 # ==========================================
 st.markdown('<div class="header-tabla">📑 2. Selección de Contenido</div>', unsafe_allow_html=True)
 
 with st.container(border=True):
     st.markdown("**Hoja: Diagnóstico (Árbol de Problemas)**")
+    # Estos botones están aquí de adorno por ahora, no los conectaremos al Word en esta prueba.
     chk_problema = st.checkbox("El Problema Central", value=True)
     chk_sintomas = st.checkbox("Síntomas (Efectos)", value=True)
     chk_causas = st.checkbox("Causas Inmediatas", value=True)
@@ -107,34 +102,75 @@ with st.container(border=True):
 st.divider()
 
 # ==========================================
-# 🛑 TEXTOS DE PRUEBA INTERNOS
-# ==========================================
-texto_prob_prueba = "Texto de prueba: La alta tasa de accidentalidad en la vía principal debido a la falta de mantenimiento."
-texto_sintomas_prueba = "Texto de prueba: 1. Incremento en tiempos de traslado. 2. Daños constantes a los vehículos."
-texto_causas_prueba = "Texto de prueba: 1. Deterioro de la capa asfáltica. 2. Ausencia de mantenimiento."
-
-# ==========================================
-# ⚙️ MOTORES DE GENERACIÓN (Aún sin conectar las fotos al papel)
+# ⚙️ MOTOR DE GENERACIÓN WORD (SOLO PORTADA)
 # ==========================================
 def generar_word():
     doc = Document()
-    titulo = doc.add_heading("Reporte de Formulación de Proyecto", 0)
-    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
     
+    # --- CONSTRUCCIÓN DE LA PORTADA ---
+    
+    # 1. LOGO (Alineado a la derecha)
+    if logo_entidad is not None:
+        logo_entidad.seek(0)
+        p_logo = doc.add_paragraph()
+        p_logo.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        r_logo = p_logo.add_run()
+        r_logo.add_picture(logo_entidad, width=Inches(1.5)) # 1.5 pulgadas (pequeño)
+    else:
+        doc.add_paragraph("\n") # Si no suben logo, dejamos un espacio vacío
+    
+    doc.add_paragraph("\n\n") # Espacios hacia abajo
+    
+    # 2. NOMBRE DEL PROYECTO (Centrado y Grande)
+    p_titulo = doc.add_paragraph()
+    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_titulo = p_titulo.add_run(nombre_proyecto.upper())
+    r_titulo.bold = True
+    r_titulo.font.size = Pt(22)
+    
+    doc.add_paragraph("\n\n")
+    
+    # 3. IMAGEN CENTRAL (Centrada)
+    if img_portada is not None:
+        img_portada.seek(0)
+        p_img = doc.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_img = p_img.add_run()
+        r_img.add_picture(img_portada, width=Inches(4.5)) # 4.5 pulgadas (grande)
+        
+    doc.add_paragraph("\n\n")
+    
+    # 4. ENTIDAD QUE FORMULA (Centrado)
+    if entidad_formulo:
+        p_entidad = doc.add_paragraph()
+        p_entidad.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_entidad = p_entidad.add_run(entidad_formulo.upper())
+        r_entidad.bold = True
+        r_entidad.font.size = Pt(14)
+        
+    doc.add_paragraph("\n\n")
+    
+    # 5. LUGAR Y AÑO (Centrado al final de la página)
+    p_pie = doc.add_paragraph()
+    p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    texto_lugar = lugar_presentacion if lugar_presentacion else ""
+    texto_anio = anio_presentacion if anio_presentacion else ""
+    
+    # Unimos el lugar y el año con un salto de línea en el medio
+    r_pie = p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip())
+    r_pie.bold = True
+    r_pie.font.size = Pt(12)
+    
+    # --- FIN DE LA PORTADA (Salto a la página 2) ---
     doc.add_page_break()
-    doc.add_heading("1. Diagnóstico y Problema", level=1)
     
-    if chk_problema:
-        doc.add_heading("1.1 El Problema Central", level=2)
-        doc.add_paragraph(texto_prob_prueba)
-    if chk_sintomas:
-        doc.add_heading("1.2 Síntomas (Efectos)", level=2)
-        doc.add_paragraph(texto_sintomas_prueba)
-    if chk_causas:
-        doc.add_heading("1.3 Causas Inmediatas", level=2)
-        doc.add_paragraph(texto_causas_prueba)
+    # Mensaje de prueba para la página 2 (Demostrando que el resto está desconectado)
+    p_prueba = doc.add_paragraph()
+    p_prueba.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_prueba = p_prueba.add_run("(El resto del contenido está desconectado para esta prueba. Aquí iniciará el proyecto.)")
+    r_prueba.italic = True
 
+    # Guardar y preparar para la descarga
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -144,10 +180,7 @@ def generar_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("helvetica", "B", 16)
-    pdf.cell(0, 10, "Reporte de Formulacion de Proyecto", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(0, 10, "1. Diagnostico y Problema", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, "Reporte en PDF (Aún en construcción)", align="C", new_x="LMARGIN", new_y="NEXT")
     return pdf.output()
 
 # --- 3. BOTONES DE DESCARGA ---
@@ -155,6 +188,6 @@ st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_
 
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
-    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Prueba.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Solo_Portada.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
     st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
