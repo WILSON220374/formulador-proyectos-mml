@@ -196,6 +196,8 @@ def inicializar_session():
         st.session_state['df_calificaciones'] = pd.DataFrame()
     if 'arbol_objetivos_final' not in st.session_state:
         st.session_state['arbol_objetivos_final'] = {}
+    if 'justificacion_arbol_objetivos_final' not in st.session_state:
+        st.session_state['justificacion_arbol_objetivos_final'] = ""
     if 'arbol_problemas_final' not in st.session_state:
         st.session_state['arbol_problemas_final'] = {}
     if 'descripcion_zona' not in st.session_state:
@@ -294,6 +296,7 @@ def cargar_datos_nube(user_id):
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
+            st.session_state['justificacion_arbol_objetivos_final'] = d.get('justificacion_arbol_objetivos_final', "")
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             st.session_state['descripcion_zona'] = d.get('zona_detallada', {})
 
@@ -389,6 +392,7 @@ def guardar_datos_nube():
             "calificaciones": st.session_state.get('df_calificaciones', pd.DataFrame()).to_dict(orient="records"),
 
             "arbol_f": st.session_state.get('arbol_objetivos_final', {}),
+            "justificacion_arbol_objetivos_final": st.session_state.get('justificacion_arbol_objetivos_final', ""),
             "arbol_p_f": st.session_state.get('arbol_problemas_final', {}),
             "zona_detallada": st.session_state.get('descripcion_zona', {}),
 
