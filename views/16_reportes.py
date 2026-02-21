@@ -50,16 +50,14 @@ st.divider()
 # ==========================================
 st.markdown('<div class="header-tabla">📘 1. Configuración de la Portada</div>', unsafe_allow_html=True)
 
-# 1. Traer el Nombre del Proyecto (de la hoja 15)
 nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROYECTO NO DEFINIDO') 
 
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
 
-# 2. Carga de Imágenes
 col_up1, col_up2 = st.columns(2)
 with col_up1:
-    st.info("🖼️ **Logo de la Entidad** (Irá en la esquina superior derecha)")
+    st.info("🖼️ **Logo de la Entidad** (Irá en la portada y en los encabezados)")
     logo_entidad = st.file_uploader("Sube el logo", type=["png", "jpg", "jpeg"], key="logo_portada")
 
 with col_up2:
@@ -78,7 +76,6 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-# 3. Datos de los Formuladores
 nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
 if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
     df = st.session_state["df_equipo"]
@@ -92,7 +89,6 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
 st.write("**Presentado por (Equipo Formulador):**")
 st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
 
-# 4. Datos a digitar
 col_d1, col_d2 = st.columns(2)
 with col_d1:
     entidad_formulo = st.text_input("Entidad que formula el proyecto", placeholder="Ej: Alcaldía de Tunja")
@@ -108,7 +104,7 @@ with col_d4:
 st.divider()
 
 # ==========================================
-# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO (VISUAL SOLAMENTE)
+# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO
 # ==========================================
 st.markdown('<div class="header-tabla">📑 2. Selección de Contenido</div>', unsafe_allow_html=True)
 
@@ -121,95 +117,115 @@ with st.container(border=True):
 st.divider()
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN WORD (SOLO PORTADA - AJUSTADA)
+# ⚙️ MOTOR DE GENERACIÓN WORD
 # ==========================================
 def generar_word():
     doc = Document()
     
-    # --- CONSTRUCCIÓN DE LA PORTADA EN ORDEN JERÁRQUICO ---
+    # ---------------------------------------------------------
+    # CONFIGURACIÓN DEL ENCABEZADO (Páginas de contenido)
+    # ---------------------------------------------------------
+    section = doc.sections[0]
+    section.different_first_page_header = True # La portada NO tendrá encabezado
     
-    # 1. LOGO (Alineado a la derecha)
+    # Accedemos al encabezado de las páginas siguientes
+    header = section.header
+    
+    # Creamos una tabla invisible en el encabezado (1 fila, 2 columnas)
+    htable = header.add_table(rows=1, cols=2, width=Inches(6))
+    htable.autofit = False
+    htable.columns[0].width = Inches(4.5) # Espacio ancho para el nombre
+    htable.columns[1].width = Inches(1.5) # Espacio corto para el logo
+    
+    # Celda Izquierda: Nombre del proyecto
+    h_izq = htable.cell(0, 0).paragraphs[0]
+    h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    r_hizq = h_izq.add_run(nombre_proyecto.upper())
+    r_hizq.font.size = Pt(9)
+    r_hizq.bold = True
+    
+    # Celda Derecha: Logo de la entidad
+    h_der = htable.cell(0, 1).paragraphs[0]
+    h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    if logo_entidad is not None:
+        logo_entidad.seek(0)
+        r_hder = h_der.add_run()
+        r_hder.add_picture(logo_entidad, width=Inches(0.6)) # Logo pequeñito para el encabezado
+    
+    # ---------------------------------------------------------
+    # 1. CONSTRUCCIÓN DE LA PORTADA (Página 1)
+    # ---------------------------------------------------------
     if logo_entidad is not None:
         logo_entidad.seek(0)
         p_logo = doc.add_paragraph()
         p_logo.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        r_logo = p_logo.add_run()
-        r_logo.add_picture(logo_entidad, width=Inches(1.2)) # Logo un poco más pequeño
+        p_logo.add_run().add_picture(logo_entidad, width=Inches(1.2))
     else:
-        # Menos espacio si no hay logo
-        p_logo = doc.add_paragraph()
-        p_logo.add_run().font.size = Pt(1) 
+        doc.add_paragraph("\n")
     
-    doc.add_paragraph("\n") # Solo un Enter
+    doc.add_paragraph("\n")
     
-    # 2. NOMBRE DEL PROYECTO (Centrado y Grande)
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
     r_titulo.bold = True
-    r_titulo.font.size = Pt(20) # Reduje un par de puntos la letra
+    r_titulo.font.size = Pt(20)
     
-    doc.add_paragraph("\n") # Solo un Enter
+    doc.add_paragraph("\n")
     
-    # 3. IMAGEN CENTRAL (Centrada)
     if img_portada is not None:
         img_portada.seek(0)
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r_img = p_img.add_run()
-        r_img.add_picture(img_portada, width=Inches(3.8)) # Imagen ajustada para no consumir tanto alto
+        p_img.add_run().add_picture(img_portada, width=Inches(3.8))
         
-    doc.add_paragraph("\n") # Solo un Enter
+    doc.add_paragraph("\n")
     
-    # 4. ENTIDAD QUE FORMULA (Centrado)
     if entidad_formulo:
         p_entidad = doc.add_paragraph()
         p_entidad.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r_entidad = p_entidad.add_run(entidad_formulo.upper())
-        r_entidad.bold = True
-        r_entidad.font.size = Pt(14)
+        p_entidad.add_run(entidad_formulo.upper()).bold = True
         
-    # 5. DIVISIÓN (Centrado) - Sin espacios extra entre Entidad y División
     if division:
         p_div = doc.add_paragraph()
         p_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r_div = p_div.add_run(division.upper())
-        r_div.bold = True
-        r_div.font.size = Pt(12)
+        p_div.add_run(division.upper()).bold = True
         
-    doc.add_paragraph("\n") # Solo un Enter
+    doc.add_paragraph("\n")
     
-    # 6. PRESENTADO POR (Centrado)
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_presentado.add_run("Presentado por:\n").italic = True
+    p_presentado.add_run(nombres_formuladores).bold = True
     
-    r_presentado_lbl = p_presentado.add_run("Presentado por:\n")
-    r_presentado_lbl.font.size = Pt(11)
-    r_presentado_lbl.italic = True
+    doc.add_paragraph("\n")
     
-    r_autores = p_presentado.add_run(nombres_formuladores)
-    r_autores.bold = True
-    r_autores.font.size = Pt(12)
-    
-    doc.add_paragraph("\n") # Solo un Enter
-    
-    # 7. LUGAR Y AÑO (Centrado al final de la página)
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
     texto_anio = anio_presentacion if anio_presentacion else ""
+    p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
     
-    r_pie = p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip())
-    r_pie.bold = True
-    r_pie.font.size = Pt(12)
-    
-    # --- FIN DE LA PORTADA ---
+    # --- FIN DE LA PORTADA (Salto a la página 2) ---
     doc.add_page_break()
     
+    # ---------------------------------------------------------
+    # 2. INICIO DE LAS HOJAS DE CONTENIDO (Página 2 en adelante)
+    # ---------------------------------------------------------
+    
+    # TÍTULO PRINCIPAL DE LA PRIMERA HOJA DE CONTENIDO
+    p_tit_cont = doc.add_paragraph()
+    p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
+    r_t_cont.bold = True
+    r_t_cont.font.size = Pt(16)
+    
+    doc.add_paragraph("\n") # Espacio antes de iniciar el diagnóstico
+    
+    # Mensaje de prueba
     p_prueba = doc.add_paragraph()
     p_prueba.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r_prueba = p_prueba.add_run("(El resto del contenido está desconectado para esta prueba. Aquí iniciará el proyecto.)")
-    r_prueba.italic = True
+    p_prueba.add_run("(El resto del contenido está desconectado para esta prueba. Aquí iniciará el proyecto.)").italic = True
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -228,6 +244,6 @@ st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_
 
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
-    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Solo_Portada.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Final.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
     st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
