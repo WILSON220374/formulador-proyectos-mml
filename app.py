@@ -20,11 +20,6 @@ st.markdown("""
         font-size: 14px !important;
         text-transform: uppercase;
     }
-
-    /* Oculta el toggle automático View more / View less del sidebar */
-    button[data-testid="stSidebarNavViewButton"]{
-        display: none !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -219,6 +214,7 @@ pg = st.navigation({
         st.Page("views/12_riesgos.py", title="12. Riesgos", icon="⚠️"),
         st.Page("views/13_matriz_marco_logico.py", title="13. Matriz Marco Lógico", icon="🧩"),
         st.Page("views/14_necesidad.py", title="14. Necesidad", icon="📌"),
+        st.Page("views/15_producto.py", title="15. Producto", icon="🧾"),
     ],
 })
 
