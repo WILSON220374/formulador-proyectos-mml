@@ -245,6 +245,27 @@ def inicializar_session():
     if 'tabla_deficit' not in st.session_state:
         st.session_state['tabla_deficit'] = {}
 
+    # --- HOJA 15 (Producto) ---
+    if 'sector_seleccionado' not in st.session_state:
+        st.session_state['sector_seleccionado'] = "Seleccione..."
+    if 'programa_seleccionado' not in st.session_state:
+        st.session_state['programa_seleccionado'] = "Seleccione..."
+    if 'producto_seleccionado' not in st.session_state:
+        st.session_state['producto_seleccionado'] = "Seleccione..."
+    if 'producto_seleccionado_label' not in st.session_state:
+        st.session_state['producto_seleccionado_label'] = "Seleccione..."
+    if 'producto_principal' not in st.session_state:
+        st.session_state['producto_principal'] = {}
+    if 'nombre_proyecto_libre' not in st.session_state:
+        st.session_state['nombre_proyecto_libre'] = ""
+    if 'plan_nombre' not in st.session_state:
+        st.session_state['plan_nombre'] = ""
+    if 'plan_eje' not in st.session_state:
+        st.session_state['plan_eje'] = ""
+    if 'plan_programa' not in st.session_state:
+        st.session_state['plan_programa'] = ""
+
+
     # NUEVO: medios de verificación (Hoja 11 - tabla final)
     if 'medios_verificacion' not in st.session_state:
         st.session_state['medios_verificacion'] = {}
@@ -303,6 +324,17 @@ def cargar_datos_nube(user_id):
             st.session_state['anio_formulacion'] = _safe_int(d.get('anio_formulacion', st.session_state.get('anio_formulacion', 2026)), 2026)
             st.session_state['tabla_deficit'] = _normalize_tabla_deficit(d.get('tabla_deficit', st.session_state.get('tabla_deficit', {})))
 
+
+            # --- HOJA 15 (Producto) ---
+            st.session_state['sector_seleccionado'] = d.get('sector_seleccionado', st.session_state.get('sector_seleccionado', "Seleccione..."))
+            st.session_state['programa_seleccionado'] = d.get('programa_seleccionado', st.session_state.get('programa_seleccionado', "Seleccione..."))
+            st.session_state['producto_seleccionado'] = d.get('producto_seleccionado', st.session_state.get('producto_seleccionado', "Seleccione..."))
+            st.session_state['producto_seleccionado_label'] = d.get('producto_seleccionado_label', st.session_state.get('producto_seleccionado_label', "Seleccione..."))
+            st.session_state['producto_principal'] = d.get('producto_principal', st.session_state.get('producto_principal', {}))
+            st.session_state['nombre_proyecto_libre'] = d.get('nombre_proyecto_libre', st.session_state.get('nombre_proyecto_libre', ""))
+            st.session_state['plan_nombre'] = d.get('plan_nombre', st.session_state.get('plan_nombre', ""))
+            st.session_state['plan_eje'] = d.get('plan_eje', st.session_state.get('plan_eje', ""))
+            st.session_state['plan_programa'] = d.get('plan_programa', st.session_state.get('plan_programa', ""))
             # NUEVO: hoja 12 (Riesgos)
             if 'datos_riesgos' in d:
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('datos_riesgos'))
@@ -388,6 +420,17 @@ def guardar_datos_nube():
                 else pd.DataFrame(st.session_state.get('datos_riesgos', []) or []).to_dict(orient="records")
             ),
        
+
+            # --- HOJA 15 (Producto) ---
+            "sector_seleccionado": st.session_state.get('sector_seleccionado', "Seleccione..."),
+            "programa_seleccionado": st.session_state.get('programa_seleccionado', "Seleccione..."),
+            "producto_seleccionado": st.session_state.get('producto_seleccionado', "Seleccione..."),
+            "producto_seleccionado_label": st.session_state.get('producto_seleccionado_label', "Seleccione..."),
+            "producto_principal": st.session_state.get('producto_principal', {}),
+            "nombre_proyecto_libre": st.session_state.get('nombre_proyecto_libre', ""),
+            "plan_nombre": st.session_state.get('plan_nombre', ""),
+            "plan_eje": st.session_state.get('plan_eje', ""),
+            "plan_programa": st.session_state.get('plan_programa', ""),
             # --- HOJA 14 (Necesidad) ---
             "desc_objetivo_general": st.session_state.get('desc_objetivo_general', ""),
             "necesidad_atender": st.session_state.get('necesidad_atender', ""),
