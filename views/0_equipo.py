@@ -87,13 +87,6 @@ col_titulo, col_btn = st.columns([4, 1])
 with col_titulo:
     st.subheader("👥 Miembros Registrados")
 with col_btn:
-    # Mantener comportamiento existente
-    if st.button("↩️ Deshacer último", help="Borra el registro más reciente"):
-        if st.session_state.get('integrantes'):
-            st.session_state['integrantes'].pop()
-            guardar_datos_nube()
-            st.rerun()
-
     # Cancelar edición (solo si está editando)
     if st.session_state.get('equipo_edit_idx') is not None:
         if st.button("✖️ Cancelar", help="Cancela la edición actual"):
