@@ -230,7 +230,7 @@ if nombre_proyecto.strip():
     st.markdown(f"""
         <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;"
-            <span style="font-size: 2.0rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
+            <span style="font-size: 3.0rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
         </div>
