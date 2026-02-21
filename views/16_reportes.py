@@ -77,15 +77,21 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
-if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
-    df = st.session_state["df_equipo"]
-    if "Nombre" in df.columns:
-        nombres_lista = df["Nombre"].dropna().astype(str).tolist()
-        nombres_validos = [n for n in nombres_lista if n.strip() != ""]
-        if nombres_validos:
-            nombres_formuladores = "\n".join(nombres_validos) 
-            nombres_display = ", ".join(nombres_validos) 
+nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 0 (Equipo)"
+nombres_display = nombres_formuladores
+
+# Toma los nombres desde la Hoja 0: st.session_state["integrantes"] (solo nombres; sin correos ni teléfonos)
+integrantes = st.session_state.get("integrantes", [])
+if isinstance(integrantes, list):
+    nombres_validos = []
+    for p in integrantes:
+        if isinstance(p, dict):
+            nombre = str(p.get("Nombre Completo", "")).strip()
+            if nombre:
+                nombres_validos.append(nombre)
+    if nombres_validos:
+        nombres_formuladores = "\n".join(nombres_validos)
+        nombres_display = ", ".join(nombres_validos)
 
 st.write("**Presentado por (Equipo Formulador):**")
 st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
