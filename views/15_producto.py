@@ -143,8 +143,6 @@ st.divider()
 # --- SECCIÓN 2: MATRIZ DE PRODUCTO ---
 st.markdown('<div class="header-tabla">📦 2. Producto Principal</div>', unsafe_allow_html=True)
 
-columnas_producto = ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
-
 # Filtrar productos por sector y programa (si están seleccionados)
 _df_prog = _df_sector.copy()
 if programa_seleccionado != "Seleccione..." and "Nombre del Programa" in _df_prog.columns:
@@ -152,49 +150,64 @@ if programa_seleccionado != "Seleccione..." and "Nombre del Programa" in _df_pro
 else:
     _df_prog = _df_prog.iloc[0:0].copy()
 
+# Selector (con búsqueda por escritura) - SOLO nombre del producto
 if _df_prog.empty:
-    producto_label = st.selectbox("Seleccione el producto principal", ["Seleccione..."], index=0)
-    df_producto_vacio = pd.DataFrame(columns=columnas_producto)
-    st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
+    producto_nombre = st.selectbox("Producto", ["Seleccione..."], index=0)
+    _seleccion = None
 else:
-    _df_prog2 = _df_prog.copy()
-    # Construir opciones de selección (un solo producto)
-    producto_options = ["Seleccione..."]
-    producto_idx_map = {}  # label -> row index
-    _df_prog2 = _df_prog2.reset_index(drop=True)
+    _df_prog2 = _df_prog.reset_index(drop=True).copy()
+
+    _map_nombre_idx = {}
     for i, r in _df_prog2.iterrows():
-        cod = str(r.get("Código del Producto", "")).strip() if "Código del Producto" in _df_prog2.columns else ""
-        prod = str(r.get("Producto", "")).strip()
-        label = f"{cod} - {prod}" if cod else prod
-        if label.strip():
-            producto_idx_map[label] = i
-            producto_options.append(label)
+        nombre = str(r.get("Producto", "")).strip()
+        if nombre and nombre not in _map_nombre_idx:
+            _map_nombre_idx[nombre] = i
 
-    _producto_default = st.session_state.get('producto_seleccionado_label', 'Seleccione...')
-    if _producto_default not in producto_options:
-        _producto_default = 'Seleccione...'
-    _producto_index = producto_options.index(_producto_default)
+    _nombres = sorted(_map_nombre_idx.keys())
+    _opts = ["Seleccione..."] + _nombres
 
-    producto_label = st.selectbox("Seleccione el producto principal", producto_options, index=_producto_index)
+    _default = st.session_state.get("producto_seleccionado_label", "Seleccione...")
+    if _default not in _opts:
+        _default = "Seleccione..."
+    _idx = _opts.index(_default)
 
-    if producto_label != "Seleccione..." and producto_label in producto_idx_map:
-        r = _df_prog2.iloc[producto_idx_map[producto_label]]
-        df_producto_vacio = pd.DataFrame([
-            {
-                "PRODUCTO": r.get("Producto", ""),
-                "Descripción": r.get("Descripción", ""),
-                "Medido a través de": r.get("Medido a través de", ""),
-                "Indicador de Producto": r.get("Indicador de Producto", ""),
-                "Unidad de medida": r.get("Unidad de medida", ""),
-            }
-        ], columns=columnas_producto)
-        # Guardar selección en sesión (sin afectar UI)
-        st.session_state['producto_seleccionado_label'] = producto_label
-        st.session_state['producto_principal'] = df_producto_vacio.iloc[0].to_dict()
-    else:
-        df_producto_vacio = pd.DataFrame(columns=columnas_producto)
+    producto_nombre = st.selectbox("Producto", _opts, index=_idx)
 
-    st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
+    _seleccion = None
+    if producto_nombre != "Seleccione..." and producto_nombre in _map_nombre_idx:
+        _seleccion = _df_prog2.iloc[_map_nombre_idx[producto_nombre]]
+
+# Mostrar campos (uno debajo de otro)
+def _box(label: str, value: str):
+    st.markdown(
+        f'<div class="readonly-label">{label}</div>'
+        f'<div class="readonly-box">{value if str(value).strip() else ""}</div>',
+        unsafe_allow_html=True
+    )
+
+if _seleccion is None:
+    _box("Producto", "")
+    _box("Descripción", "")
+    _box("Medido a través de", "")
+    _box("Indicador de Producto", "")
+    _box("Unidad de medida", "")
+else:
+    _box("Producto", _seleccion.get("Producto", ""))
+    _box("Descripción", _seleccion.get("Descripción", ""))
+    _box("Medido a través de", _seleccion.get("Medido a través de", ""))
+    _box("Indicador de Producto", _seleccion.get("Indicador de Producto", ""))
+    _box("Unidad de medida", _seleccion.get("Unidad de medida", ""))
+
+    # Guardar selección en sesión (sin cambiar UI del resto)
+    st.session_state["producto_seleccionado_label"] = producto_nombre
+    st.session_state["producto_principal"] = {
+        "PRODUCTO": _seleccion.get("Producto", ""),
+        "Descripción": _seleccion.get("Descripción", ""),
+        "Medido a través de": _seleccion.get("Medido a través de", ""),
+        "Indicador de Producto": _seleccion.get("Indicador de Producto", ""),
+        "Unidad de medida": _seleccion.get("Unidad de medida", ""),
+    }
+
 st.divider()
 
 # =========================================================
