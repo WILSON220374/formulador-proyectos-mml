@@ -21,9 +21,20 @@ st.markdown("""
         min-height: 50px; line-height: 1.5;
     }
     
-    /* Autoajuste para text areas */
+    /* Autoajuste general para text areas */
     .stTextArea textarea {
         min-height: 100px;
+    }
+    
+    /* ESTILO VISTOSO PARA EL NOMBRE DEL PROYECTO */
+    .proyecto-destacado textarea {
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        color: #1E3A8A !important;
+        text-align: center !important;
+        background-color: #EEF2FF !important;
+        border: 2px solid #2563EB !important;
+        border-radius: 10px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -62,10 +73,8 @@ for kmap, k in mapa.items():
 st.markdown('<div class="header-tabla">🏢 1. Sector y Programa de Inversión</div>', unsafe_allow_html=True)
 col_s1, col_s2 = st.columns(2)
 with col_s1:
-    # Selector vacío a la espera del DataFrame
     sector_seleccionado = st.selectbox("Sector de Inversión", ["Seleccione..."])
 with col_s2:
-    # Selector vacío a la espera del DataFrame
     programa_seleccionado = st.selectbox("Programa", ["Seleccione..."])
 
 st.divider()
@@ -73,47 +82,43 @@ st.divider()
 # --- SECCIÓN 2: MATRIZ DE PRODUCTO ---
 st.markdown('<div class="header-tabla">📦 2. Producto Principal</div>', unsafe_allow_html=True)
 
-# Objetivo General Traído de memoria
 st.markdown(f'<div class="readonly-label">Objetivo General</div><div class="readonly-box">{obj_general}</div><br>', unsafe_allow_html=True)
 
-# Tabla vacía con la estructura exacta del Excel
 columnas_producto = ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
 df_producto_vacio = pd.DataFrame(columns=columnas_producto)
-
 st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 
 st.divider()
 
-# --- SECCIÓN 3: NOMBRE DEL PROYECTO ---
+# --- SECCIÓN 3: NOMBRE DEL PROYECTO (DESTACADO) ---
 st.markdown('<div class="header-tabla">🏷️ 3. Nombre del Proyecto</div>', unsafe_allow_html=True)
-nombre_proyecto = st.text_area("Escritura Libre", 
+
+# Inyectamos el estilo a través de un contenedor
+st.markdown('<div class="proyecto-destacado">', unsafe_allow_html=True)
+nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto", 
                                value=st.session_state.get('nombre_proyecto_libre', ""),
                                placeholder="Ej: Construcción de la planta de tratamiento de aguas residuales en el municipio...", 
                                height=120)
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# --- SECCIÓN 4: PLAN DE DESARROLLO ---
+# --- SECCIÓN 4: PLAN DE DESARROLLO (APILADO) ---
 st.markdown('<div class="header-tabla">🗺️ 4. Plan de Desarrollo</div>', unsafe_allow_html=True)
-col_p1, col_p2, col_p3 = st.columns(3)
-with col_p1:
-    nombre_plan = st.text_input("Nombre del Plan", value=st.session_state.get('plan_nombre', ""))
-with col_p2:
-    eje_plan = st.text_input("Eje", value=st.session_state.get('plan_eje', ""))
-with col_p3:
-    programa_plan = st.text_input("Programa", value=st.session_state.get('plan_programa', ""))
+
+# Ahora están uno debajo del otro
+nombre_plan = st.text_input("Nombre del Plan", value=st.session_state.get('plan_nombre', ""), placeholder="Ej: Plan Nacional de Desarrollo...")
+eje_plan = st.text_input("Eje", value=st.session_state.get('plan_eje', ""), placeholder="Ej: Equidad y crecimiento...")
+programa_plan = st.text_input("Programa", value=st.session_state.get('plan_programa', ""), placeholder="Ej: Saneamiento básico...")
 
 st.divider()
 
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Información de Producto", type="primary"):
-    # Guardamos los campos de texto libre
     st.session_state['nombre_proyecto_libre'] = nombre_proyecto
     st.session_state['plan_nombre'] = nombre_plan
     st.session_state['plan_eje'] = eje_plan
     st.session_state['plan_programa'] = programa_plan
-    
-    # Aquí luego agregaremos el guardado de los selectores cuando estén conectados
     
     guardar_datos_nube()
     st.success("✅ Información guardada correctamente.")
