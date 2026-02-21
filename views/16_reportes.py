@@ -40,7 +40,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📄 16. Generador de Reportes</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Configuración de portada y exportación de documentos.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Configuración de portada y exportación del documento final.</div>', unsafe_allow_html=True)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -67,7 +67,6 @@ with col_up2:
     img_portada = st.file_uploader("Sube la imagen central", type=["png", "jpg", "jpeg"], key="img_portada")
 
 if logo_entidad is not None or img_portada is not None:
-    st.markdown("<p style='color: #1E3A8A; font-weight: bold;'>🔍 Vista previa de imágenes cargadas:</p>", unsafe_allow_html=True)
     col_prev1, col_prev2 = st.columns(2)
     with col_prev1:
         if logo_entidad is not None:
@@ -106,17 +105,34 @@ with col_d4:
 st.divider()
 
 # ==========================================
-# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO
+# 📑 2. SELECCIÓN Y DILIGENCIAMIENTO DE CONTENIDO
 # ==========================================
-st.markdown('<div class="header-tabla">📑 2. Selección de Contenido</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-tabla">📑 2. Configuración del Contenido</div>', unsafe_allow_html=True)
+st.write("Diligencia las siguientes secciones que se incluirán al inicio de tu documento:")
 
-with st.container(border=True):
-    st.markdown("**Hoja: Diagnóstico (Árbol de Problemas)**")
-    chk_problema = st.checkbox("El Problema Central", value=True)
-    chk_sintomas = st.checkbox("Síntomas (Efectos)", value=True)
-    chk_causas = st.checkbox("Causas Inmediatas", value=True)
+# 2. Resumen del Proyecto
+instrucciones_resumen = "El resumen es el elemento fundamental para dar contexto sobre el proyecto, en este sentido escriba en máximo 15 líneas de manera clara, sencilla, directa y concisa el resumen del contenido del proyecto, que permitan dar una idea sobre el alcance, componentes y productos esperados."
+texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=150)
+
+# 3. Marco Normativo
+texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=150)
 
 st.divider()
+
+# ==========================================
+# 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA (Hojas 8, 9, 10, 15)
+# ==========================================
+# (Nota: Asumo nombres de variables lógicos, si en tus hojas se llaman distinto, las ajustamos)
+plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
+justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
+loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
+loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
+loc_accesibilidad = st.session_state.get('loc_accesibilidad', 'No se ha registrado accesibilidad.')
+mapa_area = st.session_state.get('mapa_area_estudio', None) # Asumiendo que guardaste la foto
+arbol_img = st.session_state.get('arbol_problemas_img', None) # Asumiendo foto del árbol
+df_magnitud = st.session_state.get('df_magnitud_problema', None) # Asumiendo tabla
+desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
+antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
 # ==========================================
 # ⚙️ MOTOR DE GENERACIÓN WORD
@@ -125,12 +141,11 @@ def generar_word():
     doc = Document()
     
     # ---------------------------------------------------------
-    # 1. CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA
+    # CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA
     # ---------------------------------------------------------
     section = doc.sections[0]
-    section.different_first_page_header_footer = True # Regla: Portada diferente
+    section.different_first_page_header_footer = True 
     
-    # Función interna para crear el encabezado (se usa en portada y resto de hojas)
     def crear_encabezado(hdr_obj):
         htable = hdr_obj.add_table(rows=1, cols=2, width=Inches(6.5))
         htable.autofit = False
@@ -139,16 +154,13 @@ def generar_word():
         
         h_izq = htable.cell(0, 0).paragraphs[0]
         h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        r_hizq = h_izq.add_run(nombre_proyecto.upper())
-        r_hizq.font.size = Pt(9)
-        r_hizq.bold = True
+        h_izq.add_run(nombre_proyecto.upper()).bold = True
         
         h_der = htable.cell(0, 1).paragraphs[0]
         h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         if logo_entidad is not None:
-            # Procesamiento seguro de imagen
-            r_hder = h_der.add_run()
-            r_hder.add_picture(io.BytesIO(logo_entidad.getvalue()), width=Inches(0.6))
+            logo_entidad.seek(0)
+            h_der.add_run().add_picture(io.BytesIO(logo_entidad.getvalue()), width=Inches(0.6))
             
         p_line = hdr_obj.add_paragraph()
         pPr = p_line._p.get_or_add_pPr()
@@ -161,34 +173,24 @@ def generar_word():
         pBdr.append(bottom)
         pPr.append(pBdr)
 
-    # Aplicar encabezado a la portada y al resto del documento
     crear_encabezado(section.first_page_header)
     crear_encabezado(section.header)
-    
-    # --- PIE DE PÁGINA (Solo para página 2 en adelante) ---
-    # Nota: section.first_page_footer queda vacío por defecto, así no hay números en la portada
     
     footer = section.footer
     ftable = footer.add_table(rows=1, cols=2, width=Inches(6.5))
     ftable.autofit = False
-    ftable.columns[0].width = Inches(5.0) # Mucho más ancho para la Entidad
-    ftable.columns[1].width = Inches(1.5) # Espacio para la paginación
+    ftable.columns[0].width = Inches(5.0) 
+    ftable.columns[1].width = Inches(1.5) 
     
-    # Izquierda: Entidad y División alineados a la izquierda
     f_izq = ftable.cell(0, 0).paragraphs[0]
     f_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
     texto_entidad = entidad_formulo if entidad_formulo else ""
     texto_div = f" - {division}" if division else ""
+    f_izq.add_run(f"{texto_entidad.upper()}{texto_div.upper()}").italic = True
     
-    r_izq = f_izq.add_run(f"{texto_entidad.upper()}{texto_div.upper()}")
-    r_izq.font.size = Pt(8)
-    r_izq.italic = True
-    
-    # Derecha: Numeración de páginas
     f_der = ftable.cell(0, 1).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    r_der = f_der.add_run("Pág. ")
-    r_der.font.size = Pt(8)
+    f_der.add_run("Pág. ").font.size = Pt(8)
     
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
@@ -201,17 +203,15 @@ def generar_word():
     fldChar3.set(qn('w:fldCharType'), 'end')
     
     r_num = f_der.add_run()
-    r_num.font.size = Pt(8)
     r_num._r.append(fldChar1)
     r_num._r.append(instrText)
     r_num._r.append(fldChar2)
     r_num._r.append(fldChar3)
 
     # ---------------------------------------------------------
-    # 2. CONSTRUCCIÓN DEL CUERPO DE LA PORTADA
+    # 1. PORTADA
     # ---------------------------------------------------------
     doc.add_paragraph("\n\n") 
-    
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
@@ -219,46 +219,38 @@ def generar_word():
     r_titulo.font.size = Pt(20)
     
     doc.add_paragraph("\n")
-    
     if img_portada is not None:
+        img_portada.seek(0)
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # Procesamiento seguro de la imagen central para que no desaparezca
         p_img.add_run().add_picture(io.BytesIO(img_portada.getvalue()), width=Inches(3.8))
         
     doc.add_paragraph("\n")
-    
     if entidad_formulo:
-        p_entidad = doc.add_paragraph()
-        p_entidad.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_entidad.add_run(entidad_formulo.upper()).bold = True
-        
+        doc.add_paragraph(entidad_formulo.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
     if division:
-        p_div = doc.add_paragraph()
-        p_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_div.add_run(division.upper()).bold = True
+        doc.add_paragraph(division.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
         
     doc.add_paragraph("\n")
-    
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_presentado.add_run("Presentado por:\n").italic = True
     p_presentado.add_run(nombres_formuladores).bold = True
     
     doc.add_paragraph("\n")
-    
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
     texto_anio = anio_presentacion if anio_presentacion else ""
     p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
     
-    # --- SALTO A LA PÁGINA 2 ---
     doc.add_page_break()
     
     # ---------------------------------------------------------
-    # 3. INICIO DEL CONTENIDO (Página 2)
+    # 2. INICIO DEL CONTENIDO (Página 2 en adelante)
     # ---------------------------------------------------------
+    
+    # Título Principal
     p_tit_cont = doc.add_paragraph()
     p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
@@ -267,9 +259,80 @@ def generar_word():
     
     doc.add_paragraph("\n") 
     
-    p_prueba = doc.add_paragraph()
-    p_prueba.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_prueba.add_run("(El resto del contenido está desconectado para esta prueba. Aquí iniciará el proyecto.)").italic = True
+    # SECCIÓN 1
+    doc.add_heading("1. Articulación con el plan de desarrollo", level=1)
+    doc.add_paragraph(str(plan_desarrollo))
+    
+    # SECCIÓN 2
+    doc.add_heading("2. Resumen del proyecto", level=1)
+    doc.add_paragraph(str(texto_resumen))
+    
+    # SECCIÓN 3
+    doc.add_heading("3. Marco normativo", level=1)
+    doc.add_paragraph(str(texto_normativo))
+    
+    # SECCIÓN 4
+    doc.add_heading("4. Justificación", level=1)
+    doc.add_paragraph(str(justificacion))
+    
+    # SECCIÓN 5
+    doc.add_heading("5. Localización del proyecto", level=1)
+    doc.add_heading("5.1 Localización", level=2)
+    doc.add_paragraph(str(loc_localizacion))
+    doc.add_heading("5.2 Definición de límites", level=2)
+    doc.add_paragraph(str(loc_limites))
+    doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
+    doc.add_paragraph(str(loc_accesibilidad))
+    
+    if mapa_area is not None:
+        try:
+            p_mapa = doc.add_paragraph()
+            p_mapa.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_mapa.add_run().add_picture(io.BytesIO(mapa_area.getvalue()), width=Inches(5.0))
+        except:
+            pass # Si la foto no es válida, la omitimos
+    
+    # SECCIÓN 6
+    doc.add_heading("6. Identificación y descripción del problema", level=1)
+    
+    # Árbol de problemas (Imagen)
+    if arbol_img is not None:
+        try:
+            p_arbol = doc.add_paragraph()
+            p_arbol.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol.add_run().add_picture(io.BytesIO(arbol_img.getvalue()), width=Inches(6.0))
+        except:
+            pass
+            
+    doc.add_heading("6.1 Magnitud del problema", level=2)
+    
+    # Insertar la Tabla (Si existe y es un DataFrame)
+    if isinstance(df_magnitud, pd.DataFrame) and not df_magnitud.empty:
+        t = doc.add_table(rows=1, cols=len(df_magnitud.columns))
+        t.style = 'Table Grid'
+        
+        # Encabezados
+        hdr_cells = t.rows[0].cells
+        for i, column in enumerate(df_magnitud.columns):
+            hdr_cells[i].text = str(column)
+            hdr_cells[i].paragraphs[0].runs[0].bold = True
+            
+        # Filas
+        for index, row in df_magnitud.iterrows():
+            row_cells = t.add_row().cells
+            for i, item in enumerate(row):
+                row_cells[i].text = str(item)
+    else:
+         doc.add_paragraph("No se registraron datos en la tabla de magnitud.")
+    
+    doc.add_paragraph("\n")
+    
+    # Textos finales de la sección 6
+    doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
+    doc.add_paragraph(str(desc_problema))
+    
+    doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
+    doc.add_paragraph(str(antecedentes))
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -288,6 +351,6 @@ st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_
 
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
-    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Final.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Proyecto_Formulado.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
     st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
