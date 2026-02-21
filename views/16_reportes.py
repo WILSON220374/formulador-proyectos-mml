@@ -9,6 +9,8 @@ try:
     from docx import Document
     from docx.shared import Pt, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
 except ImportError:
     st.error("⚠️ Falta la librería para Word. Agrega 'python-docx' a tu requirements.txt")
     st.stop()
@@ -83,7 +85,6 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
         nombres_lista = df["Nombre"].dropna().astype(str).tolist()
         nombres_validos = [n for n in nombres_lista if n.strip() != ""]
         if nombres_validos:
-            # En el Word quedarán uno debajo del otro
             nombres_formuladores = "\n".join(nombres_validos) 
             nombres_display = ", ".join(nombres_validos) 
 
@@ -124,38 +125,90 @@ def generar_word():
     doc = Document()
     
     # ---------------------------------------------------------
-    # CONFIGURACIÓN DEL ENCABEZADO (Aplica para todas las páginas)
+    # 1. CONFIGURACIÓN DEL ENCABEZADO Y PIE DE PÁGINA
     # ---------------------------------------------------------
     section = doc.sections[0]
-    # Eliminamos la regla de "primera página diferente" para que el encabezado salga en la portada
     
+    # --- ENCABEZADO ---
     header = section.header
     htable = header.add_table(rows=1, cols=2, width=Inches(6))
     htable.autofit = False
     htable.columns[0].width = Inches(4.5) 
     htable.columns[1].width = Inches(1.5) 
     
-    # Izquierda: Nombre
     h_izq = htable.cell(0, 0).paragraphs[0]
     h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
     r_hizq = h_izq.add_run(nombre_proyecto.upper())
     r_hizq.font.size = Pt(9)
     r_hizq.bold = True
     
-    # Derecha: Logo
     h_der = htable.cell(0, 1).paragraphs[0]
     h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     if logo_entidad is not None:
         logo_entidad.seek(0)
         r_hder = h_der.add_run()
         r_hder.add_picture(logo_entidad, width=Inches(0.6))
+        
+    # Línea elegante debajo del encabezado (Truco XML)
+    p_line = header.add_paragraph()
+    pPr = p_line._p.get_or_add_pPr()
+    pBdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6') # Grosor de la línea
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), 'auto')
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+    # --- PIE DE PÁGINA ---
+    footer = section.footer
+    ftable = footer.add_table(rows=1, cols=3, width=Inches(6))
+    ftable.autofit = False
+    ftable.columns[0].width = Inches(1.0) # Izquierda (vacío)
+    ftable.columns[1].width = Inches(4.0) # Centro (Entidad - División)
+    ftable.columns[2].width = Inches(1.0) # Derecha (Paginación)
     
-    # ---------------------------------------------------------
-    # 1. CONSTRUCCIÓN DE LA PORTADA
-    # ---------------------------------------------------------
-    doc.add_paragraph("\n\n") # Espacio inicial para bajar el título un poco
+    # Centro: Entidad y División
+    f_centro = ftable.cell(0, 1).paragraphs[0]
+    f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    texto_entidad = entidad_formulo if entidad_formulo else ""
+    texto_div = f" - {division}" if division else ""
     
-    # Título Principal
+    r_centro = f_centro.add_run(f"{texto_entidad.upper()}{texto_div.upper()}")
+    r_centro.font.size = Pt(8)
+    r_centro.italic = True
+    r_centro.font.color.rgb = None # Color por defecto
+    
+    # Derecha: Numeración de páginas (Truco XML para que sea automático)
+    f_der = ftable.cell(0, 2).paragraphs[0]
+    f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_der = f_der.add_run("Pág. ")
+    r_der.font.size = Pt(8)
+    
+    # Campo dinámico de número de página
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = "PAGE"
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    
+    r_num = f_der.add_run()
+    r_num.font.size = Pt(8)
+    r_num._r.append(fldChar1)
+    r_num._r.append(instrText)
+    r_num._r.append(fldChar2)
+    r_num._r.append(fldChar3)
+
+    # ---------------------------------------------------------
+    # 2. CONSTRUCCIÓN DE LA PORTADA
+    # ---------------------------------------------------------
+    doc.add_paragraph("\n\n") 
+    
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
@@ -164,7 +217,6 @@ def generar_word():
     
     doc.add_paragraph("\n")
     
-    # Imagen Central
     if img_portada is not None:
         img_portada.seek(0)
         p_img = doc.add_paragraph()
@@ -173,13 +225,11 @@ def generar_word():
         
     doc.add_paragraph("\n")
     
-    # Entidad
     if entidad_formulo:
         p_entidad = doc.add_paragraph()
         p_entidad.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_entidad.add_run(entidad_formulo.upper()).bold = True
         
-    # División
     if division:
         p_div = doc.add_paragraph()
         p_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -187,7 +237,6 @@ def generar_word():
         
     doc.add_paragraph("\n")
     
-    # Equipo Formulador
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_presentado.add_run("Presentado por:\n").italic = True
@@ -195,7 +244,6 @@ def generar_word():
     
     doc.add_paragraph("\n")
     
-    # Pie de página de la portada
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
@@ -206,9 +254,8 @@ def generar_word():
     doc.add_page_break()
     
     # ---------------------------------------------------------
-    # 2. INICIO DEL CONTENIDO (Página 2)
+    # 3. INICIO DEL CONTENIDO (Página 2)
     # ---------------------------------------------------------
-    
     p_tit_cont = doc.add_paragraph()
     p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
@@ -233,7 +280,7 @@ def generar_pdf():
     pdf.cell(0, 10, "Reporte en PDF (Aún en construcción)", align="C", new_x="LMARGIN", new_y="NEXT")
     return pdf.output()
 
-# --- 3. BOTONES DE DESCARGA ---
+# --- BOTONES DE DESCARGA ---
 st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_allow_html=True)
 
 col_btn1, col_btn2 = st.columns(2)
