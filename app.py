@@ -193,7 +193,7 @@ pg = st.navigation({
     "Configuración": [
         st.Page("views/0_equipo.py", title="Equipo", icon="👥")
     ],
-    "*Fase I: Identificación*": [
+    "**Fase I: Identificación**": [
         st.Page("views/1_diagnostico.py", title="1. Diagnóstico", icon="🧐"),
         st.Page("views/2_zona.py", title="2. Zona de Estudio", icon="🗺️"),
         st.Page("views/3_interesados.py", title="3. Interesados", icon="👥"),
