@@ -171,7 +171,7 @@ with col_img:
 with col_form:
     st.markdown("##### 📝 Registrar Nuevo Integrante")
 
-    with st.form("form_registro", clear_on_submit=False):
+    with st.form("form_registro", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
             nuevo_nombre = st.text_input("Nombre *", key="equipo_nombre")
@@ -203,9 +203,6 @@ with col_form:
 
                 # reset edición + limpiar campos
                 st.session_state['equipo_edit_idx'] = None
-                st.session_state['equipo_nombre'] = ""
-                st.session_state['equipo_tel'] = ""
-                st.session_state['equipo_email'] = ""
 
                 guardar_datos_nube()
                 st.rerun()
