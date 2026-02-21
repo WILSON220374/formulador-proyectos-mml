@@ -156,7 +156,6 @@ alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No 
 # ⚙️ MOTOR DE GENERACIÓN WORD
 # ==========================================
 def agregar_tabla_word(doc, df):
-    """Función ayudante para imprimir DataFrames como tablas en Word de forma automática"""
     if isinstance(df, pd.DataFrame) and not df.empty:
         t = doc.add_table(rows=1, cols=len(df.columns))
         t.style = 'Table Grid'
@@ -169,7 +168,6 @@ def agregar_tabla_word(doc, df):
             for i, item in enumerate(row):
                 row_cells[i].text = str(item)
     else:
-        # CORRECCIÓN AQUÍ: Evitamos usar "style='Italic'" y aplicamos la cursiva directamente
         p = doc.add_paragraph()
         p.add_run("No se registraron datos en esta tabla.").italic = True
 
@@ -207,6 +205,7 @@ def generar_word():
     crear_encabezado(section.first_page_header)
     crear_encabezado(section.header)
     
+    # --- PIE DE PÁGINA REPARADO (Página 2 en adelante) ---
     footer = section.footer
     p_line_f = footer.paragraphs[0]
     pPr_f = p_line_f._p.get_or_add_pPr()
@@ -219,29 +218,59 @@ def generar_word():
     pBdr_f.append(bottom_f)
     pPr_f.append(pBdr_f)
     
-    ftable = footer.add_table(rows=1, cols=3, width=Inches(6.5))
+    # Tabla con ancho fijo garantizado (7.0 pulgadas en total para dar mucho espacio)
+    ftable = footer.add_table(rows=1, cols=3, width=Inches(7.0))
     ftable.autofit = False
-    ftable.columns[0].width = Inches(0.5)
-    ftable.columns[1].width = Inches(5.5) 
-    ftable.columns[2].width = Inches(0.5)
     
+    # BLOQUEO XML: Obligar a Word a respetar estos anchos exactos
+    tblLayout = OxmlElement('w:tblLayout')
+    tblLayout.set(qn('w:type'), 'fixed')
+    ftable._tbl.tblPr.append(tblLayout)
+    
+    ancho_izq = Inches(0.5)
+    ancho_cen = Inches(6.0) # 6 pulgadas solo para el texto (no se debe romper)
+    ancho_der = Inches(0.5)
+    
+    ftable.columns[0].width = ancho_izq
+    ftable.columns[1].width = ancho_cen
+    ftable.columns[2].width = ancho_der
+    for row in ftable.rows:
+        row.cells[0].width = ancho_izq
+        row.cells[1].width = ancho_cen
+        row.cells[2].width = ancho_der
+    
+    # Celda Central: Entidad y División
     f_centro = ftable.cell(0, 1).paragraphs[0]
     f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    f_centro.paragraph_format.space_after = Pt(0) # Eliminar espacio extra abajo
+    f_centro.paragraph_format.space_before = Pt(0)
+    
     texto_entidad = entidad_formulo if entidad_formulo else ""
     texto_div = division if division else ""
+    
     if texto_entidad:
         r_centro1 = f_centro.add_run(texto_entidad.upper())
         r_centro1.font.size = Pt(9)
         r_centro1.italic = True
         r_centro1.font.color.rgb = RGBColor(128, 128, 128)
-    if texto_entidad and texto_div:
-        f_centro.add_run("\n")
+        
     if texto_div:
-        r_centro2 = f_centro.add_run(texto_div.upper())
+        if texto_entidad:
+            # Crear un nuevo párrafo independiente para la división (garantiza línea nueva sin fallos)
+            f_centro2 = ftable.cell(0, 1).add_paragraph()
+        else:
+            f_centro2 = f_centro
+            
+        f_centro2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        f_centro2.paragraph_format.space_after = Pt(0)
+        f_centro2.paragraph_format.space_before = Pt(0)
+        
+        r_centro2 = f_centro2.add_run(texto_div.upper())
         r_centro2.font.size = Pt(9)
         r_centro2.italic = True
         r_centro2.font.color.rgb = RGBColor(128, 128, 128)
     
+    # Celda Derecha: Paginación
     f_der = ftable.cell(0, 2).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     r_num = f_der.add_run()
@@ -354,7 +383,7 @@ def generar_word():
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
     doc.add_paragraph(str(antecedentes))
     
-    # 6.2 Fotos adicionales (NUEVO)
+    # 6.2 Fotos adicionales 
     if foto_area_1 is not None or foto_area_2 is not None:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
         if foto_area_1 is not None:
@@ -451,4 +480,3 @@ with col_btn1:
     st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Proyecto_Formulado.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
     st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
-    
