@@ -20,6 +20,10 @@ if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
 
 ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
 
+# Campo libre: Justificación (Hoja 7)
+if 'justificacion' not in ref_data:
+    ref_data['justificacion'] = ""
+
 # --- FUNCIONES DE GESTIÓN Y SINCRONIZACIÓN (REPARADAS) ---
 def sincronizar_objetivos_desde_poda():
     """Actualiza la tabla superior con los datos vigentes del árbol podado."""
@@ -204,6 +208,30 @@ with tab2:
                 st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
         else:
             st.info("Sincronice con el árbol para ver las actividades.")
+
+    # -----------------------------
+    # Justificación (diligenciamiento libre)
+    # -----------------------------
+    if "justificacion_arbol_objetivos_final" not in st.session_state:
+        st.session_state["justificacion_arbol_objetivos_final"] = ref_data.get("justificacion", "")
+
+    _just_txt = st.session_state.get("justificacion_arbol_objetivos_final", "") or ""
+    _lines = max(6, len(str(_just_txt).splitlines()) + 1)
+    _height = min(650, 28 * _lines)
+
+    st.markdown("**Justificación**")
+    justificacion_val = st.text_area(
+        "Justificación",
+        key="justificacion_arbol_objetivos_final",
+        height=_height,
+        label_visibility="collapsed",
+        placeholder="Diligencie la justificación…"
+    )
+
+    if justificacion_val != ref_data.get("justificacion", ""):
+        ref_data["justificacion"] = justificacion_val
+        guardar_datos_nube()
+
     st.divider()
     st.subheader("📋 Panel de Poda")
     
