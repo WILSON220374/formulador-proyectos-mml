@@ -57,7 +57,7 @@ st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', un
 
 col_up1, col_up2 = st.columns(2)
 with col_up1:
-    st.info("🖼️ **Logo de la Entidad** (Irá en la portada y en los encabezados)")
+    st.info("🖼️ **Logo de la Entidad** (Irá en el encabezado de todas las páginas)")
     logo_entidad = st.file_uploader("Sube el logo", type=["png", "jpg", "jpeg"], key="logo_portada")
 
 with col_up2:
@@ -69,7 +69,7 @@ if logo_entidad is not None or img_portada is not None:
     col_prev1, col_prev2 = st.columns(2)
     with col_prev1:
         if logo_entidad is not None:
-            st.image(logo_entidad, width=150, caption="Logo listo")
+            st.image(logo_entidad, width=150, caption="Logo listo para el encabezado")
     with col_prev2:
         if img_portada is not None:
             st.image(img_portada, width=300, caption="Imagen Central lista")
@@ -83,6 +83,7 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
         nombres_lista = df["Nombre"].dropna().astype(str).tolist()
         nombres_validos = [n for n in nombres_lista if n.strip() != ""]
         if nombres_validos:
+            # En el Word quedarán uno debajo del otro
             nombres_formuladores = "\n".join(nombres_validos) 
             nombres_display = ", ".join(nombres_validos) 
 
@@ -123,48 +124,38 @@ def generar_word():
     doc = Document()
     
     # ---------------------------------------------------------
-    # CONFIGURACIÓN DEL ENCABEZADO (Páginas de contenido)
+    # CONFIGURACIÓN DEL ENCABEZADO (Aplica para todas las páginas)
     # ---------------------------------------------------------
     section = doc.sections[0]
-    section.different_first_page_header = True # La portada NO tendrá encabezado
+    # Eliminamos la regla de "primera página diferente" para que el encabezado salga en la portada
     
-    # Accedemos al encabezado de las páginas siguientes
     header = section.header
-    
-    # Creamos una tabla invisible en el encabezado (1 fila, 2 columnas)
     htable = header.add_table(rows=1, cols=2, width=Inches(6))
     htable.autofit = False
-    htable.columns[0].width = Inches(4.5) # Espacio ancho para el nombre
-    htable.columns[1].width = Inches(1.5) # Espacio corto para el logo
+    htable.columns[0].width = Inches(4.5) 
+    htable.columns[1].width = Inches(1.5) 
     
-    # Celda Izquierda: Nombre del proyecto
+    # Izquierda: Nombre
     h_izq = htable.cell(0, 0).paragraphs[0]
     h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
     r_hizq = h_izq.add_run(nombre_proyecto.upper())
     r_hizq.font.size = Pt(9)
     r_hizq.bold = True
     
-    # Celda Derecha: Logo de la entidad
+    # Derecha: Logo
     h_der = htable.cell(0, 1).paragraphs[0]
     h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     if logo_entidad is not None:
         logo_entidad.seek(0)
         r_hder = h_der.add_run()
-        r_hder.add_picture(logo_entidad, width=Inches(0.6)) # Logo pequeñito para el encabezado
+        r_hder.add_picture(logo_entidad, width=Inches(0.6))
     
     # ---------------------------------------------------------
-    # 1. CONSTRUCCIÓN DE LA PORTADA (Página 1)
+    # 1. CONSTRUCCIÓN DE LA PORTADA
     # ---------------------------------------------------------
-    if logo_entidad is not None:
-        logo_entidad.seek(0)
-        p_logo = doc.add_paragraph()
-        p_logo.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        p_logo.add_run().add_picture(logo_entidad, width=Inches(1.2))
-    else:
-        doc.add_paragraph("\n")
+    doc.add_paragraph("\n\n") # Espacio inicial para bajar el título un poco
     
-    doc.add_paragraph("\n")
-    
+    # Título Principal
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
@@ -173,6 +164,7 @@ def generar_word():
     
     doc.add_paragraph("\n")
     
+    # Imagen Central
     if img_portada is not None:
         img_portada.seek(0)
         p_img = doc.add_paragraph()
@@ -181,11 +173,13 @@ def generar_word():
         
     doc.add_paragraph("\n")
     
+    # Entidad
     if entidad_formulo:
         p_entidad = doc.add_paragraph()
         p_entidad.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_entidad.add_run(entidad_formulo.upper()).bold = True
         
+    # División
     if division:
         p_div = doc.add_paragraph()
         p_div.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -193,6 +187,7 @@ def generar_word():
         
     doc.add_paragraph("\n")
     
+    # Equipo Formulador
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_presentado.add_run("Presentado por:\n").italic = True
@@ -200,29 +195,28 @@ def generar_word():
     
     doc.add_paragraph("\n")
     
+    # Pie de página de la portada
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
     texto_anio = anio_presentacion if anio_presentacion else ""
     p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
     
-    # --- FIN DE LA PORTADA (Salto a la página 2) ---
+    # --- SALTO A LA PÁGINA 2 ---
     doc.add_page_break()
     
     # ---------------------------------------------------------
-    # 2. INICIO DE LAS HOJAS DE CONTENIDO (Página 2 en adelante)
+    # 2. INICIO DEL CONTENIDO (Página 2)
     # ---------------------------------------------------------
     
-    # TÍTULO PRINCIPAL DE LA PRIMERA HOJA DE CONTENIDO
     p_tit_cont = doc.add_paragraph()
     p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
     r_t_cont.bold = True
     r_t_cont.font.size = Pt(16)
     
-    doc.add_paragraph("\n") # Espacio antes de iniciar el diagnóstico
+    doc.add_paragraph("\n") 
     
-    # Mensaje de prueba
     p_prueba = doc.add_paragraph()
     p_prueba.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_prueba.add_run("(El resto del contenido está desconectado para esta prueba. Aquí iniciará el proyecto.)").italic = True
