@@ -177,44 +177,66 @@ def generar_word():
     # --- PIE DE PÁGINA (Solo a partir de la página 2) ---
     footer = section.footer
     
-    # Dibujar línea superior en el pie de página
+    # Línea superior en el pie de página
     p_line_f = footer.paragraphs[0]
     pPr_f = p_line_f._p.get_or_add_pPr()
     pBdr_f = OxmlElement('w:pBdr')
     bottom_f = OxmlElement('w:bottom')
     bottom_f.set(qn('w:val'), 'single')
-    bottom_f.set(qn('w:sz'), '6') # Grosor de la línea
+    bottom_f.set(qn('w:sz'), '6') 
     bottom_f.set(qn('w:space'), '1')
     bottom_f.set(qn('w:color'), 'auto')
     pBdr_f.append(bottom_f)
     pPr_f.append(pBdr_f)
     
-    # Tabla de 3 columnas para centrar perfectamente la Entidad
+    # Tabla de 3 columnas ajustada para evitar quiebres de línea
     ftable = footer.add_table(rows=1, cols=3, width=Inches(6.5))
     ftable.autofit = False
-    ftable.columns[0].width = Inches(1.0) # Izquierda (vacío)
-    ftable.columns[1].width = Inches(4.5) # Centro (Entidad)
-    ftable.columns[2].width = Inches(1.0) # Derecha (Número)
     
-    # Centro: Entidad y División apiladas
+    ancho_izq = Inches(0.5)
+    ancho_cen = Inches(5.5) # Centro MUCHO más ancho para que quepa en 1 línea
+    ancho_der = Inches(0.5)
+    
+    ftable.columns[0].width = ancho_izq
+    ftable.columns[1].width = ancho_cen
+    ftable.columns[2].width = ancho_der
+    
+    for row in ftable.rows:
+        row.cells[0].width = ancho_izq
+        row.cells[1].width = ancho_cen
+        row.cells[2].width = ancho_der
+    
+    # Centro: Entidad y División 
     f_centro = ftable.cell(0, 1).paragraphs[0]
     f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_entidad = entidad_formulo if entidad_formulo else ""
     texto_div = division if division else ""
     
-    f_texto = f"{texto_entidad.upper()}\n{texto_div.upper()}".strip()
-    r_centro = f_centro.add_run(f_texto)
-    r_centro.font.size = Pt(10)
-    r_centro.italic = True
-    r_centro.font.color.rgb = RGBColor(128, 128, 128) # Color Gris
+    # Primera línea (Entidad)
+    if texto_entidad:
+        r_centro1 = f_centro.add_run(texto_entidad.upper())
+        r_centro1.font.size = Pt(9)
+        r_centro1.italic = True
+        r_centro1.font.color.rgb = RGBColor(128, 128, 128)
+        
+    # Salto de línea solo si hay ambas
+    if texto_entidad and texto_div:
+        f_centro.add_run("\n")
+        
+    # Segunda línea (División)
+    if texto_div:
+        r_centro2 = f_centro.add_run(texto_div.upper())
+        r_centro2.font.size = Pt(9)
+        r_centro2.italic = True
+        r_centro2.font.color.rgb = RGBColor(128, 128, 128)
     
-    # Derecha: Solo el número de página
+    # Derecha: Solo el número de página (Sin "Pág.")
     f_der = ftable.cell(0, 2).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
     r_num = f_der.add_run()
     r_num.font.size = Pt(10)
-    r_num.font.color.rgb = RGBColor(128, 128, 128) # Color Gris
+    r_num.font.color.rgb = RGBColor(128, 128, 128)
     
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
