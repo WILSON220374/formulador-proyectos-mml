@@ -29,7 +29,7 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     .header-tabla { font-weight: 800; color: #1E3A8A; margin-bottom: 10px; font-size: 1.1rem; text-transform: uppercase; border-bottom: 2px solid #1E3A8A; padding-bottom: 5px;}
-    .readonly-box { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; background-color: #f3f4f6; color: #374151; font-weight: 600; }
+    .readonly-box { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; background-color: #f3f4f6; color: #1E3A8A; font-weight: 800; text-align: center; font-size: 1.2rem;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -37,7 +37,7 @@ st.markdown("""
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📄 16. Generador de Reportes</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Prueba funcional con datos de demostración aislados.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitulo-gris">Configuración de portada y exportación de documentos.</div>', unsafe_allow_html=True)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
@@ -45,22 +45,42 @@ with col_img:
 st.divider()
 
 # ==========================================
-# 🛑 TEXTOS DE PRUEBA (DESCONECTADOS DEL RESTO)
+# 📘 1. CONFIGURACIÓN DE LA PORTADA
 # ==========================================
-nombres_formuladores_prueba = "Juan Pérez, María Gómez (Datos de Prueba)"
-texto_prob_prueba = "Este es un texto de prueba para el PROBLEMA CENTRAL. La alta tasa de accidentalidad en la vía principal del municipio debido a la falta de mantenimiento."
-texto_sintomas_prueba = "Este es un texto de prueba para los SÍNTOMAS. 1. Incremento en los tiempos de traslado. 2. Daños constantes a los vehículos. 3. Aumento en los costos de transporte."
-texto_causas_prueba = "Este es un texto de prueba para las CAUSAS. 1. Falta de señalización adecuada. 2. Deterioro de la capa asfáltica por lluvias. 3. Ausencia de un plan de mantenimiento preventivo."
-fecha_actual = datetime.now().strftime("%d/%m/%Y")
+st.markdown('<div class="header-tabla">📘 1. Configuración de la Portada</div>', unsafe_allow_html=True)
 
-# --- 1. CONFIGURACIÓN DE PORTADA ---
-st.markdown('<div class="header-tabla">⚙️ 1. Configuración de Portada</div>', unsafe_allow_html=True)
-st.write("**Autores / Formuladores (Simulados):**")
-st.markdown(f'<div class="readonly-box">{nombres_formuladores_prueba}</div><br>', unsafe_allow_html=True)
+# 1. Traer el Nombre del Proyecto de la Hoja 15
+nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'AÚN NO SE HA DEFINIDO EL NOMBRE DEL PROYECTO (Vaya a la Hoja 15)')
+
+st.write("**Nombre del Proyecto:**")
+st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
+
+# 2. Carga de Imágenes
+col_img1, col_img2 = st.columns(2)
+with col_img1:
+    st.info("🖼️ **Logo de la Entidad** (Irá en la esquina superior derecha)")
+    logo_entidad = st.file_uploader("Sube el logo", type=["png", "jpg", "jpeg"], key="logo_portada")
+
+with col_img2:
+    st.info("📸 **Imagen Central** (Irá en el centro de la portada)")
+    img_portada = st.file_uploader("Sube la imagen central", type=["png", "jpg", "jpeg"], key="img_portada")
+
+st.write("") # Espacio
+
+# 3. Datos a digitar
+col_d1, col_d2, col_d3 = st.columns([2, 2, 1])
+with col_d1:
+    entidad_formulo = st.text_input("Entidad que formula el proyecto", placeholder="Ej: Alcaldía de Tunja")
+with col_d2:
+    lugar_presentacion = st.text_input("Lugar de presentación", placeholder="Ej: Tunja, Boyacá")
+with col_d3:
+    anio_presentacion = st.text_input("Año", value="2026")
 
 st.divider()
 
-# --- 2. MENÚ DE SELECCIÓN ---
+# ==========================================
+# 📑 2. MENÚ DE SELECCIÓN DE CONTENIDO
+# ==========================================
 st.markdown('<div class="header-tabla">📑 2. Selección de Contenido</div>', unsafe_allow_html=True)
 
 with st.container(border=True):
@@ -72,17 +92,20 @@ with st.container(border=True):
 st.divider()
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN WORD
+# 🛑 TEXTOS DE PRUEBA INTERNOS (Para que los botones funcionen)
+# ==========================================
+texto_prob_prueba = "Texto de prueba: La alta tasa de accidentalidad en la vía principal debido a la falta de mantenimiento."
+texto_sintomas_prueba = "Texto de prueba: 1. Incremento en tiempos de traslado. 2. Daños constantes a los vehículos."
+texto_causas_prueba = "Texto de prueba: 1. Deterioro de la capa asfáltica. 2. Ausencia de mantenimiento."
+
+# ==========================================
+# ⚙️ MOTOR DE GENERACIÓN WORD (Temporal sin imágenes)
 # ==========================================
 def generar_word():
     doc = Document()
     titulo = doc.add_heading("Reporte de Formulación de Proyecto", 0)
     titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc.add_paragraph(f"Fecha: {fecha_actual}")
-    
-    p = doc.add_paragraph()
-    p.add_run("Formuladores: ").bold = True
-    p.add_run(nombres_formuladores_prueba)
+    doc.add_paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
     
     doc.add_page_break()
     doc.add_heading("1. Diagnóstico y Problema", level=1)
@@ -103,70 +126,23 @@ def generar_word():
     return buffer
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN PDF
+# ⚙️ MOTOR DE GENERACIÓN PDF (Temporal sin imágenes)
 # ==========================================
 def generar_pdf():
     pdf = FPDF()
     pdf.add_page()
-    
-    # Portada
     pdf.set_font("helvetica", "B", 16)
     pdf.cell(0, 10, "Reporte de Formulacion de Proyecto", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 12)
-    pdf.cell(0, 10, f"Fecha: {fecha_actual}", new_x="LMARGIN", new_y="NEXT")
-    pdf.multi_cell(0, 10, f"Formuladores: {nombres_formuladores_prueba}")
-    
     pdf.add_page()
     pdf.set_font("helvetica", "B", 14)
     pdf.cell(0, 10, "1. Diagnostico y Problema", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
-    
-    if chk_problema:
-        pdf.set_font("helvetica", "B", 12)
-        pdf.cell(0, 10, "1.1 El Problema Central", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("helvetica", "", 12)
-        pdf.multi_cell(0, 8, texto_prob_prueba)
-        pdf.ln(5)
-        
-    if chk_sintomas:
-        pdf.set_font("helvetica", "B", 12)
-        pdf.cell(0, 10, "1.2 Sintomas (Efectos)", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("helvetica", "", 12)
-        pdf.multi_cell(0, 8, texto_sintomas_prueba)
-        pdf.ln(5)
-        
-    if chk_causas:
-        pdf.set_font("helvetica", "B", 12)
-        pdf.cell(0, 10, "1.3 Causas Inmediatas", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("helvetica", "", 12)
-        pdf.multi_cell(0, 8, texto_causas_prueba)
-        
     return pdf.output()
 
-# --- 3. BOTONES DE DESCARGA (AHORA SÍ FUNCIONAN) ---
+# --- 3. BOTONES DE DESCARGA ---
 st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_allow_html=True)
-st.info("💡 Haz clic para descargar los documentos generados con los textos de prueba.")
 
 col_btn1, col_btn2 = st.columns(2)
-
 with col_btn1:
-    buffer_w = generar_word()
-    st.download_button(
-        label="📝 Descargar Word (.docx)",
-        data=buffer_w,
-        file_name="Reporte_Prueba.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        type="primary",
-        use_container_width=True
-    )
-
+    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Reporte_Prueba.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
 with col_btn2:
-    buffer_p = generar_pdf()
-    st.download_button(
-        label="📄 Descargar PDF (.pdf)",
-        data=bytes(buffer_p),
-        file_name="Reporte_Prueba.pdf",
-        mime="application/pdf",
-        type="primary",
-        use_container_width=True
-    )
+    st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
