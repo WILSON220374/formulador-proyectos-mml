@@ -1,6 +1,18 @@
 import streamlit as st
 import os
+import io
+import pandas as pd
+from datetime import datetime
 from session_state import inicializar_session
+
+# Importar la librería para crear el Word
+try:
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+except ImportError:
+    st.error("⚠️ Falta instalar la librería para generar Word. Ve a tu terminal y ejecuta: pip install python-docx")
+    st.stop()
 
 # 1. Asegurar persistencia 
 inicializar_session()
@@ -12,101 +24,109 @@ st.markdown("""
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     .header-tabla { font-weight: 800; color: #1E3A8A; margin-bottom: 10px; font-size: 1.1rem; text-transform: uppercase; border-bottom: 2px solid #1E3A8A; padding-bottom: 5px;}
-    
-    .card-opciones {
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 20px;
-        background-color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        height: 100%;
-    }
-    .titulo-card {
-        font-weight: 700;
-        color: #334155;
-        font-size: 1.05rem;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+    .readonly-box { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; background-color: #f3f4f6; color: #374151; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- ENCABEZADO Y AVANCE ---
+# --- ENCABEZADO ---
 col_t, col_img = st.columns([4, 1], vertical_alignment="center")
 with col_t:
     st.markdown('<div class="titulo-seccion">📄 16. Generador de Reportes</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Selecciona los componentes del proyecto que deseas incluir en tu documento final.</div>', unsafe_allow_html=True)
-    st.progress(1.0) # Aquí ya estamos al 100% del uso de la herramienta
+    st.markdown('<div class="subtitulo-gris">Prueba funcional: Exportación del módulo de Diagnóstico a Word.</div>', unsafe_allow_html=True)
 with col_img:
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
-# --- SECCIÓN 1: CONFIGURACIÓN DEL DOCUMENTO ---
+# --- 1. EXTRAER AUTORES AUTOMÁTICAMENTE ---
 st.markdown('<div class="header-tabla">⚙️ 1. Configuración de Portada</div>', unsafe_allow_html=True)
-col_c1, col_c2, col_c3 = st.columns(3)
-with col_c1:
-    autor = st.text_input("Autor / Formulador", placeholder="Ej: Juan Pérez")
-with col_c2:
-    entidad = st.text_input("Entidad / Organización", placeholder="Ej: Alcaldía Municipal")
-with col_c3:
-    fecha_doc = st.date_input("Fecha del Documento")
+
+nombres_formuladores = "No se encontraron formuladores registrados"
+
+# Buscar la tabla del equipo en la memoria
+if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
+    df = st.session_state["df_equipo"]
+    if "Nombre" in df.columns:
+        nombres_lista = df["Nombre"].dropna().astype(str).tolist()
+        nombres_validos = [n for n in nombres_lista if n.strip() != ""]
+        if nombres_validos:
+            nombres_formuladores = ", ".join(nombres_validos)
+
+st.write("**Autores / Formuladores (Extraídos de Hoja 1):**")
+st.markdown(f'<div class="readonly-box">{nombres_formuladores}</div><br>', unsafe_allow_html=True)
 
 st.divider()
 
-# --- SECCIÓN 2: SELECCIÓN DE CONTENIDO ---
-st.markdown('<div class="header-tabla">📑 2. Contenido a Exportar</div>', unsafe_allow_html=True)
-st.write("Marca las casillas de los elementos que deseas compilar en el documento:")
+# --- 2. MENÚ DE SELECCIÓN DE DIAGNÓSTICO ---
+st.markdown('<div class="header-tabla">📑 2. Selección de Contenido (Diagnóstico)</div>', unsafe_allow_html=True)
+st.write("Selecciona qué elementos del árbol de problemas quieres incluir en tu documento Word:")
 
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown('<div class="card-opciones">', unsafe_allow_html=True)
-    st.markdown('<div class="titulo-card">🔍 Identificación y Problema</div>', unsafe_allow_html=True)
-    chk_participantes = st.checkbox("1. Análisis de Participantes", value=True)
-    chk_problema = st.checkbox("2. Árbol de Problemas", value=True)
-    chk_objetivos = st.checkbox("3. Árbol de Objetivos", value=True)
-    chk_alternativas = st.checkbox("4. Análisis de Alternativas", value=False)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.write("") # Espaciador
-    
-    st.markdown('<div class="card-opciones">', unsafe_allow_html=True)
-    st.markdown('<div class="titulo-card">📐 Estructuración y Riesgos</div>', unsafe_allow_html=True)
-    chk_estudios = st.checkbox("5. Resumen de Estudios (Técnico, Legal, etc.)", value=False)
-    chk_riesgos = st.checkbox("6. Matriz de Riesgos", value=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="card-opciones">', unsafe_allow_html=True)
-    st.markdown('<div class="titulo-card">📊 Marco Lógico y Metas</div>', unsafe_allow_html=True)
-    chk_indicadores = st.checkbox("7. Fichas de Indicadores", value=False)
-    chk_mml = st.checkbox("8. Matriz de Marco Lógico (MML)", value=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.write("") # Espaciador
-    
-    st.markdown('<div class="card-opciones">', unsafe_allow_html=True)
-    st.markdown('<div class="titulo-card">📦 Producto y Necesidad</div>', unsafe_allow_html=True)
-    chk_necesidad = st.checkbox("9. Análisis de Necesidad y Déficit", value=True)
-    chk_producto = st.checkbox("10. Ficha de Producto y Proyecto", value=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+with st.container(border=True):
+    st.markdown("**Hoja: Diagnóstico (Árbol de Problemas)**")
+    chk_problema = st.checkbox("El Problema Central", value=True)
+    chk_sintomas = st.checkbox("Síntomas (Efectos)", value=True)
+    chk_causas = st.checkbox("Causas Inmediatas", value=True)
 
 st.divider()
 
-# --- SECCIÓN 3: BOTONES DE EXPORTACIÓN ---
+# --- 3. MOTOR DE GENERACIÓN DEL WORD ---
+def generar_documento_word():
+    doc = Document()
+    
+    # --- Título Principal ---
+    titulo = doc.add_heading("Reporte de Formulación de Proyecto", 0)
+    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # --- Datos de Portada ---
+    fecha_actual = datetime.now().strftime("%d/%m/%Y")
+    doc.add_paragraph(f"Fecha de generación: {fecha_actual}")
+    p_autores = doc.add_paragraph()
+    p_autores.add_run("Formuladores: ").bold = True
+    p_autores.add_run(nombres_formuladores)
+    
+    doc.add_page_break() # Salto de página
+    
+    # --- Sección de Diagnóstico ---
+    doc.add_heading("1. Diagnóstico y Problema", level=1)
+    
+    # 1. Problema Central
+    if chk_problema:
+        doc.add_heading("1.1 El Problema Central", level=2)
+        # Extrae de la memoria (Ajusta 'problema_central' si tu variable se llama distinto en esa hoja)
+        texto_prob = st.session_state.get('problema_central', 'No se ha redactado el problema central en la hoja correspondiente.')
+        doc.add_paragraph(str(texto_prob))
+        
+    # 2. Síntomas (Efectos)
+    if chk_sintomas:
+        doc.add_heading("1.2 Síntomas (Efectos)", level=2)
+        # Extrae de la memoria (Ajusta 'efectos_directos' si tu variable se llama distinto)
+        texto_sintomas = st.session_state.get('efectos_directos', 'No se han registrado síntomas/efectos.')
+        doc.add_paragraph(str(texto_sintomas))
+        
+    # 3. Causas Inmediatas
+    if chk_causas:
+        doc.add_heading("1.3 Causas Inmediatas", level=2)
+        # Extrae de la memoria (Ajusta 'causas_directas' si tu variable se llama distinto)
+        texto_causas = st.session_state.get('causas_directas', 'No se han registrado causas inmediatas.')
+        doc.add_paragraph(str(texto_causas))
+
+    # Guardar en memoria virtual para la descarga
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+# --- 4. BOTÓN DE DESCARGA REAL ---
 st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_allow_html=True)
-st.info("💡 Haz clic en el formato deseado. El sistema recopilará la información guardada y generará el archivo.")
 
-col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+# Creamos el documento solo si el usuario hace clic (para ahorrar recursos)
+buffer_word = generar_documento_word()
 
-with col_btn1:
-    # Botón visual (aún sin lógica)
-    st.button("📝 Descargar en Word (.docx)", type="primary", use_container_width=True)
-
-with col_btn2:
-    # Botón visual (aún sin lógica)
-    st.button("📄 Descargar en PDF (.pdf)", type="secondary", use_container_width=True)
+st.download_button(
+    label="📝 Generar y Descargar Word (.docx)",
+    data=buffer_word,
+    file_name="Diagnostico_Proyecto.docx",
+    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    type="primary"
+)
