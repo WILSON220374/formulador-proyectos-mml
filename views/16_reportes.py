@@ -7,7 +7,7 @@ from session_state import inicializar_session
 # --- IMPORTACIÓN DE LIBRERÍAS (WORD Y PDF) ---
 try:
     from docx import Document
-    from docx.shared import Pt, Inches
+    from docx.shared import Pt, Inches, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -110,27 +110,24 @@ st.divider()
 st.markdown('<div class="header-tabla">📑 2. Configuración del Contenido</div>', unsafe_allow_html=True)
 st.write("Diligencia las siguientes secciones que se incluirán al inicio de tu documento:")
 
-# 2. Resumen del Proyecto
 instrucciones_resumen = "El resumen es el elemento fundamental para dar contexto sobre el proyecto, en este sentido escriba en máximo 15 líneas de manera clara, sencilla, directa y concisa el resumen del contenido del proyecto, que permitan dar una idea sobre el alcance, componentes y productos esperados."
 texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=150)
 
-# 3. Marco Normativo
 texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=150)
 
 st.divider()
 
 # ==========================================
-# 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA (Hojas 8, 9, 10, 15)
+# 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-# (Nota: Asumo nombres de variables lógicos, si en tus hojas se llaman distinto, las ajustamos)
 plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
 justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
 loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
 loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
 loc_accesibilidad = st.session_state.get('loc_accesibilidad', 'No se ha registrado accesibilidad.')
-mapa_area = st.session_state.get('mapa_area_estudio', None) # Asumiendo que guardaste la foto
-arbol_img = st.session_state.get('arbol_problemas_img', None) # Asumiendo foto del árbol
-df_magnitud = st.session_state.get('df_magnitud_problema', None) # Asumiendo tabla
+mapa_area = st.session_state.get('mapa_area_estudio', None) 
+arbol_img = st.session_state.get('arbol_problemas_img', None) 
+df_magnitud = st.session_state.get('df_magnitud_problema', None) 
 desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
 antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
@@ -146,6 +143,7 @@ def generar_word():
     section = doc.sections[0]
     section.different_first_page_header_footer = True 
     
+    # --- ENCABEZADO ---
     def crear_encabezado(hdr_obj):
         htable = hdr_obj.add_table(rows=1, cols=2, width=Inches(6.5))
         htable.autofit = False
@@ -176,21 +174,47 @@ def generar_word():
     crear_encabezado(section.first_page_header)
     crear_encabezado(section.header)
     
+    # --- PIE DE PÁGINA (Solo a partir de la página 2) ---
     footer = section.footer
-    ftable = footer.add_table(rows=1, cols=2, width=Inches(6.5))
+    
+    # Dibujar línea superior en el pie de página
+    p_line_f = footer.paragraphs[0]
+    pPr_f = p_line_f._p.get_or_add_pPr()
+    pBdr_f = OxmlElement('w:pBdr')
+    bottom_f = OxmlElement('w:bottom')
+    bottom_f.set(qn('w:val'), 'single')
+    bottom_f.set(qn('w:sz'), '6') # Grosor de la línea
+    bottom_f.set(qn('w:space'), '1')
+    bottom_f.set(qn('w:color'), 'auto')
+    pBdr_f.append(bottom_f)
+    pPr_f.append(pBdr_f)
+    
+    # Tabla de 3 columnas para centrar perfectamente la Entidad
+    ftable = footer.add_table(rows=1, cols=3, width=Inches(6.5))
     ftable.autofit = False
-    ftable.columns[0].width = Inches(5.0) 
-    ftable.columns[1].width = Inches(1.5) 
+    ftable.columns[0].width = Inches(1.0) # Izquierda (vacío)
+    ftable.columns[1].width = Inches(4.5) # Centro (Entidad)
+    ftable.columns[2].width = Inches(1.0) # Derecha (Número)
     
-    f_izq = ftable.cell(0, 0).paragraphs[0]
-    f_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    # Centro: Entidad y División apiladas
+    f_centro = ftable.cell(0, 1).paragraphs[0]
+    f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_entidad = entidad_formulo if entidad_formulo else ""
-    texto_div = f" - {division}" if division else ""
-    f_izq.add_run(f"{texto_entidad.upper()}{texto_div.upper()}").italic = True
+    texto_div = division if division else ""
     
-    f_der = ftable.cell(0, 1).paragraphs[0]
+    f_texto = f"{texto_entidad.upper()}\n{texto_div.upper()}".strip()
+    r_centro = f_centro.add_run(f_texto)
+    r_centro.font.size = Pt(10)
+    r_centro.italic = True
+    r_centro.font.color.rgb = RGBColor(128, 128, 128) # Color Gris
+    
+    # Derecha: Solo el número de página
+    f_der = ftable.cell(0, 2).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    f_der.add_run("Pág. ").font.size = Pt(8)
+    
+    r_num = f_der.add_run()
+    r_num.font.size = Pt(10)
+    r_num.font.color.rgb = RGBColor(128, 128, 128) # Color Gris
     
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
@@ -202,7 +226,6 @@ def generar_word():
     fldChar3 = OxmlElement('w:fldChar')
     fldChar3.set(qn('w:fldCharType'), 'end')
     
-    r_num = f_der.add_run()
     r_num._r.append(fldChar1)
     r_num._r.append(instrText)
     r_num._r.append(fldChar2)
@@ -250,7 +273,6 @@ def generar_word():
     # 2. INICIO DEL CONTENIDO (Página 2 en adelante)
     # ---------------------------------------------------------
     
-    # Título Principal
     p_tit_cont = doc.add_paragraph()
     p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
@@ -259,23 +281,18 @@ def generar_word():
     
     doc.add_paragraph("\n") 
     
-    # SECCIÓN 1
     doc.add_heading("1. Articulación con el plan de desarrollo", level=1)
     doc.add_paragraph(str(plan_desarrollo))
     
-    # SECCIÓN 2
     doc.add_heading("2. Resumen del proyecto", level=1)
     doc.add_paragraph(str(texto_resumen))
     
-    # SECCIÓN 3
     doc.add_heading("3. Marco normativo", level=1)
     doc.add_paragraph(str(texto_normativo))
     
-    # SECCIÓN 4
     doc.add_heading("4. Justificación", level=1)
     doc.add_paragraph(str(justificacion))
     
-    # SECCIÓN 5
     doc.add_heading("5. Localización del proyecto", level=1)
     doc.add_heading("5.1 Localización", level=2)
     doc.add_paragraph(str(loc_localizacion))
@@ -290,12 +307,10 @@ def generar_word():
             p_mapa.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_mapa.add_run().add_picture(io.BytesIO(mapa_area.getvalue()), width=Inches(5.0))
         except:
-            pass # Si la foto no es válida, la omitimos
+            pass 
     
-    # SECCIÓN 6
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     
-    # Árbol de problemas (Imagen)
     if arbol_img is not None:
         try:
             p_arbol = doc.add_paragraph()
@@ -306,18 +321,15 @@ def generar_word():
             
     doc.add_heading("6.1 Magnitud del problema", level=2)
     
-    # Insertar la Tabla (Si existe y es un DataFrame)
     if isinstance(df_magnitud, pd.DataFrame) and not df_magnitud.empty:
         t = doc.add_table(rows=1, cols=len(df_magnitud.columns))
         t.style = 'Table Grid'
         
-        # Encabezados
         hdr_cells = t.rows[0].cells
         for i, column in enumerate(df_magnitud.columns):
             hdr_cells[i].text = str(column)
             hdr_cells[i].paragraphs[0].runs[0].bold = True
             
-        # Filas
         for index, row in df_magnitud.iterrows():
             row_cells = t.add_row().cells
             for i, item in enumerate(row):
@@ -327,7 +339,6 @@ def generar_word():
     
     doc.add_paragraph("\n")
     
-    # Textos finales de la sección 6
     doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
     doc.add_paragraph(str(desc_problema))
     
