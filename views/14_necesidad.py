@@ -7,6 +7,18 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 # 1. Asegurar persistencia 
 inicializar_session()
 
+# --- FUNCIÓN MATEMÁTICA PARA AUTOAJUSTAR ALTURA DE TEXTO ---
+def calcular_altura(texto, min_height=120):
+    if not texto:
+        return min_height
+    lineas = texto.split('\n')
+    num_lineas = len(lineas)
+    for linea in lineas:
+        # Asumimos que aproximadamente cada 80 caracteres se crea una nueva línea visual
+        num_lineas += len(linea) // 80 
+    # Cada línea suma unos 25 píxeles aprox.
+    return max(min_height, num_lineas * 25)
+
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
@@ -22,7 +34,7 @@ st.markdown("""
         min-height: 80px; line-height: 1.5;
     }
 
-    /* CSS CUSTOM PARA AGGRID (Encabezados Azul Oscuro y Centrados) */
+    /* CSS CUSTOM PARA AGGRID */
     .header-azul {
         background-color: #1E3A8A !important;
         color: white !important;
@@ -30,12 +42,6 @@ st.markdown("""
         text-align: center !important;
         display: flex;
         justify-content: center;
-    }
-    
-    /* ¡NUEVO!: CSS PARA AUTOAJUSTAR LOS TEXT AREA */
-    .stTextArea textarea {
-        field-sizing: content !important;
-        min-height: 120px !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -85,11 +91,24 @@ with st.container(border=True):
 
 st.divider()
 
-# --- SECCIÓN 2: NECESIDADES ---
+# --- SECCIÓN 2: NECESIDADES (CON AUTOAJUSTE DE ALTURA) ---
 st.markdown('<div class="header-tabla">🔍 Análisis de la Necesidad</div>', unsafe_allow_html=True)
 col_a, col_b = st.columns(2)
-with col_a: desc_objetivo = st.text_area("Descripción del objetivo general", value=st.session_state.get('desc_objetivo_general', ""), placeholder="Describa el objetivo general...")
-with col_b: nec_atender = st.text_area("Necesidad a atender", value=st.session_state.get('necesidad_atender', ""), placeholder="¿Qué necesidad principal se está atendiendo?")
+
+# Recuperar valores actuales para calcular la altura necesaria
+val_desc = st.session_state.get('desc_objetivo_general', "")
+val_nec = st.session_state.get('necesidad_atender', "")
+
+with col_a: 
+    desc_objetivo = st.text_area("Descripción del objetivo general", 
+                                 value=val_desc, 
+                                 height=calcular_altura(val_desc),
+                                 placeholder="Describa el objetivo general...")
+with col_b: 
+    nec_atender = st.text_area("Necesidad a atender", 
+                               value=val_nec, 
+                               height=calcular_altura(val_nec),
+                               placeholder="¿Qué necesidad principal se está atendiendo?")
 
 st.divider()
 
@@ -121,13 +140,11 @@ st.info("💡 Haz doble clic en las celdas de 'Cantidad Demandada' y 'Cantidad O
 # Configuración de la tabla AgGrid
 gb = GridOptionsBuilder.from_dataframe(df_base)
 
-# Aplicar centrado general y el color azul a la cabecera
 gb.configure_default_column(
     headerClass="header-azul",
     cellStyle={'textAlign': 'center'}
 )
 
-# Configurar columnas específicas
 gb.configure_column("AÑO", editable=False, width=100)
 gb.configure_column("CANTIDAD DEMANDADA", editable=True, type=["numericColumn", "numberColumnFilter"], width=200)
 gb.configure_column("CANTIDAD OFERTADA", editable=True, type=["numericColumn", "numberColumnFilter"], width=200)
@@ -135,7 +152,6 @@ gb.configure_column("DÉFICIT (OFERTA - DEMANDA)", editable=False, width=220)
 
 gridOptions = gb.build()
 
-# Mostrar la tabla
 grid_response = AgGrid(
     df_base,
     gridOptions=gridOptions,
