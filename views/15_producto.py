@@ -69,13 +69,74 @@ st.markdown(f"""
 
 st.divider()
 
+
+# =========================================================
+# CARGA EXCEL: data/productos.xlsx (en repo)
+# =========================================================
+def _excel_path() -> str:
+    base_dir = os.path.dirname(__file__)  # views/
+    candidates = [
+        os.path.abspath(os.path.join(base_dir, "..", "data", "productos.xlsx")),
+        os.path.abspath(os.path.join(base_dir, "productos.xlsx")),
+        os.path.abspath(os.path.join(os.getcwd(), "data", "productos.xlsx")),
+        os.path.abspath(os.path.join(os.getcwd(), "productos.xlsx")),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return p
+    return candidates[0]
+
+@st.cache_data(show_spinner=False)
+def _load_productos(path: str) -> pd.DataFrame:
+    return pd.read_excel(path)
+
+xlsx_path = _excel_path()
+if not os.path.exists(xlsx_path):
+    st.error(f"No encuentro el archivo productos.xlsx en el repositorio. Ruta esperada: {xlsx_path}")
+    st.stop()
+
+df_productos = _load_productos(xlsx_path)
+
+# Normalización mínima
+for _c in ["Nombre del Sector", "Nombre del Programa", "Producto", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]:
+    if _c in df_productos.columns:
+        df_productos[_c] = df_productos[_c].astype(str).replace("nan", "").str.strip()
+
+
 # --- SECCIÓN 1: SECTOR Y PROGRAMA ---
 st.markdown('<div class="header-tabla">🏢 1. Sector y Programa de Inversión</div>', unsafe_allow_html=True)
 col_s1, col_s2 = st.columns(2)
+
+# Opciones dinámicas desde Excel
+_sectores = []
+if "Nombre del Sector" in df_productos.columns:
+    _sectores = sorted([x for x in df_productos["Nombre del Sector"].dropna().unique().tolist() if str(x).strip() != ""])
+_sector_default = st.session_state.get("sector_seleccionado", "Seleccione...")
+_sector_options = ["Seleccione..."] + _sectores
+if _sector_default not in _sector_options:
+    _sector_default = "Seleccione..."
+_sector_index = _sector_options.index(_sector_default)
+
 with col_s1:
-    sector_seleccionado = st.selectbox("Sector de Inversión", ["Seleccione..."])
+    sector_seleccionado = st.selectbox("Sector de Inversión", _sector_options, index=_sector_index)
+
+_df_sector = df_productos.copy()
+if sector_seleccionado != "Seleccione..." and "Nombre del Sector" in _df_sector.columns:
+    _df_sector = _df_sector[_df_sector["Nombre del Sector"] == sector_seleccionado]
+else:
+    _df_sector = _df_sector.iloc[0:0].copy()
+
+_programas = []
+if "Nombre del Programa" in _df_sector.columns:
+    _programas = sorted([x for x in _df_sector["Nombre del Programa"].dropna().unique().tolist() if str(x).strip() != ""])
+_programa_default = st.session_state.get("programa_seleccionado", "Seleccione...")
+_programa_options = ["Seleccione..."] + _programas
+if _programa_default not in _programa_options:
+    _programa_default = "Seleccione..."
+_programa_index = _programa_options.index(_programa_default)
+
 with col_s2:
-    programa_seleccionado = st.selectbox("Programa", ["Seleccione..."])
+    programa_seleccionado = st.selectbox("Programa", _programa_options, index=_programa_index)
 
 st.divider()
 
@@ -83,13 +144,27 @@ st.divider()
 st.markdown('<div class="header-tabla">📦 2. Producto Principal</div>', unsafe_allow_html=True)
 
 columnas_producto = ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
-df_producto_vacio = pd.DataFrame(columns=columnas_producto)
+
+# Filtrar productos por sector y programa (si están seleccionados)
+_df_prog = _df_sector.copy()
+if programa_seleccionado != "Seleccione..." and "Nombre del Programa" in _df_prog.columns:
+    _df_prog = _df_prog[_df_prog["Nombre del Programa"] == programa_seleccionado]
+else:
+    _df_prog = _df_prog.iloc[0:0].copy()
+
+if _df_prog.empty:
+    df_producto_vacio = pd.DataFrame(columns=columnas_producto)
+else:
+    df_producto_vacio = _df_prog.rename(columns={"Producto": "PRODUCTO"})[
+        ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
+    ].copy()
+
 st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 
 st.divider()
 
 # =========================================================
-# 🏷️ SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA VERDE ESMERALDA)
+# 🏷️ SECCIÓN 3: NOMBRE DEL PROYECTO (CON VISTA PREVIA VERDE)
 # =========================================================
 st.markdown('<div class="header-tabla">🏷️ 3. Nombre del Proyecto</div>', unsafe_allow_html=True)
 
@@ -98,10 +173,11 @@ nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto",
                                placeholder="Ej: Construcción de la planta de tratamiento de aguas residuales en el municipio...", 
                                height=100)
 
-# Cartel de Vista Previa Destacado (Verde Esmeralda sin el subtítulo)
+# Cartel de Vista Previa Destacado (Verde)
 if nombre_proyecto.strip():
     st.markdown(f"""
-        <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #059669; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Título del Proyecto</div>
             <span style="font-size: 1.5rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
