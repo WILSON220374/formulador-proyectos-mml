@@ -18,7 +18,10 @@ if 'descripcion_zona' not in st.session_state or not isinstance(st.session_state
         "ruta_mapa": None, "ruta_foto1": None, "ruta_foto2": None,
         "path_mapa": None, "path_foto1": None, "path_foto2": None,
         "pie_mapa": "", "pie_foto1": "", "pie_foto2": "",
-        "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0
+        "poblacion_referencia": 0, "poblacion_afectada": 0, "poblacion_objetivo": 0,
+        "poblacion_objetivo_genero": {"Hombres": 0, "Mujeres": 0},
+        "poblacion_objetivo_edad": {"0-14": 0, "15-19": 0, "20-59": 0, "Mayor de 60 años": 0},
+        "analisis_poblacion_objetivo": ""
     }
 
 # --- SINCRONIZACIÓN AUTOMÁTICA SILENCIOSA CON HOJA 8 ---
@@ -50,6 +53,15 @@ for campo in campos_requeridos:
             datos[campo] = None
         else:
             datos[campo] = ""
+
+
+# --- AUTO-REPARACIÓN DE NUEVOS CAMPOS (POBLACIÓN OBJETIVO DETALLE) ---
+if "poblacion_objetivo_genero" not in datos or not isinstance(datos.get("poblacion_objetivo_genero"), dict):
+    datos["poblacion_objetivo_genero"] = {"Hombres": 0, "Mujeres": 0}
+if "poblacion_objetivo_edad" not in datos or not isinstance(datos.get("poblacion_objetivo_edad"), dict):
+    datos["poblacion_objetivo_edad"] = {"0-14": 0, "15-19": 0, "20-59": 0, "Mayor de 60 años": 0}
+if "analisis_poblacion_objetivo" not in datos or not isinstance(datos.get("analisis_poblacion_objetivo"), str):
+    datos["analisis_poblacion_objetivo"] = ""
 
 zona_data = st.session_state['descripcion_zona']
 
@@ -100,6 +112,15 @@ def update_field(key):
         st.session_state['descripcion_zona'][key] = st.session_state[temp_key]
         guardar_datos_nube()
 
+
+
+def update_nested_field(parent_key, child_key):
+    temp_key = f"temp_{parent_key}_{child_key}"
+    if temp_key in st.session_state:
+        if parent_key not in st.session_state['descripcion_zona'] or not isinstance(st.session_state['descripcion_zona'].get(parent_key), dict):
+            st.session_state['descripcion_zona'][parent_key] = {}
+        st.session_state['descripcion_zona'][parent_key][child_key] = st.session_state[temp_key]
+        guardar_datos_nube()
 # --- STORAGE (Supabase) ---
 def _get_bucket_name():
     # Bucket por defecto: "uploads" (puedes sobreescribir en secrets)
@@ -329,3 +350,61 @@ with cp3:
     st.number_input("POBLACIÓN OBJETIVO:", min_value=0, step=1, format="%d",
                     value=int(zona_data.get('poblacion_objetivo', 0)),
                     key="temp_poblacion_objetivo", on_change=update_field, args=("poblacion_objetivo",))
+
+
+# --- SUBSECCIÓN: POBLACIÓN OBJETIVO (DETALLE) ---
+st.markdown('<div style="font-weight: 800; color: #1E3A8A; margin-top: 15px; margin-bottom: 10px;">POBLACIÓN OBJETIVO</div>', unsafe_allow_html=True)
+
+# 6.1 Por sexo
+st.markdown('<div style="font-weight: 700; color: #1E3A8A; margin-bottom: 8px;">1. Población objetivo por sexo</div>', unsafe_allow_html=True)
+cg1, cg2 = st.columns(2)
+with cg1:
+    st.number_input("Hombres", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_genero', {}).get('Hombres', 0)),
+                    key="temp_poblacion_objetivo_genero_Hombres", on_change=update_nested_field,
+                    args=("poblacion_objetivo_genero", "Hombres"))
+with cg2:
+    st.number_input("Mujeres", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_genero', {}).get('Mujeres', 0)),
+                    key="temp_poblacion_objetivo_genero_Mujeres", on_change=update_nested_field,
+                    args=("poblacion_objetivo_genero", "Mujeres"))
+
+# 6.2 Por rango de edad
+st.markdown('<div style="font-weight: 700; color: #1E3A8A; margin-top: 12px; margin-bottom: 8px;">2. Población objetivo por rango de edad</div>', unsafe_allow_html=True)
+ce1, ce2, ce3, ce4 = st.columns(4)
+with ce1:
+    st.number_input("0 – 14", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_edad', {}).get('0-14', 0)),
+                    key="temp_poblacion_objetivo_edad_0-14", on_change=update_nested_field,
+                    args=("poblacion_objetivo_edad", "0-14"))
+with ce2:
+    st.number_input("15 - 19", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_edad', {}).get('15-19', 0)),
+                    key="temp_poblacion_objetivo_edad_15-19", on_change=update_nested_field,
+                    args=("poblacion_objetivo_edad", "15-19"))
+with ce3:
+    st.number_input("20 – 59", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_edad', {}).get('20-59', 0)),
+                    key="temp_poblacion_objetivo_edad_20-59", on_change=update_nested_field,
+                    args=("poblacion_objetivo_edad", "20-59"))
+with ce4:
+    st.number_input("Mayor de 60 años", min_value=0, step=1, format="%d",
+                    value=int(zona_data.get('poblacion_objetivo_edad', {}).get('Mayor de 60 años', 0)),
+                    key="temp_poblacion_objetivo_edad_Mayor de 60 años", on_change=update_nested_field,
+                    args=("poblacion_objetivo_edad", "Mayor de 60 años"))
+
+# 6.3 Análisis libre
+st.markdown('<div style="font-weight: 700; color: #1E3A8A; margin-top: 12px; margin-bottom: 8px;">3. Análisis de la población objetivo</div>', unsafe_allow_html=True)
+_txt = str(zona_data.get('analisis_poblacion_objetivo', '') or '')
+# Auto-ajuste simple de altura según longitud (sin cambiar UI base)
+_rows = max(6, min(18, (len(_txt) // 90) + 6))
+_height = _rows * 24
+
+st.text_area(
+    "Análisis (diligenciamiento libre)",
+    value=_txt,
+    key="temp_analisis_poblacion_objetivo",
+    height=_height,
+    on_change=update_field,
+    args=("analisis_poblacion_objetivo",)
+)
