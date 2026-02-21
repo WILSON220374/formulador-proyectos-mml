@@ -297,6 +297,15 @@ def cargar_datos_nube(user_id):
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['justificacion_arbol_objetivos_final'] = d.get('justificacion_arbol_objetivos_final', "")
+            # Sincronizar justificación también dentro del objeto del árbol final (compatibilidad con Hoja 7)
+            try:
+                if isinstance(st.session_state.get('arbol_objetivos_final', None), dict):
+                    st.session_state['arbol_objetivos_final'].setdefault('referencia_manual', {})
+                    if isinstance(st.session_state['arbol_objetivos_final'].get('referencia_manual', None), dict):
+                        st.session_state['arbol_objetivos_final']['referencia_manual']['justificacion'] = st.session_state.get('justificacion_arbol_objetivos_final', '')
+            except Exception:
+                pass
+
             st.session_state['arbol_problemas_final'] = d.get('arbol_p_f', {})
             st.session_state['descripcion_zona'] = d.get('zona_detallada', {})
 
@@ -373,6 +382,18 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
 
+        # Normalizar justificación de Hoja 7 (puede vivir en clave directa o dentro de arbol_objetivos_final['referencia_manual'])
+        _just = st.session_state.get('justificacion_arbol_objetivos_final', '')
+        if (not isinstance(_just, str) or _just.strip() == ''):
+            try:
+                _ao = st.session_state.get('arbol_objetivos_final', {})
+                if isinstance(_ao, dict):
+                    _rm = _ao.get('referencia_manual', {})
+                    if isinstance(_rm, dict):
+                        _just = _rm.get('justificacion', '')
+            except Exception:
+                _just = ''
+
         paquete = {
             "integrantes": st.session_state.get('integrantes', []),
             "diagnostico": st.session_state.get('datos_problema', {}),
@@ -392,7 +413,7 @@ def guardar_datos_nube():
             "calificaciones": st.session_state.get('df_calificaciones', pd.DataFrame()).to_dict(orient="records"),
 
             "arbol_f": st.session_state.get('arbol_objetivos_final', {}),
-            "justificacion_arbol_objetivos_final": st.session_state.get('justificacion_arbol_objetivos_final', ""),
+            "justificacion_arbol_objetivos_final": _just,
             "arbol_p_f": st.session_state.get('arbol_problemas_final', {}),
             "zona_detallada": st.session_state.get('descripcion_zona', {}),
 
