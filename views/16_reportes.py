@@ -125,68 +125,71 @@ def generar_word():
     doc = Document()
     
     # ---------------------------------------------------------
-    # 1. CONFIGURACIÓN DEL ENCABEZADO Y PIE DE PÁGINA
+    # 1. CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA
     # ---------------------------------------------------------
     section = doc.sections[0]
+    section.different_first_page_header_footer = True # Regla: Portada diferente
     
-    # --- ENCABEZADO ---
-    header = section.header
-    htable = header.add_table(rows=1, cols=2, width=Inches(6))
-    htable.autofit = False
-    htable.columns[0].width = Inches(4.5) 
-    htable.columns[1].width = Inches(1.5) 
-    
-    h_izq = htable.cell(0, 0).paragraphs[0]
-    h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    r_hizq = h_izq.add_run(nombre_proyecto.upper())
-    r_hizq.font.size = Pt(9)
-    r_hizq.bold = True
-    
-    h_der = htable.cell(0, 1).paragraphs[0]
-    h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    if logo_entidad is not None:
-        logo_entidad.seek(0)
-        r_hder = h_der.add_run()
-        r_hder.add_picture(logo_entidad, width=Inches(0.6))
+    # Función interna para crear el encabezado (se usa en portada y resto de hojas)
+    def crear_encabezado(hdr_obj):
+        htable = hdr_obj.add_table(rows=1, cols=2, width=Inches(6.5))
+        htable.autofit = False
+        htable.columns[0].width = Inches(5.0) 
+        htable.columns[1].width = Inches(1.5) 
         
-    # Línea elegante debajo del encabezado (Truco XML)
-    p_line = header.add_paragraph()
-    pPr = p_line._p.get_or_add_pPr()
-    pBdr = OxmlElement('w:pBdr')
-    bottom = OxmlElement('w:bottom')
-    bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6') # Grosor de la línea
-    bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), 'auto')
-    pBdr.append(bottom)
-    pPr.append(pBdr)
+        h_izq = htable.cell(0, 0).paragraphs[0]
+        h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        r_hizq = h_izq.add_run(nombre_proyecto.upper())
+        r_hizq.font.size = Pt(9)
+        r_hizq.bold = True
+        
+        h_der = htable.cell(0, 1).paragraphs[0]
+        h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        if logo_entidad is not None:
+            # Procesamiento seguro de imagen
+            r_hder = h_der.add_run()
+            r_hder.add_picture(io.BytesIO(logo_entidad.getvalue()), width=Inches(0.6))
+            
+        p_line = hdr_obj.add_paragraph()
+        pPr = p_line._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        bottom.set(qn('w:val'), 'single')
+        bottom.set(qn('w:sz'), '6')
+        bottom.set(qn('w:space'), '1')
+        bottom.set(qn('w:color'), 'auto')
+        pBdr.append(bottom)
+        pPr.append(pBdr)
 
-    # --- PIE DE PÁGINA ---
-    footer = section.footer
-    ftable = footer.add_table(rows=1, cols=3, width=Inches(6))
-    ftable.autofit = False
-    ftable.columns[0].width = Inches(1.0) # Izquierda (vacío)
-    ftable.columns[1].width = Inches(4.0) # Centro (Entidad - División)
-    ftable.columns[2].width = Inches(1.0) # Derecha (Paginación)
+    # Aplicar encabezado a la portada y al resto del documento
+    crear_encabezado(section.first_page_header)
+    crear_encabezado(section.header)
     
-    # Centro: Entidad y División
-    f_centro = ftable.cell(0, 1).paragraphs[0]
-    f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    # --- PIE DE PÁGINA (Solo para página 2 en adelante) ---
+    # Nota: section.first_page_footer queda vacío por defecto, así no hay números en la portada
+    
+    footer = section.footer
+    ftable = footer.add_table(rows=1, cols=2, width=Inches(6.5))
+    ftable.autofit = False
+    ftable.columns[0].width = Inches(5.0) # Mucho más ancho para la Entidad
+    ftable.columns[1].width = Inches(1.5) # Espacio para la paginación
+    
+    # Izquierda: Entidad y División alineados a la izquierda
+    f_izq = ftable.cell(0, 0).paragraphs[0]
+    f_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
     texto_entidad = entidad_formulo if entidad_formulo else ""
     texto_div = f" - {division}" if division else ""
     
-    r_centro = f_centro.add_run(f"{texto_entidad.upper()}{texto_div.upper()}")
-    r_centro.font.size = Pt(8)
-    r_centro.italic = True
-    r_centro.font.color.rgb = None # Color por defecto
+    r_izq = f_izq.add_run(f"{texto_entidad.upper()}{texto_div.upper()}")
+    r_izq.font.size = Pt(8)
+    r_izq.italic = True
     
-    # Derecha: Numeración de páginas (Truco XML para que sea automático)
-    f_der = ftable.cell(0, 2).paragraphs[0]
+    # Derecha: Numeración de páginas
+    f_der = ftable.cell(0, 1).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     r_der = f_der.add_run("Pág. ")
     r_der.font.size = Pt(8)
     
-    # Campo dinámico de número de página
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
     instrText = OxmlElement('w:instrText')
@@ -205,7 +208,7 @@ def generar_word():
     r_num._r.append(fldChar3)
 
     # ---------------------------------------------------------
-    # 2. CONSTRUCCIÓN DE LA PORTADA
+    # 2. CONSTRUCCIÓN DEL CUERPO DE LA PORTADA
     # ---------------------------------------------------------
     doc.add_paragraph("\n\n") 
     
@@ -218,10 +221,10 @@ def generar_word():
     doc.add_paragraph("\n")
     
     if img_portada is not None:
-        img_portada.seek(0)
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p_img.add_run().add_picture(img_portada, width=Inches(3.8))
+        # Procesamiento seguro de la imagen central para que no desaparezca
+        p_img.add_run().add_picture(io.BytesIO(img_portada.getvalue()), width=Inches(3.8))
         
     doc.add_paragraph("\n")
     
