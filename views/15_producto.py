@@ -153,14 +153,48 @@ else:
     _df_prog = _df_prog.iloc[0:0].copy()
 
 if _df_prog.empty:
+    producto_label = st.selectbox("Seleccione el producto principal", ["Seleccione..."], index=0)
     df_producto_vacio = pd.DataFrame(columns=columnas_producto)
+    st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 else:
-    df_producto_vacio = _df_prog.rename(columns={"Producto": "PRODUCTO"})[
-        ["PRODUCTO", "Descripción", "Medido a través de", "Indicador de Producto", "Unidad de medida"]
-    ].copy()
+    _df_prog2 = _df_prog.copy()
+    # Construir opciones de selección (un solo producto)
+    producto_options = ["Seleccione..."]
+    producto_idx_map = {}  # label -> row index
+    _df_prog2 = _df_prog2.reset_index(drop=True)
+    for i, r in _df_prog2.iterrows():
+        cod = str(r.get("Código del Producto", "")).strip() if "Código del Producto" in _df_prog2.columns else ""
+        prod = str(r.get("Producto", "")).strip()
+        label = f"{cod} - {prod}" if cod else prod
+        if label.strip():
+            producto_idx_map[label] = i
+            producto_options.append(label)
 
-st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
+    _producto_default = st.session_state.get('producto_seleccionado_label', 'Seleccione...')
+    if _producto_default not in producto_options:
+        _producto_default = 'Seleccione...'
+    _producto_index = producto_options.index(_producto_default)
 
+    producto_label = st.selectbox("Seleccione el producto principal", producto_options, index=_producto_index)
+
+    if producto_label != "Seleccione..." and producto_label in producto_idx_map:
+        r = _df_prog2.iloc[producto_idx_map[producto_label]]
+        df_producto_vacio = pd.DataFrame([
+            {
+                "PRODUCTO": r.get("Producto", ""),
+                "Descripción": r.get("Descripción", ""),
+                "Medido a través de": r.get("Medido a través de", ""),
+                "Indicador de Producto": r.get("Indicador de Producto", ""),
+                "Unidad de medida": r.get("Unidad de medida", ""),
+            }
+        ], columns=columnas_producto)
+        # Guardar selección en sesión (sin afectar UI)
+        st.session_state['producto_seleccionado_label'] = producto_label
+        st.session_state['producto_principal'] = df_producto_vacio.iloc[0].to_dict()
+    else:
+        df_producto_vacio = pd.DataFrame(columns=columnas_producto)
+
+    st.dataframe(df_producto_vacio, use_container_width=True, hide_index=True)
 st.divider()
 
 # =========================================================
