@@ -226,13 +226,9 @@ nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto",
                                height=100)
 
 # Cartel de Vista Previa Destacado (Verde)
-# Cartel de Vista Previa Destacado (Verde)
 if nombre_proyecto.strip():
     st.markdown(f"""
         <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="color: #BBF7D0; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">
-                Título del Proyecto
-            </div>
             <span style="font-size: 2.2rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
