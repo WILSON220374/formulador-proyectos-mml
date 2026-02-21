@@ -14,7 +14,7 @@ st.markdown("""
         border-left: 10px solid #4F8BFF;
         padding: 20px;
         border-radius: 15px;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         box-shadow: 4px 4px 10px rgba(0,0,0,0.08);
         height: 160px;
         display: flex;
@@ -33,10 +33,10 @@ st.markdown("""
         color: #555;
         margin-bottom: 4px;
     }
-    
+
     .titulo-principal {
-        font-size: 42px !important; 
-        font-weight: 800 !important; 
+        font-size: 42px !important;
+        font-weight: 800 !important;
         color: #4F8BFF;
         text-align: left;
         margin-bottom: 25px;
@@ -48,16 +48,21 @@ st.markdown("""
         padding: 20px;
         border-radius: 12px;
         background-color: #fafafa;
-        margin-top: 0px; /* Asegura que empiece arriba */
+        margin-top: 0px;
     }
-    
+
     /* --- HACK PARA IMAGEN ESTÁTICA --- */
     [data-testid="stImage"] img {
         pointer-events: none;
         user-select: none;
-        border-radius: 15px; /* Bordes redondeados para que combine */
+        border-radius: 15px;
     }
     [data-testid="StyledFullScreenButton"] { display: none !important; }
+
+    /* Botones pequeños debajo de cada tarjeta */
+    div.stButton > button[data-testid^="stBaseButton"] {
+        border-radius: 10px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -66,29 +71,56 @@ st.markdown("""
 # ---------------------------------------------------------
 st.markdown('<div class="titulo-principal">Gestión de Equipo</div>', unsafe_allow_html=True)
 
+# Estado de edición
+if 'equipo_edit_idx' not in st.session_state:
+    st.session_state['equipo_edit_idx'] = None
+
+# Keys de formulario (para prefills)
+if 'equipo_nombre' not in st.session_state:
+    st.session_state['equipo_nombre'] = ""
+if 'equipo_tel' not in st.session_state:
+    st.session_state['equipo_tel'] = ""
+if 'equipo_email' not in st.session_state:
+    st.session_state['equipo_email'] = ""
+
 col_titulo, col_btn = st.columns([4, 1])
 with col_titulo:
     st.subheader("👥 Miembros Registrados")
 with col_btn:
+    # Mantener comportamiento existente
     if st.button("↩️ Deshacer último", help="Borra el registro más reciente"):
         if st.session_state.get('integrantes'):
             st.session_state['integrantes'].pop()
             guardar_datos_nube()
             st.rerun()
 
-integrantes_raw = st.session_state.get('integrantes', [])
-integrantes_validos = [p for p in integrantes_raw if isinstance(p, dict) and p]
+    # Cancelar edición (solo si está editando)
+    if st.session_state.get('equipo_edit_idx') is not None:
+        if st.button("✖️ Cancelar", help="Cancela la edición actual"):
+            st.session_state['equipo_edit_idx'] = None
+            st.session_state['equipo_nombre'] = ""
+            st.session_state['equipo_tel'] = ""
+            st.session_state['equipo_email'] = ""
+            st.rerun()
 
-if integrantes_validos:
-    cols = st.columns(3) 
-    for idx, persona in enumerate(integrantes_validos):
-        with cols[idx % 3]: 
+integrantes_raw = st.session_state.get('integrantes', [])
+
+# Mantener índices reales para poder editar/eliminar sin romper
+integrantes_indexados = []
+for i, p in enumerate(integrantes_raw):
+    if isinstance(p, dict) and p:
+        integrantes_indexados.append((i, p))
+
+if integrantes_indexados:
+    cols = st.columns(3)
+    for n, (real_idx, persona) in enumerate(integrantes_indexados):
+        with cols[n % 3]:
             try:
                 nombre_raw = persona.get("Nombre Completo") or "SIN NOMBRE"
                 nombre = str(nombre_raw).upper()
                 tel = persona.get("Teléfono") or "N/A"
                 email = persona.get("Correo Electrónico") or "N/A"
-                
+
                 st.markdown(f"""
                     <div class="ficha-equipo">
                         <div class="nombre-mediano">👤 {nombre}</div>
@@ -96,6 +128,31 @@ if integrantes_validos:
                         <div class="detalle-pequeno">✉️ {email}</div>
                     </div>
                 """, unsafe_allow_html=True)
+
+                b1, b2 = st.columns(2)
+                with b1:
+                    if st.button("✏️ Editar", key=f"edit_{real_idx}", use_container_width=True):
+                        st.session_state['equipo_edit_idx'] = real_idx
+                        st.session_state['equipo_nombre'] = persona.get("Nombre Completo", "") or ""
+                        st.session_state['equipo_tel'] = persona.get("Teléfono", "") or ""
+                        st.session_state['equipo_email'] = persona.get("Correo Electrónico", "") or ""
+                        st.rerun()
+                with b2:
+                    if st.button("🗑️ Eliminar", key=f"del_{real_idx}", use_container_width=True):
+                        try:
+                            st.session_state['integrantes'].pop(real_idx)
+                        except Exception:
+                            # fallback
+                            st.session_state['integrantes'] = [p for j, p in enumerate(st.session_state.get('integrantes', [])) if j != real_idx]
+                        # Si estaba editando ese idx, cancelar
+                        if st.session_state.get('equipo_edit_idx') == real_idx:
+                            st.session_state['equipo_edit_idx'] = None
+                            st.session_state['equipo_nombre'] = ""
+                            st.session_state['equipo_tel'] = ""
+                            st.session_state['equipo_email'] = ""
+                        guardar_datos_nube()
+                        st.rerun()
+
             except Exception:
                 continue
 else:
@@ -106,16 +163,12 @@ st.divider()
 # ---------------------------------------------------------
 # SECCIÓN INFERIOR: ALINEACIÓN PERFECTA (IMAGEN vs FORMULARIO)
 # ---------------------------------------------------------
-
-# Usamos columnas de relleno (0.6) a los extremos para centrar todo el bloque
-# Proporción central: Imagen (1.3) vs Formulario (2.2)
 col_izq_vacia, col_img, col_form, col_der_vacia = st.columns([0.6, 1.3, 2.2, 0.6], gap="medium")
 
 # --- COLUMNA IMAGEN ---
 with col_img:
-    # Ajuste fino: Un pequeño espacio vacío para bajar la imagen y alinear su centro con el formulario
-    st.write("") 
-    st.write("") 
+    st.write("")
+    st.write("")
     if os.path.exists("unnamed.jpg"):
         st.image("unnamed.jpg", use_container_width=True)
     else:
@@ -124,32 +177,44 @@ with col_img:
 # --- COLUMNA FORMULARIO ---
 with col_form:
     st.markdown("##### 📝 Registrar Nuevo Integrante")
-    
-    with st.form("form_registro", clear_on_submit=True):
+
+    with st.form("form_registro", clear_on_submit=False):
         c1, c2 = st.columns(2)
         with c1:
-            nuevo_nombre = st.text_input("Nombre *")
-            nuevo_tel = st.text_input("Teléfono")
+            nuevo_nombre = st.text_input("Nombre *", key="equipo_nombre")
+            nuevo_tel = st.text_input("Teléfono", key="equipo_tel")
         with c2:
-            nuevo_email = st.text_input("Email")
-            st.write("") 
-        
+            nuevo_email = st.text_input("Email", key="equipo_email")
+            st.write("")
+
         submitted = st.form_submit_button("💾 GUARDAR", type="primary", use_container_width=True)
-        
+
         if submitted:
             if nuevo_nombre:
                 nuevo_integrante = {
                     "Nombre Completo": nuevo_nombre,
                     "Teléfono": nuevo_tel,
-                    "Correo Electrónico": nuevo_email
+                    "Correo Electrónico": nuevo_email,
                 }
-                
+
                 if 'integrantes' not in st.session_state:
                     st.session_state['integrantes'] = []
-                
-                st.session_state['integrantes'].append(nuevo_integrante)
+
+                edit_idx = st.session_state.get('equipo_edit_idx')
+                if edit_idx is not None and isinstance(edit_idx, int) and 0 <= edit_idx < len(st.session_state['integrantes']):
+                    st.session_state['integrantes'][edit_idx] = nuevo_integrante
+                    st.toast(f"✅ {nuevo_nombre} actualizado correctamente")
+                else:
+                    st.session_state['integrantes'].append(nuevo_integrante)
+                    st.toast(f"✅ {nuevo_nombre} agregado correctamente")
+
+                # reset edición + limpiar campos
+                st.session_state['equipo_edit_idx'] = None
+                st.session_state['equipo_nombre'] = ""
+                st.session_state['equipo_tel'] = ""
+                st.session_state['equipo_email'] = ""
+
                 guardar_datos_nube()
-                st.toast(f"✅ {nuevo_nombre} agregado correctamente")
                 st.rerun()
             else:
                 st.error("⚠️ Nombre obligatorio.")
