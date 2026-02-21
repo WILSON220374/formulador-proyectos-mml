@@ -140,7 +140,7 @@ if any([_plan_nombre, _plan_eje, _plan_programa]):
 else:
     # Compatibilidad: si existía una versión anterior que guardaba el texto completo
     plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
-justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
+justificacion = st.session_state.get('justificacion_arbol_objetivos_final', 'No se ha registrado información en la Hoja 7.')
 loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
 loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
 loc_accesibilidad = st.session_state.get('loc_accesibilidad', 'No se ha registrado accesibilidad.')
