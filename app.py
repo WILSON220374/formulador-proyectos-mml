@@ -14,12 +14,17 @@ if 'integrantes' in st.session_state and isinstance(st.session_state['integrante
 # --- ESTILOS CSS GLOBALES (SOLO TÍTULOS DE FASE EN NEGRILLA) ---
 st.markdown("""
     <style>
-    div[data-testid="stSidebarNavItems"] > ul > li span[title^="Fase"] {
-        font-weight: 900 !important;
-        color: #1E3A8A !important;
-        font-size: 14px !important;
-        text-transform: uppercase;
-    }
+    div[data-testid="stSidebarNavItems"] li:has(a) span {
+  font-weight: 400 !important;
+  text-transform: none !important;
+  color: inherit !important;
+}
+
+div[data-testid="stSidebarNavItems"] li:not(:has(a)) span {
+  font-weight: 900 !important;
+  color: #1E3A8A !important;
+  text-transform: uppercase !important;
+}
     </style>
 """, unsafe_allow_html=True)
 
