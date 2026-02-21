@@ -138,6 +138,10 @@ _programa_index = _programa_options.index(_programa_default)
 with col_s2:
     programa_seleccionado = st.selectbox("Programa", _programa_options, index=_programa_index)
 
+# Persistir selección actual en sesión (para que quede precargada en el UI)
+st.session_state["sector_seleccionado"] = sector_seleccionado
+st.session_state["programa_seleccionado"] = programa_seleccionado
+
 st.divider()
 
 # --- SECCIÓN 2: MATRIZ DE PRODUCTO ---
@@ -200,6 +204,7 @@ else:
 
     # Guardar selección en sesión (sin cambiar UI del resto)
     st.session_state["producto_seleccionado_label"] = producto_nombre
+    st.session_state["producto_seleccionado"] = producto_nombre
     st.session_state["producto_principal"] = {
         "PRODUCTO": _seleccion.get("Producto", ""),
         "Descripción": _seleccion.get("Descripción", ""),
@@ -224,7 +229,7 @@ nombre_proyecto = st.text_area("Escriba el nombre definitivo del proyecto",
 if nombre_proyecto.strip():
     st.markdown(f"""
         <div style="margin-top: 15px; padding: 25px; border-radius: 10px; background-color: #166534; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;"> </div>
+            <div style="color: #BBF7D0; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Título del Proyecto</div>
             <span style="font-size: 1.5rem; font-weight: 800; text-transform: uppercase; line-height: 1.3;">
                 {nombre_proyecto}
             </span>
@@ -248,6 +253,11 @@ if st.button("💾 Guardar Información de Producto", type="primary"):
     st.session_state['plan_nombre'] = nombre_plan
     st.session_state['plan_eje'] = eje_plan
     st.session_state['plan_programa'] = programa_plan
+    st.session_state["sector_seleccionado"] = sector_seleccionado
+    st.session_state["programa_seleccionado"] = programa_seleccionado
+    st.session_state["producto_seleccionado"] = st.session_state.get("producto_seleccionado", "")
+    st.session_state["producto_seleccionado_label"] = st.session_state.get("producto_seleccionado_label", "")
+    st.session_state["producto_principal"] = st.session_state.get("producto_principal", {})
     
     guardar_datos_nube()
     st.success("✅ Información guardada correctamente.")
