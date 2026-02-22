@@ -142,6 +142,7 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
+
 # 1. Plan de Desarrollo
 _plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
 _plan_eje = str(st.session_state.get('plan_eje', '')).strip()
@@ -172,59 +173,71 @@ ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
-# --- 4. EXTRACCIÓN Y RECONSTRUCCIÓN DEL PROBLEMA (Hojas 8 y 10) ---
+
+# --- 4. EXTRACCIÓN DE LA SECCIÓN 6: PROBLEMA (HOJA 8 Y 10) ---
+
+# Funciones auxiliares para parsear diccionarios de la Hoja 10
+def _a_texto_dict(item):
+    if isinstance(item, dict): return item
+    if item is None: return None
+    return {"texto": str(item)}
+
+def _a_lista_dicts(valor):
+    if valor is None: return []
+    if isinstance(valor, list):
+        out = []
+        for it in valor:
+            d = _a_texto_dict(it)
+            if d is not None: out.append(d)
+        return out
+    if isinstance(valor, dict): return [valor]
+    return [{"texto": str(valor)}]
+
 desc_prob_data = st.session_state.get('descripcion_problema', {})
 narrativa_problema = desc_prob_data.get('redaccion_narrativa', 'No se ha registrado la descripción detallada.')
-antecedentes_problema = desc_prob_data.get('antecedentes', 'No se han registrado antecedentes.')
+if not narrativa_problema.strip(): narrativa_problema = 'No se ha registrado la descripción detallada.'
 
-# Armar Tabla de Magnitud del Problema
+antecedentes_problema = desc_prob_data.get('antecedentes', 'No se han registrado antecedentes.')
+if not antecedentes_problema.strip(): antecedentes_problema = 'No se han registrado antecedentes.'
+
+# Reconstruir Tabla de Magnitud
 tabla_datos_prob = desc_prob_data.get('tabla_datos', {})
-arbol_prob_ref = st.session_state.get('arbol_problemas_final', {}).get('referencia_manual', {})
-if not arbol_prob_ref: 
-    arbol_prob_ref = st.session_state.get('arbol_problemas', {})
+datos_h8 = st.session_state.get('arbol_problemas_final', {})
+if not isinstance(datos_h8, dict): datos_h8 = {}
+
+pp_list = _a_lista_dicts(datos_h8.get("Problema Principal"))
+pc_txt = pp_list[0].get("texto", "") if pp_list and isinstance(pp_list[0], dict) else ""
+
+lista_causas = [c.get("texto") for c in _a_lista_dicts(datos_h8.get("Causas Directas")) + _a_lista_dicts(datos_h8.get("Causas Indirectas")) if isinstance(c, dict) and c.get("texto")]
+lista_efectos = [e.get("texto") for e in _a_lista_dicts(datos_h8.get("Efectos Directos")) + _a_lista_dicts(datos_h8.get("Efectos Indirectos")) if isinstance(e, dict) and e.get("texto")]
 
 filas_magnitud = []
-# Problema Central
-txt_pc = arbol_prob_ref.get('problema', 'Problema Central')
-if isinstance(txt_pc, list) and txt_pc: txt_pc = txt_pc[0].get('texto', '') if isinstance(txt_pc[0], dict) else txt_pc[0]
-elif isinstance(txt_pc, dict): txt_pc = txt_pc.get('texto', '')
-
-filas_magnitud.append({
-    "Categoría": "PROBLEMA CENTRAL",
-    "Descripción": str(txt_pc),
-    "Magnitud": tabla_datos_prob.get("m_pc", ""),
-    "Unidad": tabla_datos_prob.get("u_pc", ""),
-    "Cantidad": tabla_datos_prob.get("c_pc", "")
-})
-
-# Efectos
-efectos = arbol_prob_ref.get('efectos', [])
-for i, ef in enumerate(efectos):
-    txt_ef = ef.get('texto', '') if isinstance(ef, dict) else str(ef)
+if pc_txt:
+    filas_magnitud.append({
+        "Categoría": "PROBLEMA CENTRAL",
+        "Descripción": pc_txt,
+        "Magnitud": tabla_datos_prob.get("m_pc", ""),
+        "Unidad": tabla_datos_prob.get("u_pc", ""),
+        "Cantidad": tabla_datos_prob.get("c_pc", "")
+    })
+for i, txt in enumerate(lista_causas):
+    filas_magnitud.append({
+        "Categoría": f"CAUSA {i+1}",
+        "Descripción": txt,
+        "Magnitud": tabla_datos_prob.get(f"m_causa_{i}", ""),
+        "Unidad": tabla_datos_prob.get(f"u_causa_{i}", ""),
+        "Cantidad": tabla_datos_prob.get(f"c_causa_{i}", "")
+    })
+for i, txt in enumerate(lista_efectos):
     filas_magnitud.append({
         "Categoría": f"EFECTO {i+1}",
-        "Descripción": txt_ef,
+        "Descripción": txt,
         "Magnitud": tabla_datos_prob.get(f"m_efecto_{i}", ""),
         "Unidad": tabla_datos_prob.get(f"u_efecto_{i}", ""),
         "Cantidad": tabla_datos_prob.get(f"c_efecto_{i}", "")
     })
 
-# Causas
-causas = arbol_prob_ref.get('causas', [])
-for i, ca in enumerate(causas):
-    txt_ca = ca.get('texto', '') if isinstance(ca, dict) else str(ca)
-    filas_magnitud.append({
-        "Categoría": f"CAUSA {i+1}",
-        "Descripción": txt_ca,
-        "Magnitud": tabla_datos_prob.get(f"m_causa_{i}", ""),
-        "Unidad": tabla_datos_prob.get(f"u_causa_{i}", ""),
-        "Cantidad": tabla_datos_prob.get(f"c_causa_{i}", "")
-    })
-
 df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
-
-# Imagen del Árbol
-arbol_img_memoria = st.session_state.get('arbol_problemas_img', None) 
 
 # 5. Población
 df_poblacion_general = st.session_state.get('df_poblacion_general', None)
@@ -251,31 +264,26 @@ alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No 
 # ==========================================
 # ⚙️ MOTORES AUXILIARES Y WORD
 # ==========================================
+
 def redibujar_arbol_problemas(arbol_data):
-    """Motor de respaldo para dibujar el árbol de problemas usando Graphviz"""
+    """Motor de respaldo para dibujar el árbol de problemas usando Graphviz en caso de que la foto en memoria se borre"""
     try:
         dot = graphviz.Digraph(format='png')
         dot.attr(rankdir='BT')
         dot.attr('node', shape='box', style='filled', fontname='Helvetica', margin='0.2')
 
-        # Problema Central
-        pc = arbol_data.get('problema', 'Problema Central')
-        if isinstance(pc, list) and pc: pc = pc[0].get('texto', '') if isinstance(pc[0], dict) else pc[0]
-        elif isinstance(pc, dict): pc = pc.get('texto', '')
-        dot.node('PC', str(pc), fillcolor='#FCA5A5') # Rojo claro
+        pp_list = _a_lista_dicts(arbol_data.get("Problema Principal"))
+        pc_txt = pp_list[0].get("texto", "Problema Central") if pp_list else "Problema Central"
+        dot.node('PC', str(pc_txt), fillcolor='#FCA5A5')
 
-        # Causas
-        causas = arbol_data.get('causas', [])
+        causas = _a_lista_dicts(arbol_data.get("Causas Directas")) + _a_lista_dicts(arbol_data.get("Causas Indirectas"))
         for i, ca in enumerate(causas):
-            txt_ca = ca.get('texto', '') if isinstance(ca, dict) else str(ca)
-            dot.node(f'C_{i}', txt_ca, fillcolor='#FEF3C7') # Amarillo claro
+            dot.node(f'C_{i}', ca.get('texto', ''), fillcolor='#FEF3C7')
             dot.edge(f'C_{i}', 'PC')
 
-        # Efectos
-        efectos = arbol_data.get('efectos', [])
+        efectos = _a_lista_dicts(arbol_data.get("Efectos Directos")) + _a_lista_dicts(arbol_data.get("Efectos Indirectos"))
         for i, ef in enumerate(efectos):
-            txt_ef = ef.get('texto', '') if isinstance(ef, dict) else str(ef)
-            dot.node(f'E_{i}', txt_ef, fillcolor='#DBEAFE') # Azul claro
+            dot.node(f'E_{i}', ef.get('texto', ''), fillcolor='#DBEAFE')
             dot.edge('PC', f'E_{i}')
 
         return io.BytesIO(dot.pipe())
@@ -524,11 +532,12 @@ def generar_word():
     doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
     doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
             
-    # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA (NUEVO) ---
+    # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     
-    # Insertar el Árbol (Usando memoria primero, si falla dibuja con Graphviz)
+    # 1. Intentar imagen en memoria, 2. Si falla, redibujar
     imagen_insertada = False
+    arbol_img_memoria = st.session_state.get('arbol_problemas_img', None) 
     if arbol_img_memoria is not None:
         try:
             p_arbol = doc.add_paragraph()
@@ -537,8 +546,8 @@ def generar_word():
             imagen_insertada = True
         except: pass
         
-    if not imagen_insertada and arbol_prob_ref:
-        img_recreada = redibujar_arbol_problemas(arbol_prob_ref)
+    if not imagen_insertada and isinstance(datos_h8, dict) and datos_h8:
+        img_recreada = redibujar_arbol_problemas(datos_h8)
         if img_recreada:
             p_arbol = doc.add_paragraph()
             p_arbol.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -554,7 +563,7 @@ def generar_word():
     doc.add_heading("6.3 Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=2)
     doc.add_paragraph(str(antecedentes_problema))
     
-    # Registro Fotográfico (Hoja 9) lo ubicamos al final del problema
+    # Registro Fotográfico al final de la sección 6
     if ruta_foto1 or ruta_foto2:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
         if ruta_foto1:
@@ -562,7 +571,7 @@ def generar_word():
         if ruta_foto2:
             descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
 
-    # --- RESTO DEL DOCUMENTO (INALTERADO) ---
+    # --- RESTO DEL DOCUMENTO (7, 8, 9, 10) ---
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     doc.add_heading("1. Población objetivo por sexo", level=2)
