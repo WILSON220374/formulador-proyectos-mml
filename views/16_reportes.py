@@ -226,16 +226,16 @@ analisis_poblacion = str(zona_data.get('analisis_poblacion_objetivo', '')).strip
 if not analisis_poblacion:
     analisis_poblacion = 'No se ha registrado análisis de población.'
 
-# --- 8. PARTICIPANTES ---
-# Convertir a DataFrame en caso de que esté como lista de diccionarios
-df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
+# --- 8. PARTICIPANTES (CORREGIDO: df_interesados) ---
+# Extraemos la tabla usando la llave correcta según session_state.py
+df_matriz_interesados = st.session_state.get('df_interesados', pd.DataFrame())
 if df_matriz_interesados is not None and not isinstance(df_matriz_interesados, pd.DataFrame):
     try:
         df_matriz_interesados = pd.DataFrame(df_matriz_interesados)
     except:
-        pass
+        df_matriz_interesados = pd.DataFrame()
 
-# Buscamos el texto libre del análisis de participantes (Cubrimos si viene de Hoja 3 o Hoja 9)
+# Buscamos el texto libre del análisis de participantes
 texto_analisis_participantes = str(
     st.session_state.get('analisis_participantes') or 
     st.session_state.get('txt_analisis_participantes') or 
@@ -541,7 +541,7 @@ def generar_word():
     doc.add_heading("7.3 Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # --- 8. PARTICIPANTES (AJUSTADO: SIN MAPA DE INFLUENCIA) ---
+    # --- 8. PARTICIPANTES (AHORA SÍ CON LA LLAVE CORRECTA) ---
     doc.add_heading("8. Análisis de Participantes", level=1)
     
     doc.add_heading("Matriz de Interesados", level=2)
