@@ -117,7 +117,7 @@ def render_fila_uniforme(etiqueta, descripcion, key_id, color_bg, color_texto):
 
     altura_comun = calc_altura_fila(descripcion, val_m, val_u)
 
-    c1, c2, c3, c4, c5 = st.columns([1.5, 3.4, 2.6, 1.4, 0.8], vertical_alignment="center")
+    c1, c2, c3, c4, c5 = st.columns([1.5, 3.4, 1.5, 1.5, 1.5], vertical_alignment="center")
 
     with c1:
         st.markdown(f"""
