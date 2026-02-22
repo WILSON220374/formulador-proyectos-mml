@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import graphviz
 import textwrap
+import html
 from session_state import inicializar_session
 
 # 1. Asegurar persistencia 
