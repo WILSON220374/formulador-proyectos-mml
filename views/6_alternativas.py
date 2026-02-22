@@ -50,7 +50,17 @@ def crear_y_limpiar_alternativa():
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 150px !important; }
+    /* 1. ESPACIO AL FINAL PARA SCROLL */
+    [data-testid="stAppViewBlockContainer"] { padding-bottom: 500px !important; }
+    
+    /* 2. ESTILO DE CAJAS DE TEXTO (AUTO-AJUSTE VISUAL) */
+    .stTextArea textarea {
+        padding: 12px !important;
+        border-radius: 10px !important;
+        border: 1px solid #e2e8f0 !important;
+        resize: none !important; /* Quita el triángulo manual */
+    }
+
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     [data-testid="stImage"] img { border-radius: 12px; }
@@ -208,11 +218,25 @@ st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
+# --- NUEVA FUNCIÓN: Calcula el tamaño de la caja según el texto ---
+def calc_altura_dinamica(texto, chars_por_linea=80, min_h=68):
+    if not texto: return min_h
+    lineas = str(texto).count('\n') + (len(str(texto)) // chars_por_linea) + 1
+    return max(min_h, (lineas * 24) + 25)
+
 if not aprobadas.empty:
     with st.container(border=True):
         c1, c2 = st.columns([1, 2])
-        with c1: nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa A", key="input_nombre_alt")
-        with c2: desc_alt = st.text_area("Descripción corta:", height=68, key="input_desc_alt")
+        
+        # Leemos el texto actual para saber qué tamaño darle a la caja
+        val_nom = st.session_state.get("input_nombre_alt", "")
+        val_des = st.session_state.get("input_desc_alt", "")
+        
+        # APLICAMOS EL AUTO-AJUSTE AQUÍ (Cambiamos text_input por text_area)
+        with c1: 
+            nombre_alt = st.text_area("Nombre de la Alternativa:", value=val_nom, height=calc_altura_dinamica(val_nom, 35), placeholder="Ej: Alternativa A", key="input_nombre_alt")
+        with c2: 
+            desc_alt = st.text_area("Descripción corta:", value=val_des, height=calc_altura_dinamica(val_des, 75), key="input_desc_alt")
 
         st.write("###### Seleccione las actividades:")
         for obj in aprobadas["OBJETIVO"].unique():
@@ -221,14 +245,14 @@ if not aprobadas.empty:
                 for act in acts_obj:
                     st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}")
 
-        # Verificación de conflictos
+        # Verificación de conflictos (TU LÓGICA INTACTA)
         conflicto = False
         msg_err = ""
         seleccionadas = [key.split("_")[3:] for key in st.session_state if key.startswith("sel_alt_") and st.session_state[key]]
         # (Lógica simplificada de conflicto para el constructor)
         
         st.button("🚀 Crear Alternativa", type="primary", on_click=crear_y_limpiar_alternativa)
-
+        
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
