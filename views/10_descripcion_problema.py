@@ -94,7 +94,7 @@ st.markdown("""
         padding: 0 4px !important;
     }
     .main .block-container {
-        padding-bottom: 12rem !important;
+        padding-bottom: 450px !important;
     }
     /* Estilo para las etiquetas estáticas (Columna 1 y 2) */
     .static-box {
