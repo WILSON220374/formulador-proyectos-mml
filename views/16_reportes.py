@@ -57,26 +57,27 @@ datos_reportes.setdefault("texto_resumen", "")
 datos_reportes.setdefault("texto_normativo", "")
 
 def _sync_reportes_field(field_name: str, widget_key: str):
-    """Guarda el valor del widget en datos_reportes y lo envía a nube (patrón Hoja 9)."""
+    """Guarda el valor del widget en datos_reportes y lo envía a nube."""
     try:
-        datos_reportes[field_name] = st.session_state.get(widget_key, "")
+        datos_reportes[field_name] = st.session_state.get(widget_key, '')
         guardar_datos_nube()
     except Exception:
         pass
 
 # Precarga de valores (solo si la clave aún no existe) para no reasignar claves de widgets después de render
-if "rep_entidad_formulo" not in st.session_state:
-    st.session_state["rep_entidad_formulo"] = datos_reportes.get("entidad_formulo", "")
-if "rep_division" not in st.session_state:
-    st.session_state["rep_division"] = datos_reportes.get("division", "")
-if "rep_lugar_presentacion" not in st.session_state:
-    st.session_state["rep_lugar_presentacion"] = datos_reportes.get("lugar_presentacion", "Tunja, Boyacá")
-if "rep_anio_presentacion" not in st.session_state:
-    st.session_state["rep_anio_presentacion"] = datos_reportes.get("anio_presentacion", "2026")
-if "texto_resumen" not in st.session_state:
-    st.session_state["texto_resumen"] = datos_reportes.get("texto_resumen", "")
-if "texto_normativo" not in st.session_state:
-    st.session_state["texto_normativo"] = datos_reportes.get("texto_normativo", "")
+if 'rep_entidad_formulo' not in st.session_state:
+    st.session_state['rep_entidad_formulo'] = datos_reportes.get('entidad_formulo', '')
+if 'rep_division' not in st.session_state:
+    st.session_state['rep_division'] = datos_reportes.get('division', '')
+if 'rep_lugar_presentacion' not in st.session_state:
+    st.session_state['rep_lugar_presentacion'] = datos_reportes.get('lugar_presentacion', 'Tunja, Boyacá')
+if 'rep_anio_presentacion' not in st.session_state:
+    st.session_state['rep_anio_presentacion'] = datos_reportes.get('anio_presentacion', '2026')
+if 'texto_resumen' not in st.session_state:
+    st.session_state['texto_resumen'] = datos_reportes.get('texto_resumen', '')
+if 'texto_normativo' not in st.session_state:
+    st.session_state['texto_normativo'] = datos_reportes.get('texto_normativo', '')
+
 
 
 def _get_bucket_name() -> str:
@@ -239,9 +240,9 @@ with col_d2:
 
 col_d3, col_d4 = st.columns(2)
 with col_d3:
-    lugar_presentacion = st.text_input("Lugar de presentación", value="Tunja, Boyacá", key="rep_lugar_presentacion", on_change=_sync_reportes_field, args=("lugar_presentacion", "rep_lugar_presentacion"))
+    lugar_presentacion = st.text_input("Lugar de presentación", key="rep_lugar_presentacion", on_change=_sync_reportes_field, args=("lugar_presentacion", "rep_lugar_presentacion"))
 with col_d4:
-    anio_presentacion = st.text_input("Año", value="2026", key="rep_anio_presentacion", on_change=_sync_reportes_field, args=("anio_presentacion", "rep_anio_presentacion"))
+    anio_presentacion = st.text_input("Año", key="rep_anio_presentacion", on_change=_sync_reportes_field, args=("anio_presentacion", "rep_anio_presentacion"))
 
 st.divider()
 
@@ -685,6 +686,201 @@ def generar_word():
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
     texto_anio = anio_presentacion if anio_presentacion else ""
     p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
+
+    doc.add_page_break()
+
+    # --- 2. INICIO DEL CONTENIDO ---
+    p_tit_cont = doc.add_paragraph()
+    p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
+    r_t_cont.bold = True
+    r_t_cont.font.size = Pt(16)
+
+    doc.add_paragraph("\n")
+
+    # 1 a 4
+    doc.add_heading("1. Articulación con el plan de desarrollo", level=1)
+    doc.add_paragraph(str(plan_desarrollo))
+    doc.add_heading("2. Resumen del proyecto", level=1)
+    doc.add_paragraph(str(texto_resumen))
+    doc.add_heading("3. Marco normativo", level=1)
+    doc.add_paragraph(str(texto_normativo))
+    doc.add_heading("4. Justificación", level=1)
+    doc.add_paragraph(str(justificacion))
+
+    # 5. Localización
+    doc.add_heading("5. Localización del proyecto", level=1)
+
+    if ruta_mapa:
+        descargar_y_pegar_imagen(doc, ruta_mapa, 5.0)
+
+    doc.add_heading("5.1 Localización", level=2)
+    t_loc = doc.add_table(rows=2, cols=6)
+    t_loc.style = 'Table Grid'
+    headers_loc = ["Departamento", "Provincia", "Municipio", "Barrio/Vereda", "Latitud", "Longitud"]
+
+    for i, header_text in enumerate(headers_loc):
+        cell = t_loc.cell(0, i)
+        cell.text = header_text
+        shading_elm = OxmlElement('w:shd')
+        shading_elm.set(qn('w:val'), 'clear')
+        shading_elm.set(qn('w:color'), 'auto')
+        shading_elm.set(qn('w:fill'), 'D9E2F3')
+        cell._tc.get_or_add_tcPr().append(shading_elm)
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+
+    t_loc.cell(1, 0).text = str(zona_data.get('departamento', ''))
+    t_loc.cell(1, 1).text = str(zona_data.get('provincia', ''))
+    t_loc.cell(1, 2).text = str(zona_data.get('municipio', ''))
+    t_loc.cell(1, 3).text = str(zona_data.get('barrio_vereda', ''))
+    t_loc.cell(1, 4).text = str(zona_data.get('latitud', ''))
+    t_loc.cell(1, 5).text = str(zona_data.get('longitud', ''))
+
+    doc.add_paragraph("\n")
+
+    doc.add_heading("5.2 Definición de límites", level=2)
+    doc.add_paragraph("Límites Geográficos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_geograficos', '')))
+    doc.add_paragraph("Límites Administrativos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_administrativos', '')))
+    doc.add_paragraph("Otros Límites:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('otros_limites', '')))
+
+    doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
+    doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
+
+    # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
+    doc.add_heading("6. Identificación y descripción del problema", level=1)
+
+    imagen_prob_insertada = False
+    arbol_prob_memoria = st.session_state.get('arbol_problemas_img', None)
+    if arbol_prob_memoria is not None:
+        try:
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(io.BytesIO(arbol_prob_memoria.getvalue()), width=Inches(6.0))
+            imagen_prob_insertada = True
+        except:
+            pass
+
+    if not imagen_prob_insertada and datos_h8:
+        img_prob_recreada = redibujar_arbol_problemas(datos_h8)
+        if img_prob_recreada:
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(img_prob_recreada, width=Inches(6.0))
+
+    doc.add_heading("6.1 Magnitud del problema", level=2)
+    agregar_tabla_word(doc, df_magnitud_reconstruida)
+
+    doc.add_paragraph("\n")
+    doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
+    doc.add_paragraph(str(narrativa_problema))
+
+    doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
+    doc.add_paragraph(str(antecedentes_problema))
+
+    if ruta_foto1 or ruta_foto2:
+        doc.add_heading("Registro Fotográfico del Problema", level=3)
+        if ruta_foto1:
+            descargar_y_pegar_imagen(doc, ruta_foto1, 4.5)
+        if ruta_foto2:
+            descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
+
+    # --- 7. POBLACIÓN ---
+    doc.add_heading("7. Población", level=1)
+    agregar_tabla_word(doc, df_poblacion_general)
+
+    doc.add_heading("7.1 Población objetivo por sexo", level=2)
+    agregar_tabla_word(doc, df_pob_sexo)
+
+    doc.add_heading("7.2 Población objetivo por rango de edad", level=2)
+    agregar_tabla_word(doc, df_pob_edad)
+
+    doc.add_heading("7.3 Análisis de la población objetivo", level=2)
+    doc.add_paragraph(str(analisis_poblacion))
+
+    # --- 8. PARTICIPANTES ---
+    doc.add_heading("8. Análisis de Participantes", level=1)
+    doc.add_heading("Matriz de Interesados", level=2)
+    agregar_tabla_word(doc, df_matriz_interesados)
+    doc.add_paragraph("\n" + str(texto_analisis_participantes))
+
+    # --- 9. OBJETIVOS ---
+    doc.add_heading("9. Objetivos", level=1)
+
+    imagen_obj_insertada = False
+    arbol_obj_memoria = st.session_state.get('arbol_objetivos_img', None)
+    if arbol_obj_memoria is not None:
+        try:
+            p_arbol_obj = doc.add_paragraph()
+            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_obj.add_run().add_picture(io.BytesIO(arbol_obj_memoria.getvalue()), width=Inches(6.0))
+            imagen_obj_insertada = True
+        except:
+            pass
+
+    if not imagen_obj_insertada and arbol_obj_datos:
+        img_obj_recreada = redibujar_arbol_objetivos(arbol_obj_datos)
+        if img_obj_recreada:
+            p_arbol_obj = doc.add_paragraph()
+            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_obj.add_run().add_picture(io.BytesIO(img_obj_recreada), width=Inches(6.0))
+
+    doc.add_heading("9.1 Objetivo General", level=2)
+    doc.add_paragraph(str(objetivo_general))
+
+    doc.add_heading("9.2 Objetivos Específicos", level=2)
+    for oe in objetivos_especificos:
+        if str(oe).strip():
+            doc.add_paragraph(str(oe).strip(), style='List Bullet')
+
+    # --- 10. ALTERNATIVAS ---
+    doc.add_heading("10. Alternativas", level=1)
+
+    doc.add_heading("10.1 Alternativas Evaluadas", level=2)
+    if not lista_alts_evaluadas:
+        doc.add_paragraph("No se han registrado alternativas evaluadas en la Hoja 6.")
+    else:
+        for i, alt in enumerate(lista_alts_evaluadas):
+            p_alt = doc.add_paragraph()
+            p_alt.add_run(f"{i+1}. {alt['nombre'].upper()}").bold = True
+            if alt.get('descripcion'):
+                doc.add_paragraph(f"Descripción: {alt['descripcion']}")
+            for conf in alt.get('configuracion', []):
+                doc.add_paragraph(f"🎯 Objetivo: {conf['objetivo']}", style='List Bullet')
+                for act in conf['actividades']:
+                    p_act = doc.add_paragraph(f"🔹 Actividad: {act}")
+                    p_act.paragraph_format.left_indent = Inches(0.5)
+            doc.add_paragraph("\n")
+
+    doc.add_heading("10.2 Evaluación de Alternativas", level=2)
+
+    doc.add_heading("Criterios Evaluados (Pesos %)", level=3)
+    agregar_tabla_word(doc, df_criterios)
+    doc.add_paragraph("\n")
+
+    doc.add_heading("Calificaciones y Puntaje Total", level=3)
+    agregar_tabla_word(doc, df_evaluacion_alt)
+    doc.add_paragraph("\n")
+
+    doc.add_heading("Alternativa Seleccionada", level=3)
+    t_verde = doc.add_table(rows=1, cols=1)
+    celda = t_verde.cell(0, 0)
+    celda.text = str(alternativa_seleccionada)
+
+    shading_elm = OxmlElement('w:shd')
+    shading_elm.set(qn('w:val'), 'clear')
+    shading_elm.set(qn('w:color'), 'auto')
+    shading_elm.set(qn('w:fill'), 'E2F0D9')
+    celda._tc.get_or_add_tcPr().append(shading_elm)
+
+    for paragraph in celda.paragraphs:
+        for run in paragraph.runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(0, 100, 0)
 
     buffer = io.BytesIO()
     doc.save(buffer)
