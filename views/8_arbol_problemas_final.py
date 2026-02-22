@@ -120,7 +120,7 @@ def eliminar_tarjeta_poda(seccion, idx):
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 10rem !important; }
+    .block-container { padding-bottom: 450px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     .resumen-card {
