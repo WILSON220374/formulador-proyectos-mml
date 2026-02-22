@@ -12,7 +12,7 @@ inicializar_session()
 # --- DISEÑO ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 5rem !important; }
+    .block-container { padding-bottom: 450px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 25px; }
     </style>
