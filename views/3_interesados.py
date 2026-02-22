@@ -307,12 +307,16 @@ st.divider()
 
 # --- ANÁLISIS FINAL ---
 st.subheader("📝 Análisis de Participantes")
-num_lineas = analisis_txt.count('\n') + 1
-altura_dinamica = max(150, num_lineas * 25 + 50)
+
+# Calculamos la altura según el contenido real
+altura_dinamica = calc_altura_textarea(analisis_txt)
 
 analisis_actual = st.text_area(
-    "Analisis", value=analisis_txt, height=altura_dinamica,
-    key="txt_analisis_final_panel", label_visibility="collapsed",
+    "Analisis", 
+    value=analisis_txt, 
+    height=altura_dinamica, # <--- Altura automática aplicada aquí
+    key="txt_analisis_final_panel", 
+    label_visibility="collapsed",
     placeholder="Escriba aquí el análisis cualitativo..."
 )
 st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True) 
