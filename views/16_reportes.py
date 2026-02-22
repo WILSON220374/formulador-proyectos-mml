@@ -65,23 +65,21 @@ nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROY
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
 
+# --- MEJORA 1: LIMPIEZA VISUAL DE LAS IMÁGENES ---
 col_up1, col_up2 = st.columns(2)
 with col_up1:
-    st.info("🖼️ **Logo de la Entidad** (Irá en el encabezado de todas las páginas)")
-    logo_entidad = st.file_uploader("Sube el logo", type=["png", "jpg", "jpeg"], key="logo_portada")
-
+    logo_entidad = st.file_uploader("🖼️ Sube el Logo de la Entidad", type=["png", "jpg", "jpeg"], key="logo_portada")
 with col_up2:
-    st.info("📸 **Imagen Central** (Irá en el centro de la portada)")
-    img_portada = st.file_uploader("Sube la imagen central", type=["png", "jpg", "jpeg"], key="img_portada")
+    img_portada = st.file_uploader("📸 Sube la Imagen Central", type=["png", "jpg", "jpeg"], key="img_portada")
 
 if logo_entidad is not None or img_portada is not None:
     col_prev1, col_prev2 = st.columns(2)
     with col_prev1:
         if logo_entidad is not None:
-            st.image(logo_entidad, width=150, caption="Logo listo para el encabezado")
+            st.image(logo_entidad, width=150)
     with col_prev2:
         if img_portada is not None:
-            st.image(img_portada, width=300, caption="Imagen Central lista")
+            st.image(img_portada, width=300)
 
 st.write("") 
 
@@ -120,13 +118,21 @@ st.divider()
 # ==========================================
 # 📑 2. SELECCIÓN Y DILIGENCIAMIENTO DE CONTENIDO
 # ==========================================
-st.markdown('<div class="header-tabla">📑 2. Configuración del Contenido</div>', unsafe_allow_html=True)
+# --- MEJORA 2: NUEVO TÍTULO Y CAJAS AUTOAJUSTABLES ---
+st.markdown('<div class="header-tabla">📑 2. Resumen y Marco Normativo</div>', unsafe_allow_html=True)
 st.write("Diligencia las siguientes secciones que se incluirán al inicio de tu documento:")
 
 instrucciones_resumen = "El resumen es el elemento fundamental para dar contexto sobre el proyecto, en este sentido escriba en máximo 15 líneas de manera clara, sencilla, directa y concisa el resumen del contenido del proyecto, que permitan dar una idea sobre el alcance, componentes y productos esperados."
-texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=150)
 
-texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=150)
+# Cálculo matemático para estirar la caja del Resumen
+curr_resumen = st.session_state.get("texto_resumen", "")
+h_res = int(max(150, (curr_resumen.count('\n') + (len(curr_resumen) / 100) + 1) * 25 + 40))
+texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=h_res, key="texto_resumen")
+
+# Cálculo matemático para estirar la caja del Marco Normativo
+curr_norm = st.session_state.get("texto_normativo", "")
+h_norm = int(max(150, (curr_norm.count('\n') + (len(curr_norm) / 100) + 1) * 25 + 40))
+texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=h_norm, key="texto_normativo")
 
 st.divider()
 
@@ -262,11 +268,11 @@ if not objetivos_especificos:
     objetivos_especificos = ["No se han definido objetivos específicos."]
 
 
-# --- NUEVA LÓGICA DE EXTRACCIÓN PARA LA SECCIÓN 10 (HOJA 6) ---
+# --- 10. ALTERNATIVAS (HOJA 6) ---
 lista_alts_evaluadas = st.session_state.get('lista_alternativas', [])
 
 pesos = st.session_state.get('ponderacion_criterios', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
-df_criterios = pd.DataFrame([pesos]) # Tabla 1 de la sección 10
+df_criterios = pd.DataFrame([pesos]) 
 
 df_calif = st.session_state.get('df_calificaciones', pd.DataFrame())
 df_evaluacion_alt = pd.DataFrame()
@@ -279,12 +285,10 @@ if not df_calif.empty:
         if c in df_eval.columns:
             df_eval["TOTAL"] += df_eval[c] * (pesos.get(c, 0) / 100.0)
     
-    # Encontrar la ganadora matemáticamente
     ganadora_idx = df_eval["TOTAL"].idxmax()
     puntaje_ganador = df_eval["TOTAL"].max()
     alternativa_seleccionada = f"Alternativa Seleccionada: {ganadora_idx} ({puntaje_ganador:.2f} pts)"
     
-    # Preparar tabla final para Word
     df_eval = df_eval.round(2).reset_index().rename(columns={"index": "Alternativa"})
     df_evaluacion_alt = df_eval
 
@@ -322,7 +326,6 @@ def descargar_y_pegar_imagen(doc, url, ancho):
     return False
 
 def redibujar_arbol_problemas(arbol_data):
-    """Motor que dibuja a la fuerza el árbol con Graphviz si la foto temporal no existe"""
     try:
         dot = graphviz.Digraph(format='png')
         dot.attr(rankdir='BT')
@@ -353,7 +356,6 @@ def redibujar_arbol_problemas(arbol_data):
         return None
 
 def redibujar_arbol_objetivos(datos):
-    """Motor de respaldo para dibujar el Árbol de Objetivos si falta la foto."""
     try:
         CONFIG_OBJ = {
             "Fin Último":        {"color": "#0E6251"},
@@ -691,10 +693,9 @@ def generar_word():
         if str(oe).strip():
             doc.add_paragraph(str(oe).strip(), style='List Bullet')
 
-    # --- 10. ALTERNATIVAS (NUEVA LÓGICA ESTRUCTURADA) ---
+    # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
     
-    # 10.1 Alternativas Evaluadas (Extraídas de la lista consolidada)
     doc.add_heading("10.1 Alternativas Evaluadas", level=2)
     if not lista_alts_evaluadas:
         doc.add_paragraph("No se han registrado alternativas evaluadas en la Hoja 6.")
@@ -711,7 +712,6 @@ def generar_word():
                     p_act.paragraph_format.left_indent = Inches(0.5)
             doc.add_paragraph("\n")
     
-    # 10.2 Evaluación de Alternativas (Tablas)
     doc.add_heading("10.2 Evaluación de Alternativas", level=2)
     
     doc.add_heading("Criterios Evaluados (Pesos %)", level=3)
@@ -722,7 +722,6 @@ def generar_word():
     agregar_tabla_word(doc, df_evaluacion_alt)
     doc.add_paragraph("\n")
     
-    # Alternativa Ganadora (Cálculo y presentación en verde)
     doc.add_heading("Alternativa Seleccionada", level=3)
     t_verde = doc.add_table(rows=1, cols=1)
     celda = t_verde.cell(0, 0)
@@ -737,7 +736,7 @@ def generar_word():
     for paragraph in celda.paragraphs:
         for run in paragraph.runs:
             run.bold = True
-            run.font.color.rgb = RGBColor(0, 100, 0) # Letra verde oscuro
+            run.font.color.rgb = RGBColor(0, 100, 0)
 
     buffer = io.BytesIO()
     doc.save(buffer)
