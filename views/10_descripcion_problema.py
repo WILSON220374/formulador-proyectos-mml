@@ -88,7 +88,7 @@ st.markdown("""
         line-height: 1.55 !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 10px !important;
-        resize: none;
+        resize: none; text-align: center;
     }
     .stTextInput input {
         padding: 10px !important;
