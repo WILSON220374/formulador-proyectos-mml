@@ -215,6 +215,10 @@ with tab2:
     if "justificacion_arbol_objetivos_final" not in st.session_state:
         st.session_state["justificacion_arbol_objetivos_final"] = ref_data.get("justificacion", "")
 
+    # Sincronización: si la key existe pero está vacía y el árbol sí tiene justificación, cargarla
+    if (not (st.session_state.get("justificacion_arbol_objetivos_final") or "").strip()) and (ref_data.get("justificacion") or "").strip():
+        st.session_state["justificacion_arbol_objetivos_final"] = ref_data.get("justificacion", "")
+
     _just_txt = st.session_state.get("justificacion_arbol_objetivos_final", "") or ""
     _lines = max(6, len(str(_just_txt).splitlines()) + 1)
     _height = min(650, 28 * _lines)
