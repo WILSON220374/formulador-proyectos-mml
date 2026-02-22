@@ -21,7 +21,20 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 
 # --- ESTILOS CSS ---
 st.markdown("""
-    <style>
+   <style>
+    /* 1. ESPACIO ESTRUCTURAL AL FINAL (Solución limpia) */
+    [data-testid="stAppViewBlockContainer"] {
+        padding-bottom: 25rem !important; /* Aproximadamente 400px de aire al final */
+    }
+
+    /* 2. TÍTULOS Y SUBTÍTULOS */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+    
+    /* 3. REGLA PARA TEXTAREAS (Evita que se muevan) */
+    textarea {
+        resize: none !important;
+    }
     /* Espacio elegante al final de la hoja */
     .main .block-container {
         padding-bottom: 550px !important;
