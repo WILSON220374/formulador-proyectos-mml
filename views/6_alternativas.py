@@ -8,6 +8,17 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
+def calc_altura_alternativa(texto, min_h=70, max_h=500, chars_por_linea=80):
+    if not texto: return min_h
+    lineas = 0
+    # Contamos líneas reales y estimamos las que se desbordan por longitud
+    for ln in str(texto).splitlines() or [""]:
+        lineas += max(1, (len(ln) // chars_por_linea) + 1)
+    
+    # Cada línea mide aprox 24px + un pequeño margen de respiro
+    altura = (lineas * 24) + 40
+    return min(max_h, max(min_h, altura))
+
 # --- FUNCIÓN DE LIMPIEZA (UX) ---
 # Se ejecuta justo al hacer clic, guardando y limpiando los campos sin errores
 def crear_y_limpiar_alternativa():
