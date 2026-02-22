@@ -383,4 +383,379 @@ def redibujar_arbol_objetivos(datos):
                 dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ[tipo]["color"], fontcolor='white' if "Fin" in tipo else 'black', color='none')
                 if "Fin" in tipo: dot.edge("OG", n_id)
                 else: dot.edge(n_id, "OG")
-                hijos = [h for h in datos
+                hijos = [h for h in datos.get(h_tipo, []) if isinstance(h, dict) and h.get('padre') == item.get('texto')]
+                for j, h in enumerate(hijos):
+                    h_id = f"{h_tipo[:2]}{i}_{j}"
+                    dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_tipo]["color"], fontcolor='white', color='none', fontsize='10')
+                    if "Fin" in tipo: dot.edge(n_id, h_id)
+                    else: dot.edge(h_id, n_id)
+        return io.BytesIO(dot.pipe())
+    except Exception as e:
+        return None
+
+def generar_word():
+    doc = Document()
+    
+    # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA ---
+    section = doc.sections[0]
+    section.different_first_page_header_footer = True 
+    
+    def crear_encabezado(hdr_obj):
+        htable = hdr_obj.add_table(rows=1, cols=2, width=Inches(6.5))
+        htable.autofit = False
+        htable.columns[0].width = Inches(5.0) 
+        htable.columns[1].width = Inches(1.5) 
+        h_izq = htable.cell(0, 0).paragraphs[0]
+        h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        h_izq.add_run(nombre_proyecto.upper()).bold = True
+        h_der = htable.cell(0, 1).paragraphs[0]
+        h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        if logo_entidad is not None:
+            logo_entidad.seek(0)
+            h_der.add_run().add_picture(io.BytesIO(logo_entidad.getvalue()), width=Inches(0.6))
+        p_line = hdr_obj.add_paragraph()
+        pPr = p_line._p.get_or_add_pPr()
+        pBdr = OxmlElement('w:pBdr')
+        bottom = OxmlElement('w:bottom')
+        bottom.set(qn('w:val'), 'single')
+        bottom.set(qn('w:sz'), '6')
+        bottom.set(qn('w:space'), '1')
+        bottom.set(qn('w:color'), 'auto')
+        pBdr.append(bottom)
+        pPr.append(pBdr)
+
+    crear_encabezado(section.first_page_header)
+    crear_encabezado(section.header)
+    
+    footer = section.footer
+    p_line_f = footer.paragraphs[0]
+    pPr_f = p_line_f._p.get_or_add_pPr()
+    pBdr_f = OxmlElement('w:pBdr')
+    bottom_f = OxmlElement('w:bottom')
+    bottom_f.set(qn('w:val'), 'single')
+    bottom_f.set(qn('w:sz'), '6') 
+    bottom_f.set(qn('w:space'), '1')
+    bottom_f.set(qn('w:color'), 'auto')
+    pBdr_f.append(bottom_f)
+    pPr_f.append(pBdr_f)
+    
+    ftable = footer.add_table(rows=1, cols=3, width=Inches(7.0))
+    ftable.autofit = False
+    
+    tblLayout = OxmlElement('w:tblLayout')
+    tblLayout.set(qn('w:type'), 'fixed')
+    ftable._tbl.tblPr.append(tblLayout)
+    
+    ancho_izq = Inches(0.5)
+    ancho_cen = Inches(6.0) 
+    ancho_der = Inches(0.5)
+    
+    ftable.columns[0].width = ancho_izq
+    ftable.columns[1].width = ancho_cen
+    ftable.columns[2].width = ancho_der
+    for row in ftable.rows:
+        row.cells[0].width = ancho_izq
+        row.cells[1].width = ancho_cen
+        row.cells[2].width = ancho_der
+    
+    f_centro = ftable.cell(0, 1).paragraphs[0]
+    f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    f_centro.paragraph_format.space_after = Pt(0) 
+    f_centro.paragraph_format.space_before = Pt(0)
+    
+    texto_entidad = entidad_formulo if entidad_formulo else ""
+    texto_div = division if division else ""
+    
+    if texto_entidad:
+        r_centro1 = f_centro.add_run(texto_entidad.upper())
+        r_centro1.font.size = Pt(9)
+        r_centro1.italic = True
+        r_centro1.font.color.rgb = RGBColor(128, 128, 128)
+        
+    if texto_div:
+        if texto_entidad:
+            f_centro2 = ftable.cell(0, 1).add_paragraph()
+        else:
+            f_centro2 = f_centro
+            
+        f_centro2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        f_centro2.paragraph_format.space_after = Pt(0)
+        f_centro2.paragraph_format.space_before = Pt(0)
+        
+        r_centro2 = f_centro2.add_run(texto_div.upper())
+        r_centro2.font.size = Pt(9)
+        r_centro2.italic = True
+        r_centro2.font.color.rgb = RGBColor(128, 128, 128)
+    
+    f_der = ftable.cell(0, 2).paragraphs[0]
+    f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    r_num = f_der.add_run()
+    r_num.font.size = Pt(10)
+    r_num.font.color.rgb = RGBColor(128, 128, 128)
+    
+    fldChar1 = OxmlElement('w:fldChar')
+    fldChar1.set(qn('w:fldCharType'), 'begin')
+    instrText = OxmlElement('w:instrText')
+    instrText.set(qn('xml:space'), 'preserve')
+    instrText.text = "PAGE"
+    fldChar2 = OxmlElement('w:fldChar')
+    fldChar2.set(qn('w:fldCharType'), 'separate')
+    fldChar3 = OxmlElement('w:fldChar')
+    fldChar3.set(qn('w:fldCharType'), 'end')
+    
+    r_num._r.append(fldChar1)
+    r_num._r.append(instrText)
+    r_num._r.append(fldChar2)
+    r_num._r.append(fldChar3)
+
+    # --- 1. PORTADA ---
+    doc.add_paragraph("\n\n") 
+    p_titulo = doc.add_paragraph()
+    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_titulo = p_titulo.add_run(nombre_proyecto.upper())
+    r_titulo.bold = True
+    r_titulo.font.size = Pt(20)
+    
+    doc.add_paragraph("\n")
+    if img_portada is not None:
+        img_portada.seek(0)
+        p_img = doc.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_img.add_run().add_picture(io.BytesIO(img_portada.getvalue()), width=Inches(3.8))
+        
+    doc.add_paragraph("\n")
+    if entidad_formulo:
+        doc.add_paragraph(entidad_formulo.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if division:
+        doc.add_paragraph(division.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+    doc.add_paragraph("\n")
+    p_presentado = doc.add_paragraph()
+    p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_presentado.add_run("Presentado por:\n").italic = True
+    p_presentado.add_run(nombres_formuladores).bold = True
+    
+    doc.add_paragraph("\n")
+    p_pie = doc.add_paragraph()
+    p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    texto_lugar = lugar_presentacion if lugar_presentacion else ""
+    texto_anio = anio_presentacion if anio_presentacion else ""
+    p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
+    
+    doc.add_page_break()
+    
+    # --- 2. INICIO DEL CONTENIDO ---
+    p_tit_cont = doc.add_paragraph()
+    p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
+    r_t_cont.bold = True
+    r_t_cont.font.size = Pt(16)
+    
+    doc.add_paragraph("\n") 
+    
+    # 1 a 4
+    doc.add_heading("1. Articulación con el plan de desarrollo", level=1)
+    doc.add_paragraph(str(plan_desarrollo))
+    doc.add_heading("2. Resumen del proyecto", level=1)
+    doc.add_paragraph(str(texto_resumen))
+    doc.add_heading("3. Marco normativo", level=1)
+    doc.add_paragraph(str(texto_normativo))
+    doc.add_heading("4. Justificación", level=1)
+    doc.add_paragraph(str(justificacion))
+    
+    # 5. Localización
+    doc.add_heading("5. Localización del proyecto", level=1)
+    
+    if ruta_mapa:
+        descargar_y_pegar_imagen(doc, ruta_mapa, 5.0)
+    
+    doc.add_heading("5.1 Localización", level=2)
+    t_loc = doc.add_table(rows=2, cols=6)
+    t_loc.style = 'Table Grid'
+    headers_loc = ["Departamento", "Provincia", "Municipio", "Barrio/Vereda", "Latitud", "Longitud"]
+    
+    for i, header_text in enumerate(headers_loc):
+        cell = t_loc.cell(0, i)
+        cell.text = header_text
+        shading_elm = OxmlElement('w:shd')
+        shading_elm.set(qn('w:val'), 'clear')
+        shading_elm.set(qn('w:color'), 'auto')
+        shading_elm.set(qn('w:fill'), 'D9E2F3') 
+        cell._tc.get_or_add_tcPr().append(shading_elm)
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+                
+    t_loc.cell(1, 0).text = str(zona_data.get('departamento', ''))
+    t_loc.cell(1, 1).text = str(zona_data.get('provincia', ''))
+    t_loc.cell(1, 2).text = str(zona_data.get('municipio', ''))
+    t_loc.cell(1, 3).text = str(zona_data.get('barrio_vereda', ''))
+    t_loc.cell(1, 4).text = str(zona_data.get('latitud', ''))
+    t_loc.cell(1, 5).text = str(zona_data.get('longitud', ''))
+    
+    doc.add_paragraph("\n")
+    
+    doc.add_heading("5.2 Definición de límites", level=2)
+    doc.add_paragraph("Límites Geográficos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_geograficos', '')))
+    doc.add_paragraph("Límites Administrativos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_administrativos', '')))
+    doc.add_paragraph("Otros Límites:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('otros_limites', '')))
+
+    doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
+    doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
+            
+    # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
+    doc.add_heading("6. Identificación y descripción del problema", level=1)
+    
+    imagen_prob_insertada = False
+    arbol_prob_memoria = st.session_state.get('arbol_problemas_img', None) 
+    if arbol_prob_memoria is not None:
+        try:
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(io.BytesIO(arbol_prob_memoria.getvalue()), width=Inches(6.0))
+            imagen_prob_insertada = True
+        except: pass
+        
+    if not imagen_prob_insertada and datos_h8:
+        img_prob_recreada = redibujar_arbol_problemas(datos_h8)
+        if img_prob_recreada:
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(img_prob_recreada, width=Inches(6.0))
+            
+    doc.add_heading("6.1 Magnitud del problema", level=2)
+    agregar_tabla_word(doc, df_magnitud_reconstruida)
+    
+    doc.add_paragraph("\n")
+    doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
+    doc.add_paragraph(str(narrativa_problema))
+    
+    doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
+    doc.add_paragraph(str(antecedentes_problema))
+    
+    if ruta_foto1 or ruta_foto2:
+        doc.add_heading("Registro Fotográfico del Problema", level=3)
+        if ruta_foto1:
+            descargar_y_pegar_imagen(doc, ruta_foto1, 4.5)
+        if ruta_foto2:
+            descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
+
+    # --- 7. POBLACIÓN ---
+    doc.add_heading("7. Población", level=1)
+    agregar_tabla_word(doc, df_poblacion_general)
+    
+    doc.add_heading("7.1 Población objetivo por sexo", level=2)
+    agregar_tabla_word(doc, df_pob_sexo)
+    
+    doc.add_heading("7.2 Población objetivo por rango de edad", level=2)
+    agregar_tabla_word(doc, df_pob_edad)
+    
+    doc.add_heading("7.3 Análisis de la población objetivo", level=2)
+    doc.add_paragraph(str(analisis_poblacion))
+
+    # --- 8. PARTICIPANTES ---
+    doc.add_heading("8. Análisis de Participantes", level=1)
+    doc.add_heading("Matriz de Interesados", level=2)
+    agregar_tabla_word(doc, df_matriz_interesados)
+    doc.add_paragraph("\n" + str(texto_analisis_participantes))
+
+    # --- 9. OBJETIVOS ---
+    doc.add_heading("9. Objetivos", level=1) 
+    
+    imagen_obj_insertada = False
+    arbol_obj_memoria = st.session_state.get('arbol_objetivos_img', None)
+    if arbol_obj_memoria is not None:
+        try:
+            p_arbol_obj = doc.add_paragraph()
+            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_obj.add_run().add_picture(io.BytesIO(arbol_obj_memoria.getvalue()), width=Inches(6.0))
+            imagen_obj_insertada = True
+        except:
+            pass
+            
+    if not imagen_obj_insertada and arbol_obj_datos:
+        img_obj_recreada = redibujar_arbol_objetivos(arbol_obj_datos)
+        if img_obj_recreada:
+            p_arbol_obj = doc.add_paragraph()
+            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_obj.add_run().add_picture(img_obj_recreada, width=Inches(6.0))
+            
+    doc.add_heading("9.1 Objetivo General", level=2)
+    doc.add_paragraph(str(objetivo_general))
+    
+    doc.add_heading("9.2 Objetivos Específicos", level=2)
+    for oe in objetivos_especificos:
+        if str(oe).strip():
+            doc.add_paragraph(str(oe).strip(), style='List Bullet')
+
+    # --- 10. ALTERNATIVAS (NUEVA LÓGICA ESTRUCTURADA) ---
+    doc.add_heading("10. Alternativas", level=1)
+    
+    # 10.1 Alternativas Evaluadas (Extraídas de la lista consolidada)
+    doc.add_heading("10.1 Alternativas Evaluadas", level=2)
+    if not lista_alts_evaluadas:
+        doc.add_paragraph("No se han registrado alternativas evaluadas en la Hoja 6.")
+    else:
+        for i, alt in enumerate(lista_alts_evaluadas):
+            p_alt = doc.add_paragraph()
+            p_alt.add_run(f"{i+1}. {alt['nombre'].upper()}").bold = True
+            if alt.get('descripcion'):
+                doc.add_paragraph(f"Descripción: {alt['descripcion']}")
+            for conf in alt.get('configuracion', []):
+                doc.add_paragraph(f"🎯 Objetivo: {conf['objetivo']}", style='List Bullet')
+                for act in conf['actividades']:
+                    p_act = doc.add_paragraph(f"🔹 Actividad: {act}")
+                    p_act.paragraph_format.left_indent = Inches(0.5)
+            doc.add_paragraph("\n")
+    
+    # 10.2 Evaluación de Alternativas (Tablas)
+    doc.add_heading("10.2 Evaluación de Alternativas", level=2)
+    
+    doc.add_heading("Criterios Evaluados (Pesos %)", level=3)
+    agregar_tabla_word(doc, df_criterios)
+    doc.add_paragraph("\n")
+    
+    doc.add_heading("Calificaciones y Puntaje Total", level=3)
+    agregar_tabla_word(doc, df_evaluacion_alt)
+    doc.add_paragraph("\n")
+    
+    # Alternativa Ganadora (Cálculo y presentación en verde)
+    doc.add_heading("Alternativa Seleccionada", level=3)
+    t_verde = doc.add_table(rows=1, cols=1)
+    celda = t_verde.cell(0, 0)
+    celda.text = str(alternativa_seleccionada)
+    
+    shading_elm = OxmlElement('w:shd')
+    shading_elm.set(qn('w:val'), 'clear')
+    shading_elm.set(qn('w:color'), 'auto')
+    shading_elm.set(qn('w:fill'), 'E2F0D9') 
+    celda._tc.get_or_add_tcPr().append(shading_elm)
+    
+    for paragraph in celda.paragraphs:
+        for run in paragraph.runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(0, 100, 0) # Letra verde oscuro
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+def generar_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "Reporte en PDF (Aún en construcción)", align="C", new_x="LMARGIN", new_y="NEXT")
+    return pdf.output()
+
+# --- BOTONES DE DESCARGA ---
+st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_allow_html=True)
+
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Proyecto_Formulado.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
+with col_btn2:
+    st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
