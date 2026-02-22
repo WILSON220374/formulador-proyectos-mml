@@ -264,9 +264,12 @@ tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
     g_f = generar_grafo_problemas()
-    if g_f:
-        st.image(g_f.pipe(format='png'), use_container_width=True)
-
+   if g_f:
+            # Muestra la imagen en pantalla (Esto ya lo tienes)
+            st.image(g_f.pipe(format='png'), use_container_width=True)
+            
+            # 👇 NUEVA LÍNEA: Guardamos la foto idéntica en la memoria para el Word 👇
+            st.session_state['arbol_problemas_img'] = io.BytesIO(g_f.pipe(format='png'))
 with tab2:
     st.markdown("### 📌 Resumen del Diagnóstico Definitivo")
     st.info("La tabla se sincroniza automáticamente con el panel de acción inferior.")
