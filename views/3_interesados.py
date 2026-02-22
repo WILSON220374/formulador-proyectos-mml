@@ -21,51 +21,51 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 
 # --- ESTILOS CSS ---
 st.markdown("""
-   <style>
-    /* 1. ESPACIO ESTRUCTURAL AL FINAL (Solución limpia) */
+  <style>
+    /* 1. ESPACIO AL FINAL - Único y de máxima prioridad */
     [data-testid="stAppViewBlockContainer"] {
-        padding-bottom: 25rem !important; /* Aproximadamente 400px de aire al final */
+        padding-bottom: 500px !important;
     }
 
     /* 2. TÍTULOS Y SUBTÍTULOS */
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    
-    /* 3. REGLA PARA TEXTAREAS (Evita que se muevan) */
-    textarea {
-        resize: none !important;
+    .titulo-seccion { 
+        font-size: 30px !important; 
+        font-weight: 800 !important; 
+        color: #1E3A8A; 
+        margin-bottom: 5px; 
     }
-    /* Espacio elegante al final de la hoja */
-    .main .block-container {
-        padding-bottom: 550px !important;
-    }
-
-    /* Quitar el tirador de cambio de tamaño */
-    textarea {
-        resize: none !important;
+    .subtitulo-gris { 
+        font-size: 16px !important; 
+        color: #666; 
+        margin-bottom: 15px; 
     }
 
-    /* Estilo para los cuadros de texto */
+    /* 3. CAMPOS DE TEXTO (TEXTAREAS) */
+    textarea {
+        resize: none !important; /* Quita el tirador de tamaño */
+    }
     .stTextArea textarea {
         padding: 15px !important;
         border-radius: 10px !important;
         border: 1px solid #e2e8f0 !important;
     }
-    
-    /* Headers */
-    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
-    
-    /* Botones */
+
+    /* 4. BOTONES INSTITUCIONALES */
     div.stButton > button:first-child {
-        background-color: #1E3A8A; color: white; border: none; font-size: 20px; padding: 5px 15px; border-radius: 8px;
+        background-color: #1E3A8A; 
+        color: white; 
+        border: none; 
+        font-size: 20px; 
+        padding: 5px 15px; 
+        border-radius: 8px;
+        width: 100%;
     }
-    div.stButton > button:hover { background-color: #153075; color: white; }
-    
-    /* Botones de Acción */
-    .stButton button { width: 100%; }
-    
-    /* MATRIZ Y CUADRANTES */
+    div.stButton > button:hover { 
+        background-color: #153075; 
+        color: white; 
+    }
+
+    /* 5. MATRIZ Y CUADRANTES */
     .matrix-container {
         display: grid;
         grid-template-columns: 40px 1fr 1fr;
