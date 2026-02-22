@@ -4,6 +4,7 @@ import os
 import uuid
 import textwrap
 import copy
+import io
 from session_state import inicializar_session, guardar_datos_nube
 
 # 1. Asegurar persistencia y memoria
