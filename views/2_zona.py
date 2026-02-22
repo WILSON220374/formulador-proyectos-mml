@@ -9,6 +9,11 @@ datos = st.session_state.get('datos_zona', {})
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
+    /* 1. ESPACIO AL FINAL DE LA HOJA */
+    .main .block-container {
+        padding-bottom: 450px !important;
+    }
+
     .titulo-seccion {
         font-size: 32px !important;
         font-weight: 800 !important;
