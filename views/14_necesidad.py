@@ -10,7 +10,7 @@ inicializar_session()
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
-    .block-container { padding-bottom: 12rem !important; }
+    .block-container { padding-bottom: 450px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
     .header-tabla { font-weight: 800; color: #1E3A8A; margin-bottom: 10px; font-size: 1.1rem; text-transform: uppercase; }
