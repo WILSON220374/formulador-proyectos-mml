@@ -230,7 +230,7 @@ wrap_cellstyle = JsCode("""function(params){return {'whiteSpace': 'normal', 'lin
 
 gob.configure_column(
     "Supuesto",
-    header_name="Supuesto (Condición para éxito)",
+    header_name="Supuesto",
     editable=True,
     wrapText=True,
     autoHeight=True,
@@ -240,7 +240,7 @@ gob.configure_column(
 
 gob.configure_column(
     "Riesgo",
-    header_name="Riesgo Identificado",
+    header_name="Riesgo",
     editable=True,
     wrapText=True,
     autoHeight=True,
@@ -250,7 +250,7 @@ gob.configure_column(
 
 gob.configure_column(
     "Efecto",
-    header_name="Efecto del Riesgo",
+    header_name="Efecto",
     editable=True,
     wrapText=True,
     autoHeight=True,
@@ -260,7 +260,7 @@ gob.configure_column(
 
 gob.configure_column(
     "Medida de Mitigación",
-    header_name="Medida de Mitigación/Control",
+    header_name="Medida de Mitigación",
     editable=True,
     wrapText=True,
     autoHeight=True,
