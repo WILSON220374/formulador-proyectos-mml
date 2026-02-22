@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import io
 import pandas as pd
-import requests # <- IMPORTANTE: Nueva librería para descargar imágenes de internet
+import requests
 from session_state import inicializar_session
 
 # --- IMPORTACIÓN DE LIBRERÍAS (WORD Y PDF) ---
@@ -78,7 +78,11 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
+# --- EXTRACCIÓN A PRUEBA DE BALAS DE LOS FORMULADORES ---
 nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
+nombres_display = nombres_formuladores
+
+# Método 1: Buscar en el DataFrame original "df_equipo" (Formato clásico)
 if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
     df = st.session_state["df_equipo"]
     if "Nombre" in df.columns:
@@ -88,8 +92,23 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
             nombres_formuladores = "\n".join(nombres_validos) 
             nombres_display = ", ".join(nombres_validos) 
 
+# Método 2: Buscar en la lista "integrantes" (Nuevo formato de session_state)
+if nombres_formuladores.startswith("No se"):
+    integrantes = st.session_state.get("integrantes", [])
+    if isinstance(integrantes, list):
+        nombres_validos = []
+        for p in integrantes:
+            if isinstance(p, dict):
+                # Buscamos por varios posibles nombres de llave
+                nombre = str(p.get("Nombre Completo", p.get("Nombre", p.get("nombre", "")))).strip()
+                if nombre:
+                    nombres_validos.append(nombre)
+        if nombres_validos:
+            nombres_formuladores = "\n".join(nombres_validos)
+            nombres_display = ", ".join(nombres_validos)
+
 st.write("**Presentado por (Equipo Formulador):**")
-st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
+st.markdown(f'<div class="readonly-autores">{nombres_display}</div><br>', unsafe_allow_html=True)
 
 col_d1, col_d2 = st.columns(2)
 with col_d1:
@@ -121,38 +140,61 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
-justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
+# 1. Plan de Desarrollo
+_plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
+_plan_eje = str(st.session_state.get('plan_eje', '')).strip()
+_plan_programa = str(st.session_state.get('plan_programa', '')).strip()
 
-# --- NUEVA EXTRACCIÓN DE ZONA (Hoja 9) ---
+if any([_plan_nombre, _plan_eje, _plan_programa]):
+    plan_desarrollo = (
+        f"Nombre del Plan: {_plan_nombre if _plan_nombre else 'No definido'}\n"
+        f"Eje: {_plan_eje if _plan_eje else 'No definido'}\n"
+        f"Programa: {_plan_programa if _plan_programa else 'No definido'}"
+    )
+else:
+    plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
+
+# --- EXTRACCIÓN A PRUEBA DE BALAS DE LA JUSTIFICACIÓN ---
+# Buscamos en todas las posibles rutas donde se pudo guardar la justificación en la Hoja 7 y 8
+just_1 = str(st.session_state.get('temp_justificacion', '')).strip()
+just_2 = str(st.session_state.get('justificacion_arbol_objetivos_final', '')).strip()
+just_3 = str(st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')).strip()
+just_4 = str(st.session_state.get('justificacion_proyecto', '')).strip() # Por si viene de versiones muy viejas
+
+# Toma la primera que tenga texto real
+justificacion = just_1 if just_1 else (just_2 if just_2 else (just_3 if just_3 else just_4))
+if not justificacion:
+    justificacion = 'No se ha registrado información en la Hoja 7.'
+
+# 3. Datos de Localización (Hoja 9)
 zona_data = st.session_state.get('descripcion_zona', {})
 ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
-# Arbol
+# 4. Árbol de Problemas (Hoja 8 y 10)
 arbol_img = st.session_state.get('arbol_problemas_img', None) 
 df_magnitud = st.session_state.get('df_magnitud_problema', None) 
 desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
 antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
-# Población
+# 5. Población
 df_poblacion_general = st.session_state.get('df_poblacion_general', None)
 df_pob_sexo = st.session_state.get('df_pob_sexo', None)
 df_pob_edad = st.session_state.get('df_pob_edad', None)
 analisis_poblacion = st.session_state.get('analisis_poblacion', 'No se ha registrado análisis de población.')
 
-# Participantes
+# 6. Participantes
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
 df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
 df_analisis_participantes = st.session_state.get('df_analisis_participantes', None)
 
-# Objetivos
+# 7. Objetivos
 arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
 objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
 objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
 
-# Alternativas
+# 8. Alternativas
 alternativas_consolidadas = st.session_state.get('alternativas_consolidadas', 'No se han registrado alternativas consolidadas.')
 df_evaluacion_alt = st.session_state.get('df_evaluacion_alt', None)
 alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No se ha seleccionado ninguna alternativa.')
@@ -178,7 +220,6 @@ def agregar_tabla_word(doc, df):
         p.add_run("No se registraron datos en esta tabla.").italic = True
 
 def descargar_y_pegar_imagen(doc, url, ancho):
-    """Función para descargar imagen de Supabase e insertarla en Word"""
     if url:
         try:
             response = requests.get(url, timeout=10)
@@ -188,9 +229,7 @@ def descargar_y_pegar_imagen(doc, url, ancho):
                 p_img.add_run().add_picture(io.BytesIO(response.content), width=Inches(ancho))
                 return True
         except Exception as e:
-            p_error = doc.add_paragraph()
-            p_error.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_error.add_run(f"(No se pudo descargar la imagen: {url})").italic = True
+            pass
     return False
 
 def generar_word():
@@ -366,32 +405,26 @@ def generar_word():
     # --- 5. LOCALIZACIÓN ---
     doc.add_heading("5. Localización del proyecto", level=1)
     
-    # Pegar Mapa de Área Estudio desde Supabase URL
     if ruta_mapa:
         descargar_y_pegar_imagen(doc, ruta_mapa, 5.0)
     
     doc.add_heading("5.1 Localización", level=2)
-    # Crear Tabla Estilizada
     t_loc = doc.add_table(rows=2, cols=6)
     t_loc.style = 'Table Grid'
     headers_loc = ["Departamento", "Provincia", "Municipio", "Barrio/Vereda", "Latitud", "Longitud"]
     
-    # Configurar Fila de Encabezados con color azul
     for i, header_text in enumerate(headers_loc):
         cell = t_loc.cell(0, i)
         cell.text = header_text
-        # Fondo Azul Claro
         shading_elm = OxmlElement('w:shd')
         shading_elm.set(qn('w:val'), 'clear')
         shading_elm.set(qn('w:color'), 'auto')
         shading_elm.set(qn('w:fill'), 'D9E2F3') 
         cell._tc.get_or_add_tcPr().append(shading_elm)
-        # Negrita
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.bold = True
                 
-    # Llenar Fila de Valores
     t_loc.cell(1, 0).text = str(zona_data.get('departamento', ''))
     t_loc.cell(1, 1).text = str(zona_data.get('provincia', ''))
     t_loc.cell(1, 2).text = str(zona_data.get('municipio', ''))
@@ -434,7 +467,6 @@ def generar_word():
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
     doc.add_paragraph(str(antecedentes))
     
-    # Pegar Fotos de Nube
     if ruta_foto1 or ruta_foto2:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
         if ruta_foto1:
