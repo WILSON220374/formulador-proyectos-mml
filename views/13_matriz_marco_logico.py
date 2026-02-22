@@ -143,12 +143,16 @@ def generar_png_estetico(datos):
     dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
     
     def wrap(t, w=25):
-        # Saneamiento de caracteres especiales para etiquetas HTML de Graphviz
-        t = str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-        return "<BR/>".join(textwrap.wrap(t, width=w))
+        # 1. Convertimos a string y escapamos caracteres HTML de forma segura
+        t_safe = html.escape(str(t))
+        # 2. Envolvemos el texto y unimos con etiquetas <BR/> de Graphviz
+        return "<BR/>".join(textwrap.wrap(t_safe, width=w))
 
     for i, fila in enumerate(datos):
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
+        
+        # Escapamos el tipo de nivel por separado ya que no usa 'wrap'
+        tipo_safe = html.escape(str(fila['tipo']))
         
         label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
             <TR>
@@ -158,7 +162,7 @@ def generar_png_estetico(datos):
                         <TR>
                             <TD COLSPAN="4" ALIGN="LEFT">
                                 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5">
-                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {fila['tipo']}  </B></FONT></TD></TR>
+                                    <TR><TD BGCOLOR="{conf['color']}" PORT="header"><FONT COLOR="white" POINT-SIZE="10"><B>  {tipo_safe}  </B></FONT></TD></TR>
                                 </TABLE>
                             </TD>
                         </TR>
