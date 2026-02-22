@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import io
+import textwrap # <- NUEVO IMPORT NECESARIO PARA DIBUJAR EL ÁRBOL
 import pandas as pd
 import requests
 from session_state import inicializar_session
@@ -20,6 +21,12 @@ try:
     from fpdf import FPDF
 except ImportError:
     st.error("⚠️ Falta la librería para PDF. Agrega 'fpdf2' a tu requirements.txt")
+    st.stop()
+
+try:
+    import graphviz
+except ImportError:
+    st.error("⚠️ Falta la librería Graphviz. Agrega 'graphviz' a tu requirements.txt")
     st.stop()
 
 # 1. Asegurar persistencia 
@@ -126,7 +133,7 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-# 15. Producto -> Plan de desarrollo 
+# 1 a 4. General
 _plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
 _plan_eje = str(st.session_state.get('plan_eje', '')).strip()
 _plan_programa = str(st.session_state.get('plan_programa', '')).strip()
@@ -147,14 +154,14 @@ justificacion = (
     or 'No se ha registrado información en la Hoja 7.'
 )
 
-# 9. Localización
+# 5. Localización (Hoja 9)
 zona_data = st.session_state.get('descripcion_zona', {})
 ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
 
-# --- LÓGICA REPARADA PARA LA SECCIÓN 6 (HOJA 8 Y 10) ---
+# --- LÓGICA DE EXTRACCIÓN PARA LA SECCIÓN 6 (HOJA 8 Y 10) ---
 def _a_texto_dict(item):
     if isinstance(item, dict): return item
     if item is None: return None
@@ -198,7 +205,6 @@ for i, txt in enumerate(lista_efectos):
     filas_magnitud.append({"Categoría": f"EFECTO {i+1}", "Descripción": txt, "Magnitud": tabla_datos_prob.get(f"m_efecto_{i}", ""), "Unidad": tabla_datos_prob.get(f"u_efecto_{i}", ""), "Cantidad": tabla_datos_prob.get(f"c_efecto_{i}", "")})
 
 df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
-arbol_img = st.session_state.get('arbol_problemas_img', None) 
 
 
 # --- 7. POBLACIÓN (HOJA 9) ---
@@ -226,16 +232,12 @@ analisis_poblacion = str(zona_data.get('analisis_poblacion_objetivo', '')).strip
 if not analisis_poblacion:
     analisis_poblacion = 'No se ha registrado análisis de población.'
 
-# --- 8. PARTICIPANTES (CORREGIDO: df_interesados) ---
-# Extraemos la tabla usando la llave correcta según session_state.py
+# --- 8. PARTICIPANTES (HOJA 3 Y 9) ---
 df_matriz_interesados = st.session_state.get('df_interesados', pd.DataFrame())
 if df_matriz_interesados is not None and not isinstance(df_matriz_interesados, pd.DataFrame):
-    try:
-        df_matriz_interesados = pd.DataFrame(df_matriz_interesados)
-    except:
-        df_matriz_interesados = pd.DataFrame()
+    try: df_matriz_interesados = pd.DataFrame(df_matriz_interesados)
+    except: df_matriz_interesados = pd.DataFrame()
 
-# Buscamos el texto libre del análisis de participantes
 texto_analisis_participantes = str(
     st.session_state.get('analisis_participantes') or 
     st.session_state.get('txt_analisis_participantes') or 
@@ -245,19 +247,26 @@ texto_analisis_participantes = str(
 if not texto_analisis_participantes:
     texto_analisis_participantes = "No se ha registrado el análisis de los participantes."
 
+# --- NUEVA LÓGICA DE EXTRACCIÓN PARA LA SECCIÓN 9 (HOJA 7) ---
+arbol_obj_datos = st.session_state.get('arbol_objetivos_final', {})
+ref_obj_data = arbol_obj_datos.get('referencia_manual', {})
 
-# 9 y 10. OBJETIVOS Y ALTERNATIVAS
-arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
-objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
-objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
+objetivo_general = str(ref_obj_data.get('objetivo', '')).strip()
+if not objetivo_general:
+    objetivo_general = "No se ha definido el objetivo general en la Hoja 7."
 
+objetivos_especificos = ref_obj_data.get('especificos', [])
+if not objetivos_especificos:
+    objetivos_especificos = ["No se han definido objetivos específicos."]
+
+# 10. ALTERNATIVAS
 alternativas_consolidadas = st.session_state.get('alternativas_consolidadas', 'No se han registrado alternativas consolidadas.')
 df_evaluacion_alt = st.session_state.get('df_evaluacion_alt', None)
 alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No se ha seleccionado ninguna alternativa.')
 
 
 # ==========================================
-# ⚙️ MOTOR DE GENERACIÓN WORD
+# ⚙️ MOTORES DE DIBUJO Y GENERACIÓN WORD
 # ==========================================
 def agregar_tabla_word(doc, df):
     if isinstance(df, pd.DataFrame) and not df.empty:
@@ -287,6 +296,78 @@ def descargar_y_pegar_imagen(doc, url, ancho):
         except Exception as e:
             pass
     return False
+
+def redibujar_arbol_problemas(arbol_data):
+    """Motor que dibuja a la fuerza el árbol con Graphviz si la foto temporal no existe"""
+    try:
+        dot = graphviz.Digraph(format='png')
+        dot.attr(rankdir='BT')
+        dot.attr('node', shape='box', style='filled', fontname='Helvetica', margin='0.2')
+
+        pp_list = _a_lista_dicts(arbol_data.get("Problema Principal", arbol_data.get("problema")))
+        pc_txt = pp_list[0].get("texto", "Problema Central") if pp_list else "Problema Central"
+        dot.node('PC', str(pc_txt), fillcolor='#FCA5A5')
+
+        c_dir = _a_lista_dicts(arbol_data.get("Causas Directas", arbol_data.get("causas")))
+        c_ind = _a_lista_dicts(arbol_data.get("Causas Indirectas", []))
+        causas = c_dir + c_ind
+        for i, ca in enumerate(causas):
+            if ca.get('texto'):
+                dot.node(f'C_{i}', ca.get('texto'), fillcolor='#FEF3C7')
+                dot.edge(f'C_{i}', 'PC')
+
+        e_dir = _a_lista_dicts(arbol_data.get("Efectos Directos", arbol_data.get("efectos")))
+        e_ind = _a_lista_dicts(arbol_data.get("Efectos Indirectos", []))
+        efectos = e_dir + e_ind
+        for i, ef in enumerate(efectos):
+            if ef.get('texto'):
+                dot.node(f'E_{i}', ef.get('texto'), fillcolor='#DBEAFE')
+                dot.edge('PC', f'E_{i}')
+
+        return io.BytesIO(dot.pipe())
+    except Exception as e:
+        return None
+
+def redibujar_arbol_objetivos(datos):
+    """Motor de respaldo para dibujar el Árbol de Objetivos si falta la foto."""
+    try:
+        CONFIG_OBJ = {
+            "Fin Último":        {"color": "#0E6251"},
+            "Fines Indirectos":  {"color": "#154360"},
+            "Fines Directos":    {"color": "#1F618D"},
+            "Objetivo General":  {"color": "#C0392B"},
+            "Medios Directos":   {"color": "#F1C40F"},
+            "Medios Indirectos": {"color": "#D35400"}
+        }
+        claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
+        if not any(datos.get(k) for k in claves_graficas): return None
+
+        dot = graphviz.Digraph(format='png')
+        dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+        dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
+        
+        def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
+        
+        obj_gen = [it for it in datos.get("Objetivo General", []) if isinstance(it, dict) and it.get('texto')]
+        if obj_gen: 
+            dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
+            
+        for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
+            items = [it for it in datos.get(tipo, []) if isinstance(it, dict) and it.get('texto')]
+            for i, item in enumerate(items):
+                n_id = f"{tipo[:2]}{i}"
+                dot.node(n_id, limpiar(item['texto']), fillcolor=CONFIG_OBJ[tipo]["color"], fontcolor='white' if "Fin" in tipo else 'black', color='none')
+                if "Fin" in tipo: dot.edge("OG", n_id)
+                else: dot.edge(n_id, "OG")
+                hijos = [h for h in datos.get(h_tipo, []) if isinstance(h, dict) and h.get('padre') == item.get('texto')]
+                for j, h in enumerate(hijos):
+                    h_id = f"{h_tipo[:2]}{i}_{j}"
+                    dot.node(h_id, limpiar(h['texto']), fillcolor=CONFIG_OBJ[h_tipo]["color"], fontcolor='white', color='none', fontsize='10')
+                    if "Fin" in tipo: dot.edge(n_id, h_id)
+                    else: dot.edge(h_id, n_id)
+        return io.BytesIO(dot.pipe())
+    except Exception as e:
+        return None
 
 def generar_word():
     doc = Document()
@@ -503,13 +584,23 @@ def generar_word():
             
     # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
-    if arbol_img is not None:
+    
+    imagen_prob_insertada = False
+    arbol_prob_memoria = st.session_state.get('arbol_problemas_img', None) 
+    if arbol_prob_memoria is not None:
         try:
-            p_arbol = doc.add_paragraph()
-            p_arbol.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_arbol.add_run().add_picture(io.BytesIO(arbol_img.getvalue()), width=Inches(6.0))
-        except:
-            pass
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(io.BytesIO(arbol_prob_memoria.getvalue()), width=Inches(6.0))
+            imagen_prob_insertada = True
+        except: pass
+        
+    if not imagen_prob_insertada and datos_h8:
+        img_prob_recreada = redibujar_arbol_problemas(datos_h8)
+        if img_prob_recreada:
+            p_arbol_p = doc.add_paragraph()
+            p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_p.add_run().add_picture(img_prob_recreada, width=Inches(6.0))
             
     doc.add_heading("6.1 Magnitud del problema", level=2)
     agregar_tabla_word(doc, df_magnitud_reconstruida)
@@ -541,30 +632,43 @@ def generar_word():
     doc.add_heading("7.3 Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # --- 8. PARTICIPANTES (AHORA SÍ CON LA LLAVE CORRECTA) ---
+    # --- 8. PARTICIPANTES ---
     doc.add_heading("8. Análisis de Participantes", level=1)
-    
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
-    
-    # Se añade el texto del análisis directamente debajo de la matriz, sin título extra
     doc.add_paragraph("\n" + str(texto_analisis_participantes))
 
-    # --- 9. OBJETIVOS ---
-    doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
-    if arbol_objetivos_img is not None:
+    # --- 9. OBJETIVOS (MODIFICADO Y CON MOTOR DE RESPALDO) ---
+    doc.add_heading("9. Objetivos", level=1) # <- Título ajustado
+    
+    # 1. Intentar buscar la fotocopia de memoria temporal
+    imagen_obj_insertada = False
+    arbol_obj_memoria = st.session_state.get('arbol_objetivos_img', None)
+    if arbol_obj_memoria is not None:
         try:
             p_arbol_obj = doc.add_paragraph()
             p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_arbol_obj.add_run().add_picture(io.BytesIO(arbol_objetivos_img.getvalue()), width=Inches(6.0))
+            p_arbol_obj.add_run().add_picture(io.BytesIO(arbol_obj_memoria.getvalue()), width=Inches(6.0))
+            imagen_obj_insertada = True
         except:
             pass
+            
+    # 2. Si no hay fotocopia, usar el motor de Graphviz de respaldo
+    if not imagen_obj_insertada and arbol_obj_datos:
+        img_obj_recreada = redibujar_arbol_objetivos(arbol_obj_datos)
+        if img_obj_recreada:
+            p_arbol_obj = doc.add_paragraph()
+            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_arbol_obj.add_run().add_picture(img_obj_recreada, width=Inches(6.0))
             
     doc.add_heading("9.1 Objetivo General", level=2)
     doc.add_paragraph(str(objetivo_general))
     
     doc.add_heading("9.2 Objetivos Específicos", level=2)
-    doc.add_paragraph(str(objetivos_especificos))
+    # Colocar los objetivos como lista con viñetas
+    for oe in objetivos_especificos:
+        if str(oe).strip():
+            doc.add_paragraph(str(oe).strip(), style='List Bullet')
 
     # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
