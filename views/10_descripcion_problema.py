@@ -35,20 +35,23 @@ def _a_lista_dicts(valor):
 
 # --- FUNCIÓN DE ALTURA SINCRONIZADA PARA TABLA ---
 # En la Hoja 10, busca calc_altura_fila
+# Fíjate que ahora recibe txt_cant (4 parámetros de texto)
 def calc_altura_fila(txt_desc, txt_mag, txt_unit, txt_cant, min_h=85):
     def estimar_h(texto, chars_por_linea):
         if not texto: return 0
-        lineas = str(texto).count('\n') + (len(str(texto)) // chars_por_linea) + 1
+        t = str(texto)
+        # Calculamos cuántas líneas ocupa el texto según el ancho de la columna
+        lineas = t.count('\n') + (len(t) // chars_por_linea) + 1
         return lineas * 24 
     
-    # Estimamos la altura necesaria para cada columna según su ancho
-    h1 = estimar_h(txt_desc, 45) 
-    h2 = estimar_h(txt_mag, 25)
-    h3 = estimar_h(txt_unit, 15)
-    h4 = estimar_h(txt_cant, 8) # Al ser muy estrecha (0.8), calculamos su espacio
+    # Ajustamos la sensibilidad según el ancho de TUS columnas
+    h_desc = estimar_h(txt_desc, 45) # Columna 3.4
+    h_mag  = estimar_h(txt_mag, 35)  # Columna 2.6
+    h_unit = estimar_h(txt_unit, 18) # Columna 1.4
+    h_cant = estimar_h(txt_cant, 10) # Columna 0.8 (la más estrecha)
     
-    # Retorna la altura de la columna más alta
-    return max(min_h, h1, h2, h3, h4)
+    # La altura de la fila será la de la columna que necesite más espacio
+    return max(min_h, h_desc, h_mag, h_unit, h_cant)
 
 # --- NUEVA FUNCIÓN: ALTURA ESTÉTICA PARA TEXT AREAS LARGAS (REDACCIÓN FINAL) ---
 def calc_altura_textarea(texto, min_h=200, max_h=520, chars_por_linea=120, px_por_linea=24, padding_px=70):
@@ -126,7 +129,7 @@ def render_fila_uniforme(etiqueta, descripcion, key_id, color_bg, color_texto):
         st.markdown(f"""
             <div class="static-box" style='background-color: {color_bg}; color: {color_texto};
                  font-weight: 800; text-align: center; border: 1px solid rgba(0,0,0,0.05);
-                 height: {altura_comun}px;'>
+                 height: {altura_comun}px; display: flex; justify-content: center; align-items: center;'>
                 {etiqueta}
             </div>""", unsafe_allow_html=True)
 
@@ -134,7 +137,7 @@ def render_fila_uniforme(etiqueta, descripcion, key_id, color_bg, color_texto):
         st.markdown(f"""
             <div class="static-box" style='background-color: transparent; color: #1e293b;
                  font-weight: 500; text-align: left; border: 1px solid #f1f5f9;
-                 height: {altura_comun}px; align-items: flex-start;'>
+                 height: {altura_comun}px; display: flex; align-items: flex-start; padding: 5px;'>
                 {descripcion if descripcion else '---'}
             </div>""", unsafe_allow_html=True)
 
@@ -144,7 +147,9 @@ def render_fila_uniforme(etiqueta, descripcion, key_id, color_bg, color_texto):
     u_val = c4.text_area("U", value=val_u, key=f"u_{key_id}", label_visibility="collapsed",
                          height=altura_comun, placeholder="Unidad...")
 
-    c_val = c5.text_input("C", value=val_c, key=f"c_{key_id}", label_visibility="collapsed", placeholder="#")
+    # Cambia text_input por text_area para poder aplicar la altura
+    c_val = c5.text_area("C", value=val_c, key=f"c_{key_id}", label_visibility="collapsed", 
+                         height=altura_comun, placeholder="#")
 
     if (m_val != val_m or u_val != val_u or c_val != val_c):
         st.session_state['descripcion_problema']['tabla_datos'][f"m_{key_id}"] = m_val
