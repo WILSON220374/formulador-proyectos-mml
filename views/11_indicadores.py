@@ -16,17 +16,27 @@ inicializar_session()
 # -----------------------------
 st.markdown(
     """
+  st.markdown(
+    """
     <style>
-    .block-container { padding-bottom: 220px !important; }
+    /* Reducimos el padding inferior del contenedor principal */
+    .block-container { padding-bottom: 100px !important; }
 
-    /* Títulos */
-    .titulo-seccion { font-size: 30px !important; font-weight: 900 !important; color: #1E3A8A; margin-bottom: 4px; }
+    /* Títulos principales unificados con el resto de la app */
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 4px; }
     .subtitulo-gris { font-size: 15px !important; color: #666; margin-bottom: 10px; }
-    .subtitulo-seccion { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 18px 0 8px 0; }
-    .subtitulo-seccion-2 { font-size: 20px !important; font-weight: 900 !important; color: #0f172a; margin: 22px 0 8px 0; }
+    
+    /* AQUI ESTÁN TUS SUBTÍTULOS CORREGIDOS (Color azul, mayúsculas y menos margen) */
+    .subtitulo-seccion { font-size: 18px !important; font-weight: 800 !important; color: #1E3A8A; margin: 10px 0 4px 0; text-transform: uppercase; }
+    .subtitulo-seccion-2 { font-size: 18px !important; font-weight: 800 !important; color: #1E3A8A; margin: 10px 0 4px 0; text-transform: uppercase; }
 
-    .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 6px !important; }
+    /* Tablas de AgGrid más pegadas */
+    .ag-root-wrapper { border-radius: 10px; border: 1px solid #eee; margin-bottom: 2px !important; }
 
+    /* ========================================================= */
+    /* TUS CAJAS DE INFORMACIÓN ORIGINALES (Intactas)            */
+    /* (Solo reduje sutilmente el margin inferior de 14px a 8px) */
+    /* ========================================================= */
     .info-box {
         padding: 10px 12px;
         border-radius: 12px;
@@ -35,7 +45,7 @@ st.markdown(
         color: #1E3A8A;
         font-weight: 700;
         font-size: 13px;
-        margin: 6px 0 14px 0;
+        margin: 6px 0 8px 0;
     }
     .info-box-2 {
         padding: 10px 12px;
@@ -45,7 +55,7 @@ st.markdown(
         color: #065f46;
         font-weight: 700;
         font-size: 13px;
-        margin: 6px 0 12px 0;
+        margin: 6px 0 8px 0;
     }
     .legend-box {
         padding: 10px 12px;
@@ -55,7 +65,7 @@ st.markdown(
         color: #0c4a6e;
         font-weight: 700;
         font-size: 13px;
-        margin: 6px 0 10px 0;
+        margin: 6px 0 8px 0;
     }
     .legend-box ul { margin: 8px 0 0 18px; }
     .legend-box li { margin: 4px 0; font-weight: 600; }
@@ -68,10 +78,10 @@ st.markdown(
         color: #92400e;
         font-weight: 700;
         font-size: 13px;
-        margin: 6px 0 12px 0;
+        margin: 6px 0 8px 0;
     }
 
-    /* Botón Aplicar selección (solo submit button del formulario) */
+    /* TU BOTÓN ORIGINAL INTACTO */
     div[data-testid="stFormSubmitButton"] > button,
     div[data-testid="stFormSubmitButton"] button {
         background-color: #0F2D6B !important;
