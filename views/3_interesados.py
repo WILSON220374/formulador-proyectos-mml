@@ -24,7 +24,7 @@ st.markdown("""
   <style>
     /* 1. ESPACIO AL FINAL - Único y de máxima prioridad */
     [data-testid="stAppViewBlockContainer"] {
-        padding-bottom: 500px !important;
+        padding-bottom: 1000px !important;
     }
 
     /* 2. TÍTULOS Y SUBTÍTULOS */
