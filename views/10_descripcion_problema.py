@@ -117,8 +117,10 @@ def render_fila_uniforme(etiqueta, descripcion, key_id, color_bg, color_texto):
     val_u = st.session_state['descripcion_problema']['tabla_datos'].get(f"u_{key_id}", "")
     val_c = st.session_state['descripcion_problema']['tabla_datos'].get(f"c_{key_id}", "")
 
-    altura_comun = calc_altura_fila(descripcion, val_m, val_u)
+    # Ahora incluimos val_c en el cálculo de la altura
+    altura_comun = calc_altura_fila(descripcion, val_m, val_u, val_c)
 
+    # Tus proporciones exactas con alineación centrada
     c1, c2, c3, c4, c5 = st.columns([1.5, 3.4, 2.6, 1.4, 0.8], vertical_alignment="center")
 
     with c1:
