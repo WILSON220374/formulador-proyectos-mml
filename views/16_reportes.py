@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 import io
-import urllib.request
 import pandas as pd
+import requests # <- IMPORTANTE: Nueva librería para descargar imágenes de internet
 from session_state import inicializar_session
 
 # --- IMPORTACIÓN DE LIBRERÍAS (WORD Y PDF) ---
@@ -78,21 +78,15 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 0 (Equipo)"
-nombres_display = nombres_formuladores
-
-# Toma los nombres desde la Hoja 0: st.session_state["integrantes"] (solo nombres; sin correos ni teléfonos)
-integrantes = st.session_state.get("integrantes", [])
-if isinstance(integrantes, list):
-    nombres_validos = []
-    for p in integrantes:
-        if isinstance(p, dict):
-            nombre = str(p.get("Nombre Completo", "")).strip()
-            if nombre:
-                nombres_validos.append(nombre)
-    if nombres_validos:
-        nombres_formuladores = "\n".join(nombres_validos)
-        nombres_display = ", ".join(nombres_validos)
+nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
+if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
+    df = st.session_state["df_equipo"]
+    if "Nombre" in df.columns:
+        nombres_lista = df["Nombre"].dropna().astype(str).tolist()
+        nombres_validos = [n for n in nombres_lista if n.strip() != ""]
+        if nombres_validos:
+            nombres_formuladores = "\n".join(nombres_validos) 
+            nombres_display = ", ".join(nombres_validos) 
 
 st.write("**Presentado por (Equipo Formulador):**")
 st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
@@ -127,107 +121,38 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-# 15. Producto -> Plan de desarrollo (Nombre del plan / Eje / Programa)
-_plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
-_plan_eje = str(st.session_state.get('plan_eje', '')).strip()
-_plan_programa = str(st.session_state.get('plan_programa', '')).strip()
+plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
+justificacion = st.session_state.get('justificacion_proyecto', 'No se ha registrado información en la Hoja 8.')
 
-if any([_plan_nombre, _plan_eje, _plan_programa]):
-    plan_desarrollo = (
-        f"Nombre del Plan: {_plan_nombre if _plan_nombre else 'No definido'}\n"
-        f"Eje: {_plan_eje if _plan_eje else 'No definido'}\n"
-        f"Programa: {_plan_programa if _plan_programa else 'No definido'}"
-    )
-else:
-    # Compatibilidad: si existía una versión anterior que guardaba el texto completo
-    plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
-justificacion = (
-    st.session_state.get('justificacion_arbol_objetivos_final')
-    or st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')
-    or st.session_state.get('justificacion_proyecto')
-    or 'No se ha registrado información en la Hoja 7.'
-)
-# --- Localización (desde Hoja 9: descripcion_zona) ---
-_descripcion_zona = st.session_state.get("descripcion_zona", {})
-if not isinstance(_descripcion_zona, dict):
-    _descripcion_zona = {}
+# --- NUEVA EXTRACCIÓN DE ZONA (Hoja 9) ---
+zona_data = st.session_state.get('descripcion_zona', {})
+ruta_mapa = zona_data.get('ruta_mapa')
+ruta_foto1 = zona_data.get('ruta_foto1')
+ruta_foto2 = zona_data.get('ruta_foto2')
 
-# 5.1 Localización (estructura tipo casillas)
-_loc_departamento = str(_descripcion_zona.get("departamento", "")).strip()
-_loc_provincia = str(_descripcion_zona.get("provincia", "")).strip()
-_loc_municipio = str(_descripcion_zona.get("municipio", "")).strip()
-_loc_barrio_vereda = str(_descripcion_zona.get("barrio_vereda", "")).strip()
-_loc_latitud = str(_descripcion_zona.get("latitud", "")).strip()
-_loc_longitud = str(_descripcion_zona.get("longitud", "")).strip()
-
-_loc_fields = {
-    "Departamento": _loc_departamento,
-    "Provincia": _loc_provincia,
-    "Municipio": _loc_municipio,
-    "Barrio / Vereda": _loc_barrio_vereda,
-    "Latitud": _loc_latitud,
-    "Longitud": _loc_longitud,
-}
-
-# fallback texto plano si no hay datos
-loc_localizacion = st.session_state.get("loc_localizacion", "")
-if not loc_localizacion:
-    loc_localizacion = "No se ha registrado información en la Hoja 9."
-
-# 5.2 Límites (tres cajas)
-_lim_geo = str(_descripcion_zona.get("limites_geograficos", "")).strip()
-_lim_adm = str(_descripcion_zona.get("limites_administrativos", "")).strip()
-_lim_otr = str(_descripcion_zona.get("otros_limites", "")).strip()
-
-loc_limites = st.session_state.get("loc_limites", "")
-if not loc_limites:
-    partes_lim = []
-    if _lim_geo:
-        partes_lim.append(f"Geográficos: {_lim_geo}")
-    if _lim_adm:
-        partes_lim.append(f"Administrativos: {_lim_adm}")
-    if _lim_otr:
-        partes_lim.append(f"Otros: {_lim_otr}")
-    loc_limites = "\n".join(partes_lim) if partes_lim else "No se han registrado límites en la Hoja 9."
-
-# 5.3 Accesibilidad
-loc_accesibilidad = st.session_state.get("loc_accesibilidad", "")
-if not loc_accesibilidad:
-    _acc = str(_descripcion_zona.get("accesibilidad", "")).strip()
-    loc_accesibilidad = _acc if _acc else "No se ha registrado accesibilidad en la Hoja 9."
-
-# Mapa del área de estudio (solo mapa, no fotos)
-mapa_area = None
-_mapa_url = str(_descripcion_zona.get("ruta_mapa", "")).strip()
-if _mapa_url:
-    try:
-        with urllib.request.urlopen(_mapa_url, timeout=10) as resp:
-            mapa_area = io.BytesIO(resp.read())
-    except Exception:
-        mapa_area = None
-
-# Mantengo compatibilidad con variables de fotos (no se usan en el reporte)
-foto_area_1 = st.session_state.get('foto_area_1', None)
-foto_area_2 = st.session_state.get('foto_area_2', None)
-
+# Arbol
 arbol_img = st.session_state.get('arbol_problemas_img', None) 
 df_magnitud = st.session_state.get('df_magnitud_problema', None) 
 desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
 antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
+# Población
 df_poblacion_general = st.session_state.get('df_poblacion_general', None)
 df_pob_sexo = st.session_state.get('df_pob_sexo', None)
 df_pob_edad = st.session_state.get('df_pob_edad', None)
 analisis_poblacion = st.session_state.get('analisis_poblacion', 'No se ha registrado análisis de población.')
 
+# Participantes
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
 df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
 df_analisis_participantes = st.session_state.get('df_analisis_participantes', None)
 
+# Objetivos
 arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
 objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
 objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
 
+# Alternativas
 alternativas_consolidadas = st.session_state.get('alternativas_consolidadas', 'No se han registrado alternativas consolidadas.')
 df_evaluacion_alt = st.session_state.get('df_evaluacion_alt', None)
 alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No se ha seleccionado ninguna alternativa.')
@@ -251,6 +176,22 @@ def agregar_tabla_word(doc, df):
     else:
         p = doc.add_paragraph()
         p.add_run("No se registraron datos en esta tabla.").italic = True
+
+def descargar_y_pegar_imagen(doc, url, ancho):
+    """Función para descargar imagen de Supabase e insertarla en Word"""
+    if url:
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.add_run().add_picture(io.BytesIO(response.content), width=Inches(ancho))
+                return True
+        except Exception as e:
+            p_error = doc.add_paragraph()
+            p_error.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_error.add_run(f"(No se pudo descargar la imagen: {url})").italic = True
+    return False
 
 def generar_word():
     doc = Document()
@@ -286,7 +227,6 @@ def generar_word():
     crear_encabezado(section.first_page_header)
     crear_encabezado(section.header)
     
-    # --- PIE DE PÁGINA REPARADO (Página 2 en adelante) ---
     footer = section.footer
     p_line_f = footer.paragraphs[0]
     pPr_f = p_line_f._p.get_or_add_pPr()
@@ -299,17 +239,15 @@ def generar_word():
     pBdr_f.append(bottom_f)
     pPr_f.append(pBdr_f)
     
-    # Tabla con ancho fijo garantizado (7.0 pulgadas en total para dar mucho espacio)
     ftable = footer.add_table(rows=1, cols=3, width=Inches(7.0))
     ftable.autofit = False
     
-    # BLOQUEO XML: Obligar a Word a respetar estos anchos exactos
     tblLayout = OxmlElement('w:tblLayout')
     tblLayout.set(qn('w:type'), 'fixed')
     ftable._tbl.tblPr.append(tblLayout)
     
     ancho_izq = Inches(0.5)
-    ancho_cen = Inches(6.0) # 6 pulgadas solo para el texto (no se debe romper)
+    ancho_cen = Inches(6.0) 
     ancho_der = Inches(0.5)
     
     ftable.columns[0].width = ancho_izq
@@ -320,10 +258,9 @@ def generar_word():
         row.cells[1].width = ancho_cen
         row.cells[2].width = ancho_der
     
-    # Celda Central: Entidad y División
     f_centro = ftable.cell(0, 1).paragraphs[0]
     f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    f_centro.paragraph_format.space_after = Pt(0) # Eliminar espacio extra abajo
+    f_centro.paragraph_format.space_after = Pt(0) 
     f_centro.paragraph_format.space_before = Pt(0)
     
     texto_entidad = entidad_formulo if entidad_formulo else ""
@@ -337,7 +274,6 @@ def generar_word():
         
     if texto_div:
         if texto_entidad:
-            # Crear un nuevo párrafo independiente para la división (garantiza línea nueva sin fallos)
             f_centro2 = ftable.cell(0, 1).add_paragraph()
         else:
             f_centro2 = f_centro
@@ -351,7 +287,6 @@ def generar_word():
         r_centro2.italic = True
         r_centro2.font.color.rgb = RGBColor(128, 128, 128)
     
-    # Celda Derecha: Paginación
     f_der = ftable.cell(0, 2).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     r_num = f_der.add_run()
@@ -428,11 +363,59 @@ def generar_word():
     doc.add_heading("4. Justificación", level=1)
     doc.add_paragraph(str(justificacion))
     
-    # 5. Localización
+    # --- 5. LOCALIZACIÓN ---
     doc.add_heading("5. Localización del proyecto", level=1)
+    
+    # Pegar Mapa de Área Estudio desde Supabase URL
+    if ruta_mapa:
+        descargar_y_pegar_imagen(doc, ruta_mapa, 5.0)
+    
+    doc.add_heading("5.1 Localización", level=2)
+    # Crear Tabla Estilizada
+    t_loc = doc.add_table(rows=2, cols=6)
+    t_loc.style = 'Table Grid'
+    headers_loc = ["Departamento", "Provincia", "Municipio", "Barrio/Vereda", "Latitud", "Longitud"]
+    
+    # Configurar Fila de Encabezados con color azul
+    for i, header_text in enumerate(headers_loc):
+        cell = t_loc.cell(0, i)
+        cell.text = header_text
+        # Fondo Azul Claro
+        shading_elm = OxmlElement('w:shd')
+        shading_elm.set(qn('w:val'), 'clear')
+        shading_elm.set(qn('w:color'), 'auto')
+        shading_elm.set(qn('w:fill'), 'D9E2F3') 
+        cell._tc.get_or_add_tcPr().append(shading_elm)
+        # Negrita
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+                
+    # Llenar Fila de Valores
+    t_loc.cell(1, 0).text = str(zona_data.get('departamento', ''))
+    t_loc.cell(1, 1).text = str(zona_data.get('provincia', ''))
+    t_loc.cell(1, 2).text = str(zona_data.get('municipio', ''))
+    t_loc.cell(1, 3).text = str(zona_data.get('barrio_vereda', ''))
+    t_loc.cell(1, 4).text = str(zona_data.get('latitud', ''))
+    t_loc.cell(1, 5).text = str(zona_data.get('longitud', ''))
+    
+    doc.add_paragraph("\n")
+    
+    doc.add_heading("5.2 Definición de límites", level=2)
+    
+    doc.add_paragraph("Límites Geográficos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_geograficos', '')))
+    
+    doc.add_paragraph("Límites Administrativos:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('limites_administrativos', '')))
+    
+    doc.add_paragraph("Otros Límites:", style='List Bullet')
+    doc.add_paragraph(str(zona_data.get('otros_limites', '')))
 
-    # Mapa del área de estudio (solo mapa)
-    # 6. Problema
+    doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
+    doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
+            
+    # --- 6. PROBLEMA ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     if arbol_img is not None:
         try:
@@ -451,23 +434,15 @@ def generar_word():
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
     doc.add_paragraph(str(antecedentes))
     
-    # 6.2 Fotos adicionales 
-    if foto_area_1 is not None or foto_area_2 is not None:
+    # Pegar Fotos de Nube
+    if ruta_foto1 or ruta_foto2:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
-        if foto_area_1 is not None:
-            try:
-                p_f1 = doc.add_paragraph()
-                p_f1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_f1.add_run().add_picture(io.BytesIO(foto_area_1.getvalue()), width=Inches(4.5))
-            except: pass
-        if foto_area_2 is not None:
-            try:
-                p_f2 = doc.add_paragraph()
-                p_f2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                p_f2.add_run().add_picture(io.BytesIO(foto_area_2.getvalue()), width=Inches(4.5))
-            except: pass
+        if ruta_foto1:
+            descargar_y_pegar_imagen(doc, ruta_foto1, 4.5)
+        if ruta_foto2:
+            descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
 
-    # 7. POBLACIÓN 
+    # --- 7. POBLACIÓN ---
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     
@@ -480,7 +455,7 @@ def generar_word():
     doc.add_heading("Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # 8. PARTICIPANTES
+    # --- 8. PARTICIPANTES ---
     doc.add_heading("8. Análisis de Participantes", level=1)
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
@@ -489,7 +464,7 @@ def generar_word():
     doc.add_heading("Análisis de Participantes", level=2)
     agregar_tabla_word(doc, df_analisis_participantes)
 
-    # 9. OBJETIVOS
+    # --- 9. OBJETIVOS ---
     doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
     if arbol_objetivos_img is not None:
         try:
@@ -505,7 +480,7 @@ def generar_word():
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     doc.add_paragraph(str(objetivos_especificos))
 
-    # 10. ALTERNATIVAS
+    # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
     doc.add_heading("Alternativas Consolidadas", level=2)
     doc.add_paragraph(str(alternativas_consolidadas))
