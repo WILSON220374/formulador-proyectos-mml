@@ -178,6 +178,7 @@ tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 with tab1:
     g_f = generar_grafo_final()
     if g_f: st.image(g_f.pipe(format='png'), use_container_width=True)
+        st.session_state['arbol_objetivos_img'] = io.BytesIO(g_f.pipe(format='png'))
 
 with tab2:
     col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
