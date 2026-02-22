@@ -142,18 +142,29 @@ def generar_png_estetico(datos):
     dot = graphviz.Digraph(format='png')
     dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
     
-    def wrap(t, w=25):
-        # 1. Convertimos a string y escapamos caracteres HTML de forma segura
-        t_safe = html.escape(str(t))
-        # 2. Envolvemos el texto y unimos con etiquetas <BR/> de Graphviz
-        return "<BR/>".join(textwrap.wrap(t_safe, width=w))
+    # NUEVA FUNCIÓN BLINDADA: Envuelve primero, escapa después
+    def wrap_and_escape(t, w=25):
+        if not t or str(t).strip() == "":
+            return " " # Espacio en blanco para evitar celdas vacías que rompen el motor
+        
+        # 1. Envolvemos el texto plano para que textwrap no rompa las entidades HTML
+        lines = textwrap.wrap(str(t), width=w)
+        
+        # 2. Escapamos cada línea por separado para que el HTML sea válido
+        # 3. Unimos con el salto de línea <BR/> que entiende Graphviz
+        return "<BR/>".join(html.escape(line) for line in lines)
 
     for i, fila in enumerate(datos):
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
         
-        # Escapamos el tipo de nivel por separado ya que no usa 'wrap'
-        tipo_safe = html.escape(str(fila['tipo']))
+        # Saneamos todos los campos antes de insertarlos en el template f-string
+        tipo_safe = html.escape(str(fila.get('tipo', 'NIVEL')))
+        obj_safe = wrap_and_escape(fila.get('objetivo', ''), 35)
+        ind_safe = wrap_and_escape(fila.get('indicador', ''), 20)
+        meta_safe = wrap_and_escape(fila.get('meta', ''), 12)
+        sup_safe = wrap_and_escape(fila.get('supuesto', ''), 20)
         
+        # El template usa ahora las variables ya saneadas
         label = f'''<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
             <TR>
                 <TD WIDTH="10" BGCOLOR="{conf['color']}"></TD>
@@ -173,10 +184,10 @@ def generar_png_estetico(datos):
                             <TD ALIGN="CENTER"><FONT COLOR="#1E3A8A" POINT-SIZE="9"><B>SUPUESTOS</B></FONT></TD>
                         </TR>
                         <TR>
-                            <TD WIDTH="200" ALIGN="LEFT"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['objetivo'], 35)}</FONT></TD>
-                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['indicador'], 20)}</FONT></TD>
-                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['meta'], 12)}</FONT></TD>
-                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{wrap(fila['supuesto'], 20)}</FONT></TD>
+                            <TD WIDTH="200" ALIGN="LEFT"><FONT COLOR="#334155" POINT-SIZE="10">{obj_safe}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{ind_safe}</FONT></TD>
+                            <TD WIDTH="80" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{meta_safe}</FONT></TD>
+                            <TD WIDTH="140" ALIGN="CENTER"><FONT COLOR="#334155" POINT-SIZE="10">{sup_safe}</FONT></TD>
                         </TR>
                     </TABLE>
                 </TD>
@@ -189,35 +200,6 @@ def generar_png_estetico(datos):
             dot.edge(f'card_{i-1}', f'card_{i}', style='invis')
             
     return dot.pipe(format='png')
-
-# --- PANEL LATERAL PARA EXPORTACIÓN ---
-with st.sidebar:
-    if datos_reales:
-        imagen_estetica = generar_png_estetico(datos_reales)
-        st.download_button(
-            label="🖼️ Descargar Matriz (PNG)",
-            data=imagen_estetica,
-            file_name="Matriz_Marco_Logico.png",
-            mime="image/png",
-            use_container_width=True
-        )
-    else:
-        st.warning("Completa los datos para habilitar la descarga.")
-
-# --- ENCABEZADO CON IMAGEN Y AVANCE ---
-col_t, col_img = st.columns([4, 1], vertical_alignment="center")
-
-with col_t:
-    st.markdown('<div class="titulo-seccion">📋 13. Matriz de Marco Lógico (MML)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitulo-gris">Revisión de la estructura operativa y coherencia del proyecto.</div>', unsafe_allow_html=True)
-    st.progress(1.0)
-    
-with col_img:
-    if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-
-st.divider()
-
 # --- RENDERIZADO DE LA MATRIZ EN PANTALLA ---
 if not datos_reales:
     st.warning("⚠️ No se encontraron indicadores validados. Para ver datos aquí, asegúrate de haber marcado las 5 casillas de validación (P1 a P5) y generado las metas para tus objetivos en la Hoja 11.")
