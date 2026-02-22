@@ -24,7 +24,7 @@ st.markdown("""
     <style>
     /* Espacio elegante al final de la hoja */
     .main .block-container {
-        padding-bottom: 400px !important;
+        padding-bottom: 450px !important;
     }
 
     /* Quitar el tirador de cambio de tamaño */
