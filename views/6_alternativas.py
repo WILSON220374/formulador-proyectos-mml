@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import itertools
 import os
@@ -8,36 +8,37 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 # 1. Carga de datos y persistencia
 inicializar_session()
 
-# --- FUNCIÓN DE ALTURA DINÁMICA (NUEVA) ---
-def calc_altura_dinamica(texto, chars_por_linea=80, min_h=60):
-    if not texto: return min_h
-    # Calculamos líneas por saltos y por longitud de caracteres
-    lineas = str(texto).count('\n') + (len(str(texto)) // chars_por_linea) + 1
-    return max(min_h, (lineas * 24) + 25)
-
 # --- FUNCIÓN DE LIMPIEZA (UX) ---
+# Se ejecuta justo al hacer clic, guardando y limpiando los campos sin errores
 def crear_y_limpiar_alternativa():
+    # Solo procedemos si hay datos válidos
     nombre = st.session_state.get("input_nombre_alt", "")
     desc = st.session_state.get("input_desc_alt", "")
     
+    # Recolectamos actividades marcadas
     actividades_elegidas = []
+    # Buscamos en el cerebro de la app (session_state) qué casillas están marcadas
     for key in list(st.session_state.keys()):
         if key.startswith("sel_alt_") and st.session_state[key]:
+            # Recuperamos el objetivo y la actividad codificados en la llave
             partes = key.split("_")
             obj_txt = partes[2]
             act_txt = "_".join(partes[3:])
             actividades_elegidas.append({"objetivo": obj_txt, "actividades": [act_txt]})
 
     if nombre and actividades_elegidas:
+        # Agrupamos por objetivo para que se vea ordenado
         resumen_alt = []
         df_temp = pd.DataFrame([{"obj": x["objetivo"], "act": x["actividades"][0]} for x in actividades_elegidas])
         for o in df_temp["obj"].unique():
             resumen_alt.append({"objetivo": o, "actividades": df_temp[df_temp["obj"]==o]["act"].tolist()})
         
+        # Guardamos en la lista oficial
         st.session_state['lista_alternativas'].append({
             "nombre": nombre, "descripcion": desc, "configuracion": resumen_alt
         })
         
+        # LIMPIEZA: Ponemos todo en blanco para la siguiente
         st.session_state["input_nombre_alt"] = ""
         st.session_state["input_desc_alt"] = ""
         for key in list(st.session_state.keys()):
@@ -46,39 +47,22 @@ def crear_y_limpiar_alternativa():
         
         guardar_datos_nube()
 
-# --- ESTILOS CSS CONSOLIDADOS ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
-    /* 1. ESPACIO AL FINAL PARA SCROLL (Sin errores de llaves) */
-    [data-testid="stAppViewBlockContainer"] {
-        padding-bottom: 500px !important;
-    }
-
-    /* 2. AJUSTE DE ESPACIO COMPACTO ENTRE TABLAS */
-    .compact-divider { 
-        margin: 5px 0px !important; 
-        border-top: 1px solid #f1f5f9; 
-    }
-    .stSubheader { 
-        margin-top: -15px !important; 
-        padding-top: 0px !important; 
-    }
-    
-    /* 3. ESTILO DE CAJAS DE TEXTO AUTO-AJUSTABLES */
-    .stTextArea textarea {
-        padding: 12px !important;
-        border-radius: 10px !important;
-        border: 1px solid #e2e8f0 !important;
-        resize: none !important;
-    }
-
+    .block-container { padding-bottom: 150px !important; }
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
-    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 10px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
+    [data-testid="stImage"] img { border-radius: 12px; }
     
-    /* Botones Institucionales */
+    /* Diseño de Botones */
     div.stButton > button:first-child {
         background-color: #1E3A8A; color: white; border: none; font-size: 15px; padding: 6px 14px; border-radius: 8px;
     }
+    .ag-root-wrapper { border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px !important; }
+    .compact-divider { margin: 15px 0px !important; border-top: 1px solid #eee; }
+    
+    /* Centrado de encabezados en AgGrid */
     .ag-header-cell-label { justify-content: center !important; text-align: center !important; }
     .ag-header-cell-text { width: 100%; text-align: center; }
     </style>
@@ -110,6 +94,7 @@ st.divider()
 # ==============================================================================
 st.subheader("📋 1. Evaluación de Relevancia y Alcance")
 
+# Sincronización de Árboles
 obj_especificos = st.session_state['arbol_objetivos'].get("Medios Directos", [])
 actividades = st.session_state['arbol_objetivos'].get("Medios Indirectos", [])
 datos_arbol_actual = []
@@ -121,12 +106,13 @@ for obj in obj_especificos:
 
 df_arbol_actual = pd.DataFrame(datos_arbol_actual)
 
-if st.session_state['df_evaluacion_alternativas'].empty and not df_arbol_actual.empty:
-    df_sync = df_arbol_actual.copy()
-    df_sync["ENFOQUE"] = False
-    df_sync["ALCANCE"] = False
-    st.session_state['df_evaluacion_alternativas'] = df_sync
-    guardar_datos_nube()
+if st.session_state['df_evaluacion_alternativas'].empty:
+    if not df_arbol_actual.empty:
+        df_sync = df_arbol_actual.copy()
+        df_sync["ENFOQUE"] = False
+        df_sync["ALCANCE"] = False
+        st.session_state['df_evaluacion_alternativas'] = df_sync
+        guardar_datos_nube()
 else:
     df_old = st.session_state['df_evaluacion_alternativas']
     if not df_arbol_actual.empty:
@@ -155,9 +141,9 @@ function(params) {
 """)
 gb.configure_grid_options(getRowStyle=jscode_row_style, domLayout='autoHeight')
 gridOptions = gb.build()
-custom_css_ag = {".ag-header-cell-text": {"font-size": "14px !important", "font-weight": "800 !important", "color": "#1E3A8A !important"}}
+custom_css = {".ag-header-cell-text": {"font-size": "14px !important", "font-weight": "800 !important", "color": "#1E3A8A !important"}}
 
-grid_response = AgGrid(df_work, gridOptions=gridOptions, custom_css=custom_css_ag, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_paso_1")
+grid_response = AgGrid(df_work, gridOptions=gridOptions, custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_paso_1")
 
 df_editado_live = pd.DataFrame(grid_response['data'])
 if not df_editado_live.empty and not df_editado_live.equals(st.session_state['df_evaluacion_alternativas']):
@@ -172,10 +158,14 @@ st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 st.subheader("🔄 2. Análisis de Relaciones")
 
 df_master = st.session_state['df_evaluacion_alternativas']
-aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)] if not df_master.empty else pd.DataFrame()
+try:
+    aprobadas = df_master[(df_master["ENFOQUE"] == True) & (df_master["ALCANCE"] == True)]
+except:
+    aprobadas = pd.DataFrame()
 
 if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
     actividades_seleccionadas = aprobadas["ACTIVIDAD"].unique().tolist()
+    
     if len(actividades_seleccionadas) >= 2:
         if 'df_relaciones_actividades' not in st.session_state:
             st.session_state['df_relaciones_actividades'] = pd.DataFrame(columns=["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"])
@@ -184,20 +174,24 @@ if not aprobadas.empty and "ACTIVIDAD" in aprobadas.columns:
         df_rel_acts = df_rel_acts[(df_rel_acts["ACTIVIDAD A"].isin(actividades_seleccionadas)) & (df_rel_acts["ACTIVIDAD B"].isin(actividades_seleccionadas))]
         
         pares_actuales = list(itertools.combinations(actividades_seleccionadas, 2))
-        nuevas_filas = [{"ACTIVIDAD A": a_a, "ACTIVIDAD B": a_b, "RELACIÓN": "Complementaria"} for a_a, a_b in pares_actuales if df_rel_acts[((df_rel_acts["ACTIVIDAD A"] == a_a) & (df_rel_acts["ACTIVIDAD B"] == a_b)) | ((df_rel_acts["ACTIVIDAD A"] == a_b) & (df_rel_acts["ACTIVIDAD B"] == a_a))].empty]
+        nuevas_filas = []
+        for a_a, a_b in pares_actuales:
+            existe = not df_rel_acts[((df_rel_acts["ACTIVIDAD A"] == a_a) & (df_rel_acts["ACTIVIDAD B"] == a_b)) | ((df_rel_acts["ACTIVIDAD A"] == a_b) & (df_rel_acts["ACTIVIDAD B"] == a_a))].empty
+            if not existe: nuevas_filas.append({"ACTIVIDAD A": a_a, "ACTIVIDAD B": a_b, "RELACIÓN": "Complementaria"})
         
         if nuevas_filas:
-            st.session_state['df_relaciones_actividades'] = pd.concat([df_rel_acts, pd.DataFrame(nuevas_filas)], ignore_index=True)
+            df_rel_acts = pd.concat([df_rel_acts, pd.DataFrame(nuevas_filas)], ignore_index=True)
+            st.session_state['df_relaciones_actividades'] = df_rel_acts
             guardar_datos_nube(); st.rerun()
 
         cols_finales = ["ACTIVIDAD A", "ACTIVIDAD B", "RELACIÓN"]
-        gb_rel = GridOptionsBuilder.from_dataframe(st.session_state['df_relaciones_actividades'][cols_finales])
+        gb_rel = GridOptionsBuilder.from_dataframe(df_rel_acts[cols_finales])
         gb_rel.configure_column("ACTIVIDAD A", headerName="🛠️ Actividad A", wrapText=True, autoHeight=True, width=350)
         gb_rel.configure_column("ACTIVIDAD B", headerName="🛠️ Actividad B", wrapText=True, autoHeight=True, width=350)
         gb_rel.configure_column("RELACIÓN", headerName="🔗 Relación", editable=True, cellEditor='agSelectCellEditor', cellEditorParams={'values': ["Complementaria", "Excluyente"]}, width=180)
         gb_rel.configure_grid_options(domLayout='autoHeight')
         
-        grid_response_rel = AgGrid(st.session_state['df_relaciones_actividades'][cols_finales], gridOptions=gb_rel.build(), custom_css=custom_css_ag, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', key="grid_rel_final")
+        grid_response_rel = AgGrid(df_rel_acts[cols_finales], gridOptions=gb_rel.build(), custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', key="grid_rel_final")
         
         df_rel_live = pd.DataFrame(grid_response_rel['data'])
         if not df_rel_live.empty and not df_rel_live.equals(st.session_state['df_relaciones_actividades']):
@@ -210,20 +204,15 @@ else:
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. CONSTRUCTOR DE ALTERNATIVAS (Cajas Dinámicas)
+# 3. CONSTRUCTOR DE ALTERNATIVAS
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
 if not aprobadas.empty:
     with st.container(border=True):
         c1, c2 = st.columns([1, 2])
-        val_nom = st.session_state.get("input_nombre_alt", "")
-        val_des = st.session_state.get("input_desc_alt", "")
-        
-        with c1:
-            st.text_area("Nombre de la Alternativa:", value=val_nom, height=calc_altura_dinamica(val_nom, 35), key="input_nombre_alt")
-        with c2:
-            st.text_area("Descripción corta:", value=val_des, height=calc_altura_dinamica(val_des, 75), key="input_desc_alt")
+        with c1: nombre_alt = st.text_input("Nombre de la Alternativa:", placeholder="Ej: Alternativa A", key="input_nombre_alt")
+        with c2: desc_alt = st.text_area("Descripción corta:", height=68, key="input_desc_alt")
 
         st.write("###### Seleccione las actividades:")
         for obj in aprobadas["OBJETIVO"].unique():
@@ -232,12 +221,18 @@ if not aprobadas.empty:
                 for act in acts_obj:
                     st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}")
 
+        # Verificación de conflictos
+        conflicto = False
+        msg_err = ""
+        seleccionadas = [key.split("_")[3:] for key in st.session_state if key.startswith("sel_alt_") and st.session_state[key]]
+        # (Lógica simplificada de conflicto para el constructor)
+        
         st.button("🚀 Crear Alternativa", type="primary", on_click=crear_y_limpiar_alternativa)
 
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 4. VISUALIZACIÓN
+# 4. VISUALIZACIÓN (TARJETAS FIJAS)
 # ==============================================================================
 if st.session_state.get('lista_alternativas'):
     st.subheader("📋 4. Alternativas Consolidadas")
@@ -255,7 +250,7 @@ if st.session_state.get('lista_alternativas'):
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. EVALUACIÓN (Lógica Completa)
+# 5. EVALUACIÓN (CENTRADO Y GUÍA DINÁMICA)
 # ==============================================================================
 st.subheader("📊 5. Evaluación de Alternativas")
 
@@ -293,8 +288,9 @@ else:
     js_calc = JsCode(f"function(params) {{ return Number((params.data.COSTO*{pesos['COSTO']} + params.data.FACILIDAD*{pesos['FACILIDAD']} + params.data.BENEFICIOS*{pesos['BENEFICIOS']} + params.data.TIEMPO*{pesos['TIEMPO']})/100).toFixed(2); }}")
     gb_score.configure_column("TOTAL", valueGetter=js_calc, width=140, cellStyle={'fontWeight':'bold','backgroundColor':'#f0f9ff','textAlign':'center'})
     
-    st.markdown(f"##### 🏆 Matriz de Decisión (Puntuar de 1 a 5)")
-    grid_score = AgGrid(df_scores_reset, gridOptions=gb_score.build(), custom_css=custom_css_ag, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
+    # Guía dinámica en el título
+    st.markdown(f"##### 🏆 Matriz de Decisión (Puntuar de 1 a {num_alts})")
+    grid_score = AgGrid(df_scores_reset, gridOptions=gb_score.build(), custom_css=custom_css, update_mode=GridUpdateMode.VALUE_CHANGED, theme='streamlit', allow_unsafe_jscode=True, key="grid_eval_final")
 
     df_res = pd.DataFrame(grid_score['data'])
     if not df_res.empty and "Alternativa" in df_res.columns:
@@ -308,7 +304,8 @@ else:
         
         if not df_ranking.empty:
             ganadora = df_ranking.iloc[0]
+            # Etiqueta actualizada
             st.success(f"🎉 **Alternativa Seleccionada:** {ganadora['Alternativa']} ({ganadora['PUNTAJE']:.2f} pts)")
             st.dataframe(df_ranking, column_config={"PUNTAJE": st.column_config.ProgressColumn("Puntaje", format="%.2f", min_value=0, max_value=5)}, use_container_width=True, hide_index=True)
 
-st.markdown('<div style="height: 50px;"></div>', unsafe_allow_html=True)
+st.markdown('<div style="height: 100px;"></div>', unsafe_allow_html=True)
