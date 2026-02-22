@@ -10,3 +10,4 @@ streamlit-aggrid
 python-docx
 python-docx
 fpdf2
+requests
