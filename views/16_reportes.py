@@ -201,7 +201,7 @@ df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
 arbol_img = st.session_state.get('arbol_problemas_img', None) 
 
 
-# --- 7. POBLACIÓN (NUEVA LÓGICA DE EXTRACCIÓN HOJA 9) ---
+# --- 7. POBLACIÓN (HOJA 9) ---
 df_poblacion_general = pd.DataFrame([{
     "Población de Referencia": zona_data.get('poblacion_referencia', 0),
     "Población Afectada": zona_data.get('poblacion_afectada', 0),
@@ -225,12 +225,28 @@ df_pob_edad = pd.DataFrame([{
 analisis_poblacion = str(zona_data.get('analisis_poblacion_objetivo', '')).strip()
 if not analisis_poblacion:
     analisis_poblacion = 'No se ha registrado análisis de población.'
-# -------------------------------------------------------------
 
+# --- 8. PARTICIPANTES ---
+# Convertir a DataFrame en caso de que esté como lista de diccionarios
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
-df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
-df_analisis_participantes = st.session_state.get('df_analisis_participantes', None)
+if df_matriz_interesados is not None and not isinstance(df_matriz_interesados, pd.DataFrame):
+    try:
+        df_matriz_interesados = pd.DataFrame(df_matriz_interesados)
+    except:
+        pass
 
+# Buscamos el texto libre del análisis de participantes (Cubrimos si viene de Hoja 3 o Hoja 9)
+texto_analisis_participantes = str(
+    st.session_state.get('analisis_participantes') or 
+    st.session_state.get('txt_analisis_participantes') or 
+    st.session_state.get('descripcion_zona', {}).get('analisis_participantes', '')
+).strip()
+
+if not texto_analisis_participantes:
+    texto_analisis_participantes = "No se ha registrado el análisis de los participantes."
+
+
+# 9 y 10. OBJETIVOS Y ALTERNATIVAS
 arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
 objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
 objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
@@ -525,16 +541,16 @@ def generar_word():
     doc.add_heading("7.3 Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # 8. PARTICIPANTES
+    # --- 8. PARTICIPANTES (AJUSTADO: SIN MAPA DE INFLUENCIA) ---
     doc.add_heading("8. Análisis de Participantes", level=1)
+    
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
-    doc.add_heading("Mapa de Influencia Estratégico", level=2)
-    agregar_tabla_word(doc, df_mapa_influencia)
-    doc.add_heading("Análisis de Participantes", level=2)
-    agregar_tabla_word(doc, df_analisis_participantes)
+    
+    # Se añade el texto del análisis directamente debajo de la matriz, sin título extra
+    doc.add_paragraph("\n" + str(texto_analisis_participantes))
 
-    # 9. OBJETIVOS
+    # --- 9. OBJETIVOS ---
     doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
     if arbol_objetivos_img is not None:
         try:
@@ -550,7 +566,7 @@ def generar_word():
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     doc.add_paragraph(str(objetivos_especificos))
 
-    # 10. ALTERNATIVAS
+    # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
     doc.add_heading("Alternativas Consolidadas", level=2)
     doc.add_paragraph(str(alternativas_consolidadas))
