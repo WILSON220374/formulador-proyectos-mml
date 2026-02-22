@@ -208,33 +208,32 @@ with tab2:
                 st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
         else:
             st.info("Sincronice con el árbol para ver las actividades.")
-
     # -----------------------------
-    # Justificación (diligenciamiento libre)
+    # Justificación (CORREGIDO: guardado inmediato con on_change)
     # -----------------------------
-    if "justificacion_arbol_objetivos_final" not in st.session_state:
-        st.session_state["justificacion_arbol_objetivos_final"] = ref_data.get("justificacion", "")
+    # 1) Aseguramos variable temporal (patrón igual a Objetivo General)
+    if "temp_justificacion" not in st.session_state:
+        st.session_state["temp_justificacion"] = ref_data.get("justificacion", "")
 
-    # Sincronización: si la key existe pero está vacía y el árbol sí tiene justificación, cargarla
-    if (not (st.session_state.get("justificacion_arbol_objetivos_final") or "").strip()) and (ref_data.get("justificacion") or "").strip():
-        st.session_state["justificacion_arbol_objetivos_final"] = ref_data.get("justificacion", "")
+    # 2) Sincronización inicial: si la temporal está vacía pero el árbol tiene texto, cargarlo
+    if (not (st.session_state.get("temp_justificacion") or "").strip()) and (ref_data.get("justificacion") or "").strip():
+        st.session_state["temp_justificacion"] = ref_data.get("justificacion", "")
 
-    _just_txt = st.session_state.get("justificacion_arbol_objetivos_final", "") or ""
+    _just_txt = st.session_state.get("temp_justificacion", "") or ""
     _lines = max(6, len(str(_just_txt).splitlines()) + 1)
     _height = min(650, 28 * _lines)
 
     st.markdown("**Justificación**")
-    justificacion_val = st.text_area(
+    st.text_area(
         "Justificación",
-        key="justificacion_arbol_objetivos_final",
+        value=st.session_state.get("temp_justificacion", ""),
+        key="temp_justificacion",
         height=_height,
         label_visibility="collapsed",
-        placeholder="Diligencie la justificación…"
+        placeholder="Diligencie la justificación…",
+        on_change=actualizar_campo_simple,
+        args=("justificacion",),
     )
-
-    if justificacion_val != ref_data.get("justificacion", ""):
-        ref_data["justificacion"] = justificacion_val
-        guardar_datos_nube()
 
     st.divider()
     st.subheader("📋 Panel de Poda")
