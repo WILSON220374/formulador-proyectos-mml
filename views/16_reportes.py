@@ -48,6 +48,36 @@ datos_reportes.setdefault("ruta_img_portada", None)
 datos_reportes.setdefault("path_img_portada", None)
 datos_reportes.setdefault("sig_img_portada", None)
 
+# ✅ Persistencia de textos Hoja 16 (6 cajas) - sin cambiar UI
+datos_reportes.setdefault("entidad_formulo", "")
+datos_reportes.setdefault("division", "")
+datos_reportes.setdefault("lugar_presentacion", "Tunja, Boyacá")
+datos_reportes.setdefault("anio_presentacion", "2026")
+datos_reportes.setdefault("texto_resumen", "")
+datos_reportes.setdefault("texto_normativo", "")
+
+def _sync_reportes_field(field_name: str, widget_key: str):
+    """Guarda el valor del widget en datos_reportes y lo envía a nube (patrón Hoja 9)."""
+    try:
+        datos_reportes[field_name] = st.session_state.get(widget_key, "")
+        guardar_datos_nube()
+    except Exception:
+        pass
+
+# Precarga de valores (solo si la clave aún no existe) para no reasignar claves de widgets después de render
+if "rep_entidad_formulo" not in st.session_state:
+    st.session_state["rep_entidad_formulo"] = datos_reportes.get("entidad_formulo", "")
+if "rep_division" not in st.session_state:
+    st.session_state["rep_division"] = datos_reportes.get("division", "")
+if "rep_lugar_presentacion" not in st.session_state:
+    st.session_state["rep_lugar_presentacion"] = datos_reportes.get("lugar_presentacion", "Tunja, Boyacá")
+if "rep_anio_presentacion" not in st.session_state:
+    st.session_state["rep_anio_presentacion"] = datos_reportes.get("anio_presentacion", "2026")
+if "texto_resumen" not in st.session_state:
+    st.session_state["texto_resumen"] = datos_reportes.get("texto_resumen", "")
+if "texto_normativo" not in st.session_state:
+    st.session_state["texto_normativo"] = datos_reportes.get("texto_normativo", "")
+
 
 def _get_bucket_name() -> str:
     return st.secrets.get("SUPABASE_BUCKET", "uploads")
@@ -210,15 +240,15 @@ st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display
 
 col_d1, col_d2 = st.columns(2)
 with col_d1:
-    entidad_formulo = st.text_input("Entidad que formula el proyecto", placeholder="Ej: Alcaldía de Tunja")
+    entidad_formulo = st.text_input("Entidad que formula el proyecto", placeholder="Ej: Alcaldía de Tunja", key="rep_entidad_formulo", on_change=_sync_reportes_field, args=("entidad_formulo", "rep_entidad_formulo"))
 with col_d2:
-    division = st.text_input("División / Dependencia", placeholder="Ej: Secretaría de Infraestructura")
+    division = st.text_input("División / Dependencia", placeholder="Ej: Secretaría de Infraestructura", key="rep_division", on_change=_sync_reportes_field, args=("division", "rep_division"))
 
 col_d3, col_d4 = st.columns(2)
 with col_d3:
-    lugar_presentacion = st.text_input("Lugar de presentación", value="Tunja, Boyacá")
+    lugar_presentacion = st.text_input("Lugar de presentación", key="rep_lugar_presentacion", on_change=_sync_reportes_field, args=("lugar_presentacion", "rep_lugar_presentacion"))
 with col_d4:
-    anio_presentacion = st.text_input("Año", value="2026")
+    anio_presentacion = st.text_input("Año", key="rep_anio_presentacion", on_change=_sync_reportes_field, args=("anio_presentacion", "rep_anio_presentacion"))
 
 st.divider()
 
@@ -233,11 +263,11 @@ instrucciones_resumen = "El resumen es el elemento fundamental para dar contexto
 
 curr_resumen = st.session_state.get("texto_resumen", "")
 h_res = int(max(150, (curr_resumen.count('\n') + (len(curr_resumen) / 100) + 1) * 25 + 40))
-texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=h_res, key="texto_resumen")
+texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=h_res, key="texto_resumen", on_change=_sync_reportes_field, args=("texto_resumen", "texto_resumen"))
 
 curr_norm = st.session_state.get("texto_normativo", "")
 h_norm = int(max(150, (curr_norm.count('\n') + (len(curr_norm) / 100) + 1) * 25 + 40))
-texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=h_norm, key="texto_normativo")
+texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=h_norm, key="texto_normativo", on_change=_sync_reportes_field, args=("texto_normativo", "texto_normativo"))
 
 st.divider()
 
