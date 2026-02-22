@@ -117,7 +117,7 @@ if not st.session_state['autenticado']:
             st.info("Carga la imagen 'unnamed.jpg' en la carpeta raíz.")
 
     with col_form:
-        st.markdown('<div class="titulo-acceso">INGRESO<br>ESPECILIAZACIÓN EN GERENCIA DE PROYECTOS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="titulo-acceso">INGRESO<br>ESPECIALIZACIÓN EN GERENCIA DE PROYECTOS</div>', unsafe_allow_html=True)
 
         with st.container(border=True):
 
