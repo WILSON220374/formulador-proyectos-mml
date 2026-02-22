@@ -103,7 +103,7 @@ def mostrar_imagen_simetrica(src, altura_px):
         <img src="{src}" style="width: 100%; height: auto; max-height: {altura_px}px; object-fit: contain; display: block;">
     </div>
     """
-    st.markdown(html_code, unsafe_allow_html=Tr
+    st.markdown(html_code, unsafe_allow_html=True)
     
 # --- FUNCIÓN DE GUARDADO ROBUSTO ---
 def update_field(key):
