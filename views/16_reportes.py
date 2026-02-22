@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 from session_state import inicializar_session
 
-# --- IMPORTACIÓN DE LIBRERÍAS (WORD Y PDF) ---
+# --- IMPORTACIÓN DE LIBRERÍAS ---
 try:
     from docx import Document
     from docx.shared import Pt, Inches, RGBColor
@@ -78,34 +78,23 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-# --- LO QUE YA FUNCIONABA: EXTRACCIÓN A PRUEBA DE BALAS DE LOS FORMULADORES ---
-nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
+nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 0 (Equipo)"
 nombres_display = nombres_formuladores
 
-if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
-    df = st.session_state["df_equipo"]
-    if "Nombre" in df.columns:
-        nombres_lista = df["Nombre"].dropna().astype(str).tolist()
-        nombres_validos = [n for n in nombres_lista if n.strip() != ""]
-        if nombres_validos:
-            nombres_formuladores = "\n".join(nombres_validos) 
-            nombres_display = ", ".join(nombres_validos) 
-
-if nombres_formuladores.startswith("No se"):
-    integrantes = st.session_state.get("integrantes", [])
-    if isinstance(integrantes, list):
-        nombres_validos = []
-        for p in integrantes:
-            if isinstance(p, dict):
-                nombre = str(p.get("Nombre Completo", p.get("Nombre", p.get("nombre", "")))).strip()
-                if nombre:
-                    nombres_validos.append(nombre)
-        if nombres_validos:
-            nombres_formuladores = "\n".join(nombres_validos)
-            nombres_display = ", ".join(nombres_validos)
+integrantes = st.session_state.get("integrantes", [])
+if isinstance(integrantes, list):
+    nombres_validos = []
+    for p in integrantes:
+        if isinstance(p, dict):
+            nombre = str(p.get("Nombre Completo", "")).strip()
+            if nombre:
+                nombres_validos.append(nombre)
+    if nombres_validos:
+        nombres_formuladores = "\n".join(nombres_validos)
+        nombres_display = ", ".join(nombres_validos)
 
 st.write("**Presentado por (Equipo Formulador):**")
-st.markdown(f'<div class="readonly-autores">{nombres_display}</div><br>', unsafe_allow_html=True)
+st.markdown(f'<div class="readonly-autores">{nombres_display if "nombres_display" in locals() else nombres_formuladores}</div><br>', unsafe_allow_html=True)
 
 col_d1, col_d2 = st.columns(2)
 with col_d1:
@@ -137,7 +126,7 @@ st.divider()
 # ==========================================
 # 📥 EXTRACCIÓN DE DATOS DE LA MEMORIA
 # ==========================================
-# 1. Plan de Desarrollo
+# 15. Producto -> Plan de desarrollo 
 _plan_nombre = str(st.session_state.get('plan_nombre', '')).strip()
 _plan_eje = str(st.session_state.get('plan_eje', '')).strip()
 _plan_programa = str(st.session_state.get('plan_programa', '')).strip()
@@ -150,46 +139,84 @@ if any([_plan_nombre, _plan_eje, _plan_programa]):
     )
 else:
     plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
+    
+justificacion = (
+    st.session_state.get('justificacion_arbol_objetivos_final')
+    or st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')
+    or st.session_state.get('justificacion_proyecto')
+    or 'No se ha registrado información en la Hoja 7.'
+)
 
-# --- LO QUE YA FUNCIONABA: EXTRACCIÓN A PRUEBA DE BALAS DE LA JUSTIFICACIÓN ---
-just_1 = str(st.session_state.get('temp_justificacion', '')).strip()
-just_2 = str(st.session_state.get('justificacion_arbol_objetivos_final', '')).strip()
-just_3 = str(st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')).strip()
-just_4 = str(st.session_state.get('justificacion_proyecto', '')).strip()
-
-justificacion = just_1 if just_1 else (just_2 if just_2 else (just_3 if just_3 else just_4))
-if not justificacion:
-    justificacion = 'No se ha registrado información en la Hoja 7.'
-
-# --- LO NUEVO QUE AGREGAMOS: LOCALIZACIÓN (Hoja 9) ---
+# 9. Localización
 zona_data = st.session_state.get('descripcion_zona', {})
 ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
-# 4. Árbol de Problemas
-arbol_img = st.session_state.get('arbol_problemas_img', None) 
-df_magnitud = st.session_state.get('df_magnitud_problema', None) 
-desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
-antecedentes = st.session_state.get('antecedentes_problema', 'No se han registrado antecedentes.')
 
-# 5. Población
+# --- ¡NUEVA LÓGICA REPARADA PARA LA SECCIÓN 6 (HOJA 8 Y 10)! ---
+# Funciones necesarias para leer la estructura de la Hoja 10
+def _a_texto_dict(item):
+    if isinstance(item, dict): return item
+    if item is None: return None
+    return {"texto": str(item)}
+
+def _a_lista_dicts(valor):
+    if valor is None: return []
+    if isinstance(valor, list):
+        out = []
+        for it in valor:
+            d = _a_texto_dict(it)
+            if d is not None: out.append(d)
+        return out
+    if isinstance(valor, dict): return [valor]
+    return [{"texto": str(valor)}]
+
+# Extraer el diccionario maestro de la Hoja 10
+desc_prob_data = st.session_state.get('descripcion_problema', {})
+
+narrativa_problema = desc_prob_data.get('redaccion_narrativa', 'No se ha registrado descripción.')
+if not narrativa_problema.strip(): narrativa_problema = 'No se ha registrado descripción.'
+
+antecedentes_problema = desc_prob_data.get('antecedentes', 'No se han registrado antecedentes.')
+if not antecedentes_problema.strip(): antecedentes_problema = 'No se han registrado antecedentes.'
+
+# Reconstruir el DataFrame de Magnitud cruzando Hoja 8 y Hoja 10
+tabla_datos_prob = desc_prob_data.get('tabla_datos', {})
+datos_h8 = st.session_state.get('arbol_problemas_final', {})
+if not isinstance(datos_h8, dict): datos_h8 = {}
+
+pp_list = _a_lista_dicts(datos_h8.get("Problema Principal"))
+pc_txt = pp_list[0].get("texto", "") if pp_list and isinstance(pp_list[0], dict) else ""
+
+lista_causas = [c.get("texto") for c in (_a_lista_dicts(datos_h8.get("Causas Directas")) + _a_lista_dicts(datos_h8.get("Causas Indirectas"))) if isinstance(c, dict) and c.get("texto")]
+lista_efectos = [e.get("texto") for e in (_a_lista_dicts(datos_h8.get("Efectos Directos")) + _a_lista_dicts(datos_h8.get("Efectos Indirectos"))) if isinstance(e, dict) and e.get("texto")]
+
+filas_magnitud = []
+if pc_txt:
+    filas_magnitud.append({"Categoría": "PROBLEMA CENTRAL", "Descripción": pc_txt, "Magnitud": tabla_datos_prob.get("m_pc", ""), "Unidad": tabla_datos_prob.get("u_pc", ""), "Cantidad": tabla_datos_prob.get("c_pc", "")})
+for i, txt in enumerate(lista_causas):
+    filas_magnitud.append({"Categoría": f"CAUSA {i+1}", "Descripción": txt, "Magnitud": tabla_datos_prob.get(f"m_causa_{i}", ""), "Unidad": tabla_datos_prob.get(f"u_causa_{i}", ""), "Cantidad": tabla_datos_prob.get(f"c_causa_{i}", "")})
+for i, txt in enumerate(lista_efectos):
+    filas_magnitud.append({"Categoría": f"EFECTO {i+1}", "Descripción": txt, "Magnitud": tabla_datos_prob.get(f"m_efecto_{i}", ""), "Unidad": tabla_datos_prob.get(f"u_efecto_{i}", ""), "Cantidad": tabla_datos_prob.get(f"c_efecto_{i}", "")})
+
+df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
+arbol_img = st.session_state.get('arbol_problemas_img', None) 
+# -------------------------------------------------------------
+
 df_poblacion_general = st.session_state.get('df_poblacion_general', None)
 df_pob_sexo = st.session_state.get('df_pob_sexo', None)
 df_pob_edad = st.session_state.get('df_pob_edad', None)
 analisis_poblacion = st.session_state.get('analisis_poblacion', 'No se ha registrado análisis de población.')
 
-# 6. Participantes
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
 df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
 df_analisis_participantes = st.session_state.get('df_analisis_participantes', None)
 
-# 7. Objetivos
 arbol_objetivos_img = st.session_state.get('arbol_objetivos_img', None)
 objetivo_general = st.session_state.get('objetivo_general', 'No se ha definido el objetivo general.')
 objetivos_especificos = st.session_state.get('objetivos_especificos_lista', 'No se han definido objetivos específicos.')
 
-# 8. Alternativas
 alternativas_consolidadas = st.session_state.get('alternativas_consolidadas', 'No se han registrado alternativas consolidadas.')
 df_evaluacion_alt = st.session_state.get('df_evaluacion_alt', None)
 alternativa_seleccionada = st.session_state.get('alternativa_seleccionada', 'No se ha seleccionado ninguna alternativa.')
@@ -213,7 +240,7 @@ def agregar_tabla_word(doc, df):
     else:
         p = doc.add_paragraph()
         p.add_run("No se registraron datos en esta tabla.").italic = True
-
+        
 def descargar_y_pegar_imagen(doc, url, ancho):
     if url:
         try:
@@ -230,7 +257,7 @@ def descargar_y_pegar_imagen(doc, url, ancho):
 def generar_word():
     doc = Document()
     
-    # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA (LO QUE YA FUNCIONABA) ---
+    # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA ---
     section = doc.sections[0]
     section.different_first_page_header_footer = True 
     
@@ -397,7 +424,7 @@ def generar_word():
     doc.add_heading("4. Justificación", level=1)
     doc.add_paragraph(str(justificacion))
     
-    # --- LO NUEVO QUE AGREGAMOS: LOCALIZACIÓN ---
+    # 5. Localización
     doc.add_heading("5. Localización del proyecto", level=1)
     
     if ruta_mapa:
@@ -430,20 +457,17 @@ def generar_word():
     doc.add_paragraph("\n")
     
     doc.add_heading("5.2 Definición de límites", level=2)
-    
     doc.add_paragraph("Límites Geográficos:", style='List Bullet')
     doc.add_paragraph(str(zona_data.get('limites_geograficos', '')))
-    
     doc.add_paragraph("Límites Administrativos:", style='List Bullet')
     doc.add_paragraph(str(zona_data.get('limites_administrativos', '')))
-    
     doc.add_paragraph("Otros Límites:", style='List Bullet')
     doc.add_paragraph(str(zona_data.get('otros_limites', '')))
 
     doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
     doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
             
-    # --- RESTO DEL DOCUMENTO (INALTERADO) ---
+    # --- 6. PROBLEMA (AHORA CON LA LÓGICA CORRECTA) ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     if arbol_img is not None:
         try:
@@ -454,13 +478,17 @@ def generar_word():
             pass
             
     doc.add_heading("6.1 Magnitud del problema", level=2)
-    agregar_tabla_word(doc, df_magnitud)
+    # Aquí ahora llama al DataFrame que sí pudimos reconstruir
+    agregar_tabla_word(doc, df_magnitud_reconstruida)
     
     doc.add_paragraph("\n")
     doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
-    doc.add_paragraph(str(desc_problema))
+    # Aquí ahora usa la variable extraída de 'redaccion_narrativa'
+    doc.add_paragraph(str(narrativa_problema))
+    
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
-    doc.add_paragraph(str(antecedentes))
+    # Aquí usa la variable extraída de 'antecedentes'
+    doc.add_paragraph(str(antecedentes_problema))
     
     if ruta_foto1 or ruta_foto2:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
@@ -469,6 +497,7 @@ def generar_word():
         if ruta_foto2:
             descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
 
+    # 7. POBLACIÓN 
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     
@@ -481,6 +510,7 @@ def generar_word():
     doc.add_heading("Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
+    # 8. PARTICIPANTES
     doc.add_heading("8. Análisis de Participantes", level=1)
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
@@ -489,6 +519,7 @@ def generar_word():
     doc.add_heading("Análisis de Participantes", level=2)
     agregar_tabla_word(doc, df_analisis_participantes)
 
+    # 9. OBJETIVOS
     doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
     if arbol_objetivos_img is not None:
         try:
@@ -504,6 +535,7 @@ def generar_word():
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     doc.add_paragraph(str(objetivos_especificos))
 
+    # 10. ALTERNATIVAS
     doc.add_heading("10. Alternativas", level=1)
     doc.add_heading("Alternativas Consolidadas", level=2)
     doc.add_paragraph(str(alternativas_consolidadas))
