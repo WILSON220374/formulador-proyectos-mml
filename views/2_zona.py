@@ -9,11 +9,12 @@ datos = st.session_state.get('datos_zona', {})
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
-    /* 1. ESPACIO AL FINAL DE LA HOJA */
+    /* 1. EL ESPACIO AL FINAL (Corregido y con máxima prioridad) */
     .main .block-container {
-        padding-bottom: 450px !important;
+        padding-bottom: 500px !important;
     }
 
+    /* 2. TÍTULOS Y SUBTÍTULOS */
     .titulo-seccion {
         font-size: 32px !important;
         font-weight: 800 !important;
@@ -26,21 +27,27 @@ st.markdown("""
         color: #666;
         margin-bottom: 10px;
     }
-    /* Estilo para inputs */
-    div[data-testid="stNumberInput"], div[data-testid="stTextInput"], .stTextArea textarea {
-        background-color: #fcfdfe;
-        border: 1px solid #e0e7ff;
-        border-radius: 8px;
+
+    /* 3. ESTÉTICA DE TABLAS Y TEXTAREAS (Lo que faltaba en Hoja 2) */
+    .stTextArea textarea {
+        background-color: #fcfdfe !important;
+        border: 1px solid #e0e7ff !important;
+        border-radius: 10px !important;
+        resize: none !important; /* Quita el triángulo de la esquina */
+        padding: 14px !important;
     }
-    .stTextArea textarea:focus {
-        border-color: #4F8BFF;
-        box-shadow: 0 0 0 2px rgba(79, 139, 255, 0.1);
+
+    /* 4. CENTRAR EL TEXTO EN LAS CAJAS */
+    div[data-testid="stTextArea"] textarea {
+        text-align: left; /* Cambia a center si quieres los números centrados */
     }
-    /* Hack imagen estática */
-    [data-testid="stImage"] img { pointer-events: none; user-select: none; border-radius: 10px; }
-    [data-testid="StyledFullScreenButton"] { display: none !important; }
-    
-    div[data-testid="stAlert"] { padding: 10px; border-radius: 10px; }
+
+    /* 5. DISEÑO DE INPUTS */
+    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input {
+        background-color: #fcfdfe !important;
+        border: 1px solid #e0e7ff !important;
+        border-radius: 8px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
