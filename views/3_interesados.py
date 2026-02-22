@@ -22,34 +22,32 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 # --- ESTILOS CSS ---
 st.markdown("""
   <style>
-    /* 1. ESPACIO AL FINAL - Único y de máxima prioridad */
-    [data-testid="stAppViewBlockContainer"] {
-        padding-bottom: 1000px !important;
+    /* 1. FUERZA EL SCROLL AL FINAL (Solución Técnica Elegante) */
+    .main .block-container {
+        padding-bottom: 30rem !important; /* Espacio base */
+    }
+    
+    /* Ataca el último bloque vertical de la página para que empuje el fondo */
+    [data-testid="stVerticalBlock"] > div:last-child {
+        margin-bottom: 20rem !important;
+    }
+
+    /* Asegura que el contenedor principal permita el desbordamiento */
+    .stApp {
+        overflow-y: auto;
     }
 
     /* 2. TÍTULOS Y SUBTÍTULOS */
-    .titulo-seccion { 
-        font-size: 30px !important; 
-        font-weight: 800 !important; 
-        color: #1E3A8A; 
-        margin-bottom: 5px; 
-    }
-    .subtitulo-gris { 
-        font-size: 16px !important; 
-        color: #666; 
-        margin-bottom: 15px; 
-    }
+    .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
+    .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
 
     /* 3. CAMPOS DE TEXTO (TEXTAREAS) */
-    textarea {
-        resize: none !important; /* Quita el tirador de tamaño */
-    }
+    textarea { resize: none !important; }
     .stTextArea textarea {
         padding: 15px !important;
         border-radius: 10px !important;
         border: 1px solid #e2e8f0 !important;
     }
-
     /* 4. BOTONES INSTITUCIONALES */
     div.stButton > button:first-child {
         background-color: #1E3A8A; 
