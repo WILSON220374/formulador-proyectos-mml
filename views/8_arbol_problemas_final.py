@@ -265,7 +265,7 @@ tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
     g_f = generar_grafo_problemas()
-   if g_f:
+    if g_f:
             # Muestra la imagen en pantalla (Esto ya lo tienes)
             st.image(g_f.pipe(format='png'), use_container_width=True)
             
