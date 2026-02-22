@@ -154,8 +154,7 @@ ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
 
-# --- ¡NUEVA LÓGICA REPARADA PARA LA SECCIÓN 6 (HOJA 8 Y 10)! ---
-# Funciones necesarias para leer la estructura de la Hoja 10
+# --- LÓGICA REPARADA PARA LA SECCIÓN 6 (HOJA 8 Y 10) ---
 def _a_texto_dict(item):
     if isinstance(item, dict): return item
     if item is None: return None
@@ -172,7 +171,6 @@ def _a_lista_dicts(valor):
     if isinstance(valor, dict): return [valor]
     return [{"texto": str(valor)}]
 
-# Extraer el diccionario maestro de la Hoja 10
 desc_prob_data = st.session_state.get('descripcion_problema', {})
 
 narrativa_problema = desc_prob_data.get('redaccion_narrativa', 'No se ha registrado descripción.')
@@ -181,7 +179,6 @@ if not narrativa_problema.strip(): narrativa_problema = 'No se ha registrado des
 antecedentes_problema = desc_prob_data.get('antecedentes', 'No se han registrado antecedentes.')
 if not antecedentes_problema.strip(): antecedentes_problema = 'No se han registrado antecedentes.'
 
-# Reconstruir el DataFrame de Magnitud cruzando Hoja 8 y Hoja 10
 tabla_datos_prob = desc_prob_data.get('tabla_datos', {})
 datos_h8 = st.session_state.get('arbol_problemas_final', {})
 if not isinstance(datos_h8, dict): datos_h8 = {}
@@ -202,12 +199,33 @@ for i, txt in enumerate(lista_efectos):
 
 df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
 arbol_img = st.session_state.get('arbol_problemas_img', None) 
-# -------------------------------------------------------------
 
-df_poblacion_general = st.session_state.get('df_poblacion_general', None)
-df_pob_sexo = st.session_state.get('df_pob_sexo', None)
-df_pob_edad = st.session_state.get('df_pob_edad', None)
-analisis_poblacion = st.session_state.get('analisis_poblacion', 'No se ha registrado análisis de población.')
+
+# --- 7. POBLACIÓN (NUEVA LÓGICA DE EXTRACCIÓN HOJA 9) ---
+df_poblacion_general = pd.DataFrame([{
+    "Población de Referencia": zona_data.get('poblacion_referencia', 0),
+    "Población Afectada": zona_data.get('poblacion_afectada', 0),
+    "Población Objetivo": zona_data.get('poblacion_objetivo', 0)
+}])
+
+genero_data = zona_data.get('poblacion_objetivo_genero', {})
+df_pob_sexo = pd.DataFrame([{
+    "Hombres": genero_data.get("Hombres", 0),
+    "Mujeres": genero_data.get("Mujeres", 0)
+}])
+
+edad_data = zona_data.get('poblacion_objetivo_edad', {})
+df_pob_edad = pd.DataFrame([{
+    "0 - 14": edad_data.get("0-14", 0),
+    "15 - 19": edad_data.get("15-19", 0),
+    "20 - 59": edad_data.get("20-59", 0),
+    "Mayor de 60 años": edad_data.get("Mayor de 60 años", 0)
+}])
+
+analisis_poblacion = str(zona_data.get('analisis_poblacion_objetivo', '')).strip()
+if not analisis_poblacion:
+    analisis_poblacion = 'No se ha registrado análisis de población.'
+# -------------------------------------------------------------
 
 df_matriz_interesados = st.session_state.get('df_matriz_interesados', None)
 df_mapa_influencia = st.session_state.get('df_mapa_influencia', None)
@@ -467,7 +485,7 @@ def generar_word():
     doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
     doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
             
-    # --- 6. PROBLEMA (AHORA CON LA LÓGICA CORRECTA) ---
+    # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     if arbol_img is not None:
         try:
@@ -478,16 +496,13 @@ def generar_word():
             pass
             
     doc.add_heading("6.1 Magnitud del problema", level=2)
-    # Aquí ahora llama al DataFrame que sí pudimos reconstruir
     agregar_tabla_word(doc, df_magnitud_reconstruida)
     
     doc.add_paragraph("\n")
     doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
-    # Aquí ahora usa la variable extraída de 'redaccion_narrativa'
     doc.add_paragraph(str(narrativa_problema))
     
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
-    # Aquí usa la variable extraída de 'antecedentes'
     doc.add_paragraph(str(antecedentes_problema))
     
     if ruta_foto1 or ruta_foto2:
@@ -497,17 +512,17 @@ def generar_word():
         if ruta_foto2:
             descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
 
-    # 7. POBLACIÓN 
+    # --- 7. POBLACIÓN ---
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     
-    doc.add_heading("1. Población objetivo por sexo", level=2)
+    doc.add_heading("7.1 Población objetivo por sexo", level=2)
     agregar_tabla_word(doc, df_pob_sexo)
     
-    doc.add_heading("2. Población objetivo por rango de edad", level=2)
+    doc.add_heading("7.2 Población objetivo por rango de edad", level=2)
     agregar_tabla_word(doc, df_pob_edad)
     
-    doc.add_heading("Análisis de la población objetivo", level=2)
+    doc.add_heading("7.3 Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
     # 8. PARTICIPANTES
