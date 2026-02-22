@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import io
+import urllib.request
 import pandas as pd
 from session_state import inicializar_session
 
@@ -146,10 +147,66 @@ justificacion = (
     or st.session_state.get('justificacion_proyecto')
     or 'No se ha registrado información en la Hoja 7.'
 )
-loc_localizacion = st.session_state.get('loc_localizacion', 'No se ha registrado localización.')
-loc_limites = st.session_state.get('loc_limites', 'No se han registrado límites.')
-loc_accesibilidad = st.session_state.get('loc_accesibilidad', 'No se ha registrado accesibilidad.')
-mapa_area = st.session_state.get('mapa_area_estudio', None) 
+# --- Localización (desde Hoja 9: descripcion_zona) ---
+_descripcion_zona = st.session_state.get("descripcion_zona", {})
+if not isinstance(_descripcion_zona, dict):
+    _descripcion_zona = {}
+
+# 5.1 Localización (estructura tipo casillas)
+_loc_departamento = str(_descripcion_zona.get("departamento", "")).strip()
+_loc_provincia = str(_descripcion_zona.get("provincia", "")).strip()
+_loc_municipio = str(_descripcion_zona.get("municipio", "")).strip()
+_loc_barrio_vereda = str(_descripcion_zona.get("barrio_vereda", "")).strip()
+_loc_latitud = str(_descripcion_zona.get("latitud", "")).strip()
+_loc_longitud = str(_descripcion_zona.get("longitud", "")).strip()
+
+_loc_fields = {
+    "Departamento": _loc_departamento,
+    "Provincia": _loc_provincia,
+    "Municipio": _loc_municipio,
+    "Barrio / Vereda": _loc_barrio_vereda,
+    "Latitud": _loc_latitud,
+    "Longitud": _loc_longitud,
+}
+
+# fallback texto plano si no hay datos
+loc_localizacion = st.session_state.get("loc_localizacion", "")
+if not loc_localizacion:
+    loc_localizacion = "No se ha registrado información en la Hoja 9."
+
+# 5.2 Límites (tres cajas)
+_lim_geo = str(_descripcion_zona.get("limites_geograficos", "")).strip()
+_lim_adm = str(_descripcion_zona.get("limites_administrativos", "")).strip()
+_lim_otr = str(_descripcion_zona.get("otros_limites", "")).strip()
+
+loc_limites = st.session_state.get("loc_limites", "")
+if not loc_limites:
+    partes_lim = []
+    if _lim_geo:
+        partes_lim.append(f"Geográficos: {_lim_geo}")
+    if _lim_adm:
+        partes_lim.append(f"Administrativos: {_lim_adm}")
+    if _lim_otr:
+        partes_lim.append(f"Otros: {_lim_otr}")
+    loc_limites = "\n".join(partes_lim) if partes_lim else "No se han registrado límites en la Hoja 9."
+
+# 5.3 Accesibilidad
+loc_accesibilidad = st.session_state.get("loc_accesibilidad", "")
+if not loc_accesibilidad:
+    _acc = str(_descripcion_zona.get("accesibilidad", "")).strip()
+    loc_accesibilidad = _acc if _acc else "No se ha registrado accesibilidad en la Hoja 9."
+
+# Mapa del área de estudio (solo mapa, no fotos)
+mapa_area = None
+_mapa_url = str(_descripcion_zona.get("ruta_mapa", "")).strip()
+if _mapa_url:
+    try:
+        with urllib.request.urlopen(_mapa_url, timeout=10) as resp:
+            mapa_area = io.BytesIO(resp.read())
+    except Exception:
+        mapa_area = None
+
+# Mantengo compatibilidad con variables de fotos (no se usan en el reporte)
 foto_area_1 = st.session_state.get('foto_area_1', None)
 foto_area_2 = st.session_state.get('foto_area_2', None)
 
@@ -373,21 +430,8 @@ def generar_word():
     
     # 5. Localización
     doc.add_heading("5. Localización del proyecto", level=1)
-    doc.add_heading("5.1 Localización", level=2)
-    doc.add_paragraph(str(loc_localizacion))
-    doc.add_heading("5.2 Definición de límites", level=2)
-    doc.add_paragraph(str(loc_limites))
-    doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
-    doc.add_paragraph(str(loc_accesibilidad))
-    
-    if mapa_area is not None:
-        try:
-            p_mapa = doc.add_paragraph()
-            p_mapa.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_mapa.add_run().add_picture(io.BytesIO(mapa_area.getvalue()), width=Inches(5.0))
-        except:
-            pass 
-            
+
+    # Mapa del área de estudio (solo mapa)
     # 6. Problema
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     if arbol_img is not None:
