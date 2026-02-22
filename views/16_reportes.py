@@ -78,11 +78,10 @@ if logo_entidad is not None or img_portada is not None:
 
 st.write("") 
 
-# --- EXTRACCIÓN A PRUEBA DE BALAS DE LOS FORMULADORES ---
+# --- LO QUE YA FUNCIONABA: EXTRACCIÓN A PRUEBA DE BALAS DE LOS FORMULADORES ---
 nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 1"
 nombres_display = nombres_formuladores
 
-# Método 1: Buscar en el DataFrame original "df_equipo" (Formato clásico)
 if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"], pd.DataFrame):
     df = st.session_state["df_equipo"]
     if "Nombre" in df.columns:
@@ -92,14 +91,12 @@ if "df_equipo" in st.session_state and isinstance(st.session_state["df_equipo"],
             nombres_formuladores = "\n".join(nombres_validos) 
             nombres_display = ", ".join(nombres_validos) 
 
-# Método 2: Buscar en la lista "integrantes" (Nuevo formato de session_state)
 if nombres_formuladores.startswith("No se"):
     integrantes = st.session_state.get("integrantes", [])
     if isinstance(integrantes, list):
         nombres_validos = []
         for p in integrantes:
             if isinstance(p, dict):
-                # Buscamos por varios posibles nombres de llave
                 nombre = str(p.get("Nombre Completo", p.get("Nombre", p.get("nombre", "")))).strip()
                 if nombre:
                     nombres_validos.append(nombre)
@@ -154,25 +151,23 @@ if any([_plan_nombre, _plan_eje, _plan_programa]):
 else:
     plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
 
-# --- EXTRACCIÓN A PRUEBA DE BALAS DE LA JUSTIFICACIÓN ---
-# Buscamos en todas las posibles rutas donde se pudo guardar la justificación en la Hoja 7 y 8
+# --- LO QUE YA FUNCIONABA: EXTRACCIÓN A PRUEBA DE BALAS DE LA JUSTIFICACIÓN ---
 just_1 = str(st.session_state.get('temp_justificacion', '')).strip()
 just_2 = str(st.session_state.get('justificacion_arbol_objetivos_final', '')).strip()
 just_3 = str(st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')).strip()
-just_4 = str(st.session_state.get('justificacion_proyecto', '')).strip() # Por si viene de versiones muy viejas
+just_4 = str(st.session_state.get('justificacion_proyecto', '')).strip()
 
-# Toma la primera que tenga texto real
 justificacion = just_1 if just_1 else (just_2 if just_2 else (just_3 if just_3 else just_4))
 if not justificacion:
     justificacion = 'No se ha registrado información en la Hoja 7.'
 
-# 3. Datos de Localización (Hoja 9)
+# --- LO NUEVO QUE AGREGAMOS: LOCALIZACIÓN (Hoja 9) ---
 zona_data = st.session_state.get('descripcion_zona', {})
 ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
-# 4. Árbol de Problemas (Hoja 8 y 10)
+# 4. Árbol de Problemas
 arbol_img = st.session_state.get('arbol_problemas_img', None) 
 df_magnitud = st.session_state.get('df_magnitud_problema', None) 
 desc_problema = st.session_state.get('desc_detallada_problema', 'No se ha registrado descripción.')
@@ -235,7 +230,7 @@ def descargar_y_pegar_imagen(doc, url, ancho):
 def generar_word():
     doc = Document()
     
-    # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA ---
+    # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA (LO QUE YA FUNCIONABA) ---
     section = doc.sections[0]
     section.different_first_page_header_footer = True 
     
@@ -402,7 +397,7 @@ def generar_word():
     doc.add_heading("4. Justificación", level=1)
     doc.add_paragraph(str(justificacion))
     
-    # --- 5. LOCALIZACIÓN ---
+    # --- LO NUEVO QUE AGREGAMOS: LOCALIZACIÓN ---
     doc.add_heading("5. Localización del proyecto", level=1)
     
     if ruta_mapa:
@@ -448,7 +443,7 @@ def generar_word():
     doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
     doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
             
-    # --- 6. PROBLEMA ---
+    # --- RESTO DEL DOCUMENTO (INALTERADO) ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
     if arbol_img is not None:
         try:
@@ -474,7 +469,6 @@ def generar_word():
         if ruta_foto2:
             descargar_y_pegar_imagen(doc, ruta_foto2, 4.5)
 
-    # --- 7. POBLACIÓN ---
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
     
@@ -487,7 +481,6 @@ def generar_word():
     doc.add_heading("Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
-    # --- 8. PARTICIPANTES ---
     doc.add_heading("8. Análisis de Participantes", level=1)
     doc.add_heading("Matriz de Interesados", level=2)
     agregar_tabla_word(doc, df_matriz_interesados)
@@ -496,7 +489,6 @@ def generar_word():
     doc.add_heading("Análisis de Participantes", level=2)
     agregar_tabla_word(doc, df_analisis_participantes)
 
-    # --- 9. OBJETIVOS ---
     doc.add_heading("9. Objetivos y Resultados Esperados", level=1)
     if arbol_objetivos_img is not None:
         try:
@@ -512,7 +504,6 @@ def generar_word():
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     doc.add_paragraph(str(objetivos_especificos))
 
-    # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
     doc.add_heading("Alternativas Consolidadas", level=2)
     doc.add_paragraph(str(alternativas_consolidadas))
