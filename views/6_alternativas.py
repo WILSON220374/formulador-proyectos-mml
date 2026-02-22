@@ -215,7 +215,7 @@ st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 # ==============================================================================
 st.subheader("📦 3. Constructor de Alternativas")
 
-# --- NUEVA FUNCIÓN: Calcula el tamaño de la caja según el texto ---
+# Función para que las cajas de texto crezcan solas
 def calc_altura_dinamica(texto, chars_por_linea=80, min_h=68):
     if not texto: return min_h
     lineas = str(texto).count('\n') + (len(str(texto)) // chars_por_linea) + 1
@@ -225,11 +225,9 @@ if not aprobadas.empty:
     with st.container(border=True):
         c1, c2 = st.columns([1, 2])
         
-        # Leemos el texto actual para saber qué tamaño darle a la caja
         val_nom = st.session_state.get("input_nombre_alt", "")
         val_des = st.session_state.get("input_desc_alt", "")
         
-        # APLICAMOS EL AUTO-AJUSTE AQUÍ (Cambiamos text_input por text_area)
         with c1: 
             nombre_alt = st.text_area("Nombre de la Alternativa:", value=val_nom, height=calc_altura_dinamica(val_nom, 35), placeholder="Ej: Alternativa A", key="input_nombre_alt")
         with c2: 
@@ -242,14 +240,34 @@ if not aprobadas.empty:
                 for act in acts_obj:
                     st.checkbox(f"{act}", key=f"sel_alt_{obj}_{act}")
 
-        # Verificación de conflictos (TU LÓGICA INTACTA)
+        # --- VERIFICACIÓN DE CONFLICTOS (LÓGICA EXCLUYENTE) ---
         conflicto = False
         msg_err = ""
-        seleccionadas = [key.split("_")[3:] for key in st.session_state if key.startswith("sel_alt_") and st.session_state[key]]
-        # (Lógica simplificada de conflicto para el constructor)
         
-        st.button("🚀 Crear Alternativa", type="primary", on_click=crear_y_limpiar_alternativa)
+        # 1. Obtenemos la lista de las actividades que están marcadas con gancho
+        seleccionadas = []
+        for key in st.session_state.keys():
+            if key.startswith("sel_alt_") and st.session_state[key]:
+                # Reconstruimos el nombre de la actividad desde la llave
+                act_txt = "_".join(key.split("_")[3:])
+                seleccionadas.append(act_txt)
+        
+        # 2. Revisamos la tabla de relaciones para ver si hay choque
+        df_rel = st.session_state.get('df_relaciones_actividades', pd.DataFrame())
+        if not df_rel.empty and len(seleccionadas) > 1:
+            excluyentes = df_rel[df_rel["RELACIÓN"] == "Excluyente"]
+            for _, fila in excluyentes.iterrows():
+                # Si ambas actividades excluyentes están en la lista de seleccionadas, hay conflicto
+                if fila["ACTIVIDAD A"] in seleccionadas and fila["ACTIVIDAD B"] in seleccionadas:
+                    conflicto = True
+                    msg_err = f"⚠️ Conflicto detectado: Las actividades '{fila['ACTIVIDAD A']}' y '{fila['ACTIVIDAD B']}' son excluyentes. No pueden pertenecer a la misma alternativa."
+                    break
 
+        # 3. Bloqueamos la creación si hay error, si no, mostramos el botón normal
+        if conflicto:
+            st.error(msg_err)
+        else:
+            st.button("🚀 Crear Alternativa", type="primary", on_click=crear_y_limpiar_alternativa)
 st.markdown('<hr class="compact-divider">', unsafe_allow_html=True)
 
 # ==============================================================================
