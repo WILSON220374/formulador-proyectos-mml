@@ -18,7 +18,7 @@ st.markdown(
     """
     <style>
     /* Reducimos el padding inferior del contenedor principal */
-    .block-container { padding-bottom: 100px !important; }
+    .block-container { padding-bottom: 450px !important; }
 
     /* Títulos principales unificados con el resto de la app */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 4px; }
