@@ -34,22 +34,21 @@ def _a_lista_dicts(valor):
     return [{"texto": str(valor)}]
 
 # --- FUNCIÓN DE ALTURA SINCRONIZADA PARA TABLA ---
+# En la Hoja 10, busca calc_altura_fila
 def calc_altura_fila(txt_desc, txt_mag, txt_unit, txt_cant, min_h=85):
     def estimar_h(texto, chars_por_linea):
         if not texto: return 0
-        texto = str(texto)
-        # Estimación de líneas según el nuevo ancho de tus columnas
-        lineas = texto.count('\n') + (len(texto) // chars_por_linea) + 1
+        lineas = str(texto).count('\n') + (len(str(texto)) // chars_por_linea) + 1
         return lineas * 24 
     
-    # Ajustamos los caracteres por línea según tus nuevas proporciones:
-    h_desc = estimar_h(txt_desc, 45) # Columna de 3.4
-    h_mag  = estimar_h(txt_mag, 35)  # Columna de 2.6 (más ancha)
-    h_unit = estimar_h(txt_unit, 18) # Columna de 1.4
-    h_cant = estimar_h(txt_cant, 10) # Columna de 0.8 (muy estrecha)
+    # Estimamos la altura necesaria para cada columna según su ancho
+    h1 = estimar_h(txt_desc, 45) 
+    h2 = estimar_h(txt_mag, 25)
+    h3 = estimar_h(txt_unit, 15)
+    h4 = estimar_h(txt_cant, 8) # Al ser muy estrecha (0.8), calculamos su espacio
     
-    # La fila tomará la altura del que necesite más espacio
-    return max(min_h, h_desc, h_mag, h_unit, h_cant)
+    # Retorna la altura de la columna más alta
+    return max(min_h, h1, h2, h3, h4)
 
 # --- NUEVA FUNCIÓN: ALTURA ESTÉTICA PARA TEXT AREAS LARGAS (REDACCIÓN FINAL) ---
 def calc_altura_textarea(texto, min_h=200, max_h=520, chars_por_linea=120, px_por_linea=24, padding_px=70):
