@@ -4,6 +4,16 @@ import os
 from session_state import inicializar_session, guardar_datos_nube
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 
+# --- FUNCIÓN DE ALTURA DINÁMICA ---
+def calc_altura_textarea(texto, min_h=150, max_h=600, chars_por_linea=110):
+    if not texto: return min_h
+    lineas = 0
+    for ln in str(texto).splitlines() or [""]:
+        lineas += max(1, (len(ln) // chars_por_linea) + 1)
+    
+    altura = (lineas * 24) + 60
+    return min(max_h, max(min_h, altura))
+    
 # 1. Inicialización
 inicializar_session()
 df_actual = st.session_state.get('df_interesados', pd.DataFrame())
@@ -12,6 +22,23 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 # --- ESTILOS CSS ---
 st.markdown("""
     <style>
+    /* Espacio elegante al final de la hoja */
+    .main .block-container {
+        padding-bottom: 400px !important;
+    }
+
+    /* Quitar el tirador de cambio de tamaño */
+    textarea {
+        resize: none !important;
+    }
+
+    /* Estilo para los cuadros de texto */
+    .stTextArea textarea {
+        padding: 15px !important;
+        border-radius: 10px !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    
     /* Headers */
     .titulo-seccion { font-size: 30px !important; font-weight: 800 !important; color: #1E3A8A; margin-bottom: 5px; }
     .subtitulo-gris { font-size: 16px !important; color: #666; margin-bottom: 15px; }
