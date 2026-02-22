@@ -141,7 +141,10 @@ def generar_png_estetico(datos):
     dot = graphviz.Digraph(format='png')
     dot.attr(rankdir='TB', nodesep='0.3', ranksep='0.2', bgcolor='white', fontname='Arial')
     
-    def wrap(t, w=25): return "<BR/>".join(textwrap.wrap(str(t), width=w))
+    def wrap(t, w=25):
+        # Saneamiento de caracteres especiales para etiquetas HTML de Graphviz
+        t = str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        return "<BR/>".join(textwrap.wrap(t, width=w))
 
     for i, fila in enumerate(datos):
         conf = CONFIG_NIVELES.get(fila['tipo'], {"color": "#1E3A8A", "bg": "#f8fafc"})
