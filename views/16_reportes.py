@@ -65,7 +65,7 @@ nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROY
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
 
-# --- MEJORA 1: LIMPIEZA VISUAL DE LAS IMÁGENES ---
+# --- LIMPIEZA VISUAL DE LAS IMÁGENES ---
 col_up1, col_up2 = st.columns(2)
 with col_up1:
     logo_entidad = st.file_uploader("🖼️ Sube el Logo de la Entidad", type=["png", "jpg", "jpeg"], key="logo_portada")
@@ -118,18 +118,16 @@ st.divider()
 # ==========================================
 # 📑 2. SELECCIÓN Y DILIGENCIAMIENTO DE CONTENIDO
 # ==========================================
-# --- MEJORA 2: NUEVO TÍTULO Y CAJAS AUTOAJUSTABLES ---
+# --- NUEVO TÍTULO Y CAJAS AUTOAJUSTABLES ---
 st.markdown('<div class="header-tabla">📑 2. Resumen y Marco Normativo</div>', unsafe_allow_html=True)
 st.write("Diligencia las siguientes secciones que se incluirán al inicio de tu documento:")
 
 instrucciones_resumen = "El resumen es el elemento fundamental para dar contexto sobre el proyecto, en este sentido escriba en máximo 15 líneas de manera clara, sencilla, directa y concisa el resumen del contenido del proyecto, que permitan dar una idea sobre el alcance, componentes y productos esperados."
 
-# Cálculo matemático para estirar la caja del Resumen
 curr_resumen = st.session_state.get("texto_resumen", "")
 h_res = int(max(150, (curr_resumen.count('\n') + (len(curr_resumen) / 100) + 1) * 25 + 40))
 texto_resumen = st.text_area("2. RESUMEN DEL PROYECTO", placeholder=instrucciones_resumen, height=h_res, key="texto_resumen")
 
-# Cálculo matemático para estirar la caja del Marco Normativo
 curr_norm = st.session_state.get("texto_normativo", "")
 h_norm = int(max(150, (curr_norm.count('\n') + (len(curr_norm) / 100) + 1) * 25 + 40))
 texto_normativo = st.text_area("3. MARCO NORMATIVO", placeholder="Escriba aquí el marco normativo del proyecto...", height=h_norm, key="texto_normativo")
@@ -160,14 +158,13 @@ justificacion = (
     or 'No se ha registrado información en la Hoja 7.'
 )
 
-# 5. Localización (Hoja 9)
+# 5. Localización
 zona_data = st.session_state.get('descripcion_zona', {})
 ruta_mapa = zona_data.get('ruta_mapa')
 ruta_foto1 = zona_data.get('ruta_foto1')
 ruta_foto2 = zona_data.get('ruta_foto2')
 
-
-# --- LÓGICA DE EXTRACCIÓN PARA LA SECCIÓN 6 (HOJA 8 Y 10) ---
+# --- LÓGICA DE EXTRACCIÓN PARA LA SECCIÓN 6 ---
 def _a_texto_dict(item):
     if isinstance(item, dict): return item
     if item is None: return None
@@ -185,7 +182,6 @@ def _a_lista_dicts(valor):
     return [{"texto": str(valor)}]
 
 desc_prob_data = st.session_state.get('descripcion_problema', {})
-
 narrativa_problema = desc_prob_data.get('redaccion_narrativa', 'No se ha registrado descripción.')
 if not narrativa_problema.strip(): narrativa_problema = 'No se ha registrado descripción.'
 
@@ -212,8 +208,7 @@ for i, txt in enumerate(lista_efectos):
 
 df_magnitud_reconstruida = pd.DataFrame(filas_magnitud)
 
-
-# --- 7. POBLACIÓN (HOJA 9) ---
+# --- 7. POBLACIÓN ---
 df_poblacion_general = pd.DataFrame([{
     "Población de Referencia": zona_data.get('poblacion_referencia', 0),
     "Población Afectada": zona_data.get('poblacion_afectada', 0),
@@ -238,8 +233,7 @@ analisis_poblacion = str(zona_data.get('analisis_poblacion_objetivo', '')).strip
 if not analisis_poblacion:
     analisis_poblacion = 'No se ha registrado análisis de población.'
 
-
-# --- 8. PARTICIPANTES (HOJA 3 Y 9) ---
+# --- 8. PARTICIPANTES ---
 df_matriz_interesados = st.session_state.get('df_interesados', pd.DataFrame())
 if df_matriz_interesados is not None and not isinstance(df_matriz_interesados, pd.DataFrame):
     try: df_matriz_interesados = pd.DataFrame(df_matriz_interesados)
@@ -254,8 +248,7 @@ texto_analisis_participantes = str(
 if not texto_analisis_participantes:
     texto_analisis_participantes = "No se ha registrado el análisis de los participantes."
 
-
-# --- 9. OBJETIVOS (HOJA 7) ---
+# --- 9. OBJETIVOS ---
 arbol_obj_datos = st.session_state.get('arbol_objetivos_final', {})
 ref_obj_data = arbol_obj_datos.get('referencia_manual', {})
 
@@ -267,10 +260,8 @@ objetivos_especificos = ref_obj_data.get('especificos', [])
 if not objetivos_especificos:
     objetivos_especificos = ["No se han definido objetivos específicos."]
 
-
-# --- 10. ALTERNATIVAS (HOJA 6) ---
+# --- 10. ALTERNATIVAS ---
 lista_alts_evaluadas = st.session_state.get('lista_alternativas', [])
-
 pesos = st.session_state.get('ponderacion_criterios', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
 df_criterios = pd.DataFrame([pesos]) 
 
@@ -291,7 +282,6 @@ if not df_calif.empty:
     
     df_eval = df_eval.round(2).reset_index().rename(columns={"index": "Alternativa"})
     df_evaluacion_alt = df_eval
-
 
 # ==========================================
 # ⚙️ MOTORES DE DIBUJO Y GENERACIÓN WORD
@@ -330,11 +320,9 @@ def redibujar_arbol_problemas(arbol_data):
         dot = graphviz.Digraph(format='png')
         dot.attr(rankdir='BT')
         dot.attr('node', shape='box', style='filled', fontname='Helvetica', margin='0.2')
-
         pp_list = _a_lista_dicts(arbol_data.get("Problema Principal", arbol_data.get("problema")))
         pc_txt = pp_list[0].get("texto", "Problema Central") if pp_list else "Problema Central"
         dot.node('PC', str(pc_txt), fillcolor='#FCA5A5')
-
         c_dir = _a_lista_dicts(arbol_data.get("Causas Directas", arbol_data.get("causas")))
         c_ind = _a_lista_dicts(arbol_data.get("Causas Indirectas", []))
         causas = c_dir + c_ind
@@ -342,7 +330,6 @@ def redibujar_arbol_problemas(arbol_data):
             if ca.get('texto'):
                 dot.node(f'C_{i}', ca.get('texto'), fillcolor='#FEF3C7')
                 dot.edge(f'C_{i}', 'PC')
-
         e_dir = _a_lista_dicts(arbol_data.get("Efectos Directos", arbol_data.get("efectos")))
         e_ind = _a_lista_dicts(arbol_data.get("Efectos Indirectos", []))
         efectos = e_dir + e_ind
@@ -350,7 +337,6 @@ def redibujar_arbol_problemas(arbol_data):
             if ef.get('texto'):
                 dot.node(f'E_{i}', ef.get('texto'), fillcolor='#DBEAFE')
                 dot.edge('PC', f'E_{i}')
-
         return io.BytesIO(dot.pipe())
     except Exception as e:
         return None
@@ -367,17 +353,13 @@ def redibujar_arbol_objetivos(datos):
         }
         claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
         if not any(datos.get(k) for k in claves_graficas): return None
-
         dot = graphviz.Digraph(format='png')
         dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
         dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
-        
         def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
-        
         obj_gen = [it for it in datos.get("Objetivo General", []) if isinstance(it, dict) and it.get('texto')]
         if obj_gen: 
             dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
-            
         for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
             items = [it for it in datos.get(tipo, []) if isinstance(it, dict) and it.get('texto')]
             for i, item in enumerate(items):
@@ -397,6 +379,21 @@ def redibujar_arbol_objetivos(datos):
 
 def generar_word():
     doc = Document()
+    
+    # --- UNIFICACIÓN DE COLOR DE TÍTULOS (AZUL OSCURO #1E3A8A) ---
+    color_azul_oscuro = RGBColor(30, 58, 138)
+    for i in range(1, 5):
+        try:
+            style = doc.styles[f'Heading {i}']
+            style.font.color.rgb = color_azul_oscuro
+            style.font.bold = True
+        except:
+            pass
+            
+    try:
+        doc.styles['Title'].font.color.rgb = color_azul_oscuro
+    except:
+        pass
     
     # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA ---
     section = doc.sections[0]
@@ -510,34 +507,34 @@ def generar_word():
     r_num._r.append(fldChar2)
     r_num._r.append(fldChar3)
 
-    # --- 1. PORTADA ---
-    doc.add_paragraph("\n\n") 
+    # --- 1. PORTADA (AJUSTADA SIN EXCESO DE SALTOS DE LÍNEA) ---
+    doc.add_paragraph() 
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
     r_titulo.bold = True
     r_titulo.font.size = Pt(20)
     
-    doc.add_paragraph("\n")
+    doc.add_paragraph()
     if img_portada is not None:
         img_portada.seek(0)
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img.add_run().add_picture(io.BytesIO(img_portada.getvalue()), width=Inches(3.8))
         
-    doc.add_paragraph("\n")
+    doc.add_paragraph()
     if entidad_formulo:
         doc.add_paragraph(entidad_formulo.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
     if division:
         doc.add_paragraph(division.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-    doc.add_paragraph("\n")
+    doc.add_paragraph()
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_presentado.add_run("Presentado por:\n").italic = True
     p_presentado.add_run(nombres_formuladores).bold = True
     
-    doc.add_paragraph("\n")
+    doc.add_paragraph()
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
