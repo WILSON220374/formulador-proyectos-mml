@@ -226,7 +226,6 @@ with tab2:
     st.markdown("**Justificación**")
     st.text_area(
         "Justificación",
-        value=st.session_state.get("temp_justificacion", ""),
         key="temp_justificacion",
         height=_height,
         label_visibility="collapsed",
