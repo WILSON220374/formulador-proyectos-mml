@@ -4,7 +4,7 @@ import io
 import textwrap
 import pandas as pd
 import requests
-from session_state import inicializar_session
+from session_state import inicializar_session, conectar_db, guardar_datos_nube
 
 # --- IMPORTACIÓN DE LIBRERÍAS ---
 try:
@@ -29,8 +29,102 @@ except ImportError:
     st.error("⚠️ Falta la librería Graphviz. Agrega 'graphviz' a tu requirements.txt")
     st.stop()
 
-# 1. Asegurar persistencia 
+# 1. Asegurar persistencia
 inicializar_session()
+
+# ==========================================
+# ✅ Persistencia de imágenes de portada (Hoja 16)
+# Replica patrón Hoja 9: Storage + (ruta_*, path_*) + guardado nube
+# (sin tocar UI)
+# ==========================================
+if "datos_reportes" not in st.session_state or not isinstance(st.session_state.get("datos_reportes"), dict):
+    st.session_state["datos_reportes"] = {}
+
+datos_reportes = st.session_state["datos_reportes"]
+datos_reportes.setdefault("ruta_logo_portada", None)
+datos_reportes.setdefault("path_logo_portada", None)
+datos_reportes.setdefault("sig_logo_portada", None)
+datos_reportes.setdefault("ruta_img_portada", None)
+datos_reportes.setdefault("path_img_portada", None)
+datos_reportes.setdefault("sig_img_portada", None)
+
+
+def _get_bucket_name() -> str:
+    return st.secrets.get("SUPABASE_BUCKET", "uploads")
+
+
+def _upload_to_supabase_storage_reportes(uploaded_file, tipo_key: str):
+    """
+    Sube imagen a Supabase Storage y guarda en st.session_state['datos_reportes']:
+      - ruta_{tipo_key}: URL pública
+      - path_{tipo_key}: path en storage
+    Replica patrón de Hoja 9.
+    """
+    user_id = st.session_state.get("usuario_id")
+    if not user_id or uploaded_file is None:
+        return None, None
+
+    signature = f"{getattr(uploaded_file, 'name', '')}:{getattr(uploaded_file, 'size', '')}"
+    sig_key = f"sig_{tipo_key}"
+
+    # Evita re-subir si es el mismo archivo ya guardado
+    if (
+        datos_reportes.get(sig_key) == signature
+        and datos_reportes.get(f"ruta_{tipo_key}")
+        and datos_reportes.get(f"path_{tipo_key}")
+    ):
+        return datos_reportes.get(f"ruta_{tipo_key}"), datos_reportes.get(f"path_{tipo_key}")
+
+    try:
+        db = conectar_db()
+        bucket = _get_bucket_name()
+
+        original_name = getattr(uploaded_file, "name", "") or "archivo"
+        ext = original_name.split(".")[-1].lower() if "." in original_name else "png"
+        content_type = getattr(uploaded_file, "type", None) or "image/png"
+
+        import uuid
+        storage_path = f"{user_id}/reportes/{tipo_key}/{uuid.uuid4().hex}.{ext}"
+
+        uploaded_file.seek(0)
+        file_bytes = uploaded_file.getvalue()
+
+        db.storage.from_(bucket).upload(
+            storage_path,
+            file_bytes,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+
+        public_url = db.storage.from_(bucket).get_public_url(storage_path)
+        if isinstance(public_url, dict):
+            public_url = public_url.get("publicUrl") or public_url.get("public_url")
+
+        datos_reportes[f"ruta_{tipo_key}"] = public_url
+        datos_reportes[f"path_{tipo_key}"] = storage_path
+        datos_reportes[sig_key] = signature
+
+        # Persistir a nube (el paquete de session_state.py se ajusta después; aquí dejamos el llamado consistente)
+        try:
+            guardar_datos_nube()
+        except Exception:
+            pass
+
+        return public_url, storage_path
+    except Exception:
+        return None, None
+
+
+def _download_image_bytes(url: str):
+    if not url:
+        return None
+    try:
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.content
+    except Exception:
+        pass
+    return None
+
 
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
@@ -60,7 +154,7 @@ st.divider()
 # ==========================================
 st.markdown('<div class="header-tabla">📘 1. Configuración de la Portada</div>', unsafe_allow_html=True)
 
-nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROYECTO NO DEFINIDO') 
+nombre_proyecto = st.session_state.get('nombre_proyecto_libre', 'NOMBRE DEL PROYECTO NO DEFINIDO')
 
 st.write("**Nombre del Proyecto:**")
 st.markdown(f'<div class="readonly-box">{nombre_proyecto.upper()}</div><br>', unsafe_allow_html=True)
@@ -81,7 +175,13 @@ if logo_entidad is not None or img_portada is not None:
         if img_portada is not None:
             st.image(img_portada, width=300)
 
-st.write("") 
+# ✅ Guardado en Storage (solo lógica; UI intacta)
+if logo_entidad is not None:
+    _upload_to_supabase_storage_reportes(logo_entidad, "logo_portada")
+if img_portada is not None:
+    _upload_to_supabase_storage_reportes(img_portada, "img_portada")
+
+st.write("")
 
 nombres_formuladores = "No se encontraron formuladores registrados en la Hoja 0 (Equipo)"
 nombres_display = nombres_formuladores
@@ -150,7 +250,7 @@ if any([_plan_nombre, _plan_eje, _plan_programa]):
     )
 else:
     plan_desarrollo = st.session_state.get('plan_desarrollo', 'No se ha registrado información en la Hoja 15.')
-    
+
 justificacion = (
     st.session_state.get('justificacion_arbol_objetivos_final')
     or st.session_state.get('arbol_objetivos_final', {}).get('referencia_manual', {}).get('justificacion', '')
@@ -240,8 +340,8 @@ if df_matriz_interesados is not None and not isinstance(df_matriz_interesados, p
     except: df_matriz_interesados = pd.DataFrame()
 
 texto_analisis_participantes = str(
-    st.session_state.get('analisis_participantes') or 
-    st.session_state.get('txt_analisis_participantes') or 
+    st.session_state.get('analisis_participantes') or
+    st.session_state.get('txt_analisis_participantes') or
     st.session_state.get('descripcion_zona', {}).get('analisis_participantes', '')
 ).strip()
 
@@ -263,7 +363,7 @@ if not objetivos_especificos:
 # --- 10. ALTERNATIVAS ---
 lista_alts_evaluadas = st.session_state.get('lista_alternativas', [])
 pesos = st.session_state.get('ponderacion_criterios', {"COSTO": 25, "FACILIDAD": 25, "BENEFICIOS": 25, "TIEMPO": 25})
-df_criterios = pd.DataFrame([pesos]) 
+df_criterios = pd.DataFrame([pesos])
 
 df_calif = st.session_state.get('df_calificaciones', pd.DataFrame())
 df_evaluacion_alt = pd.DataFrame()
@@ -275,11 +375,11 @@ if not df_calif.empty:
     for c in ["COSTO", "FACILIDAD", "BENEFICIOS", "TIEMPO"]:
         if c in df_eval.columns:
             df_eval["TOTAL"] += df_eval[c] * (pesos.get(c, 0) / 100.0)
-    
+
     ganadora_idx = df_eval["TOTAL"].idxmax()
     puntaje_ganador = df_eval["TOTAL"].max()
     alternativa_seleccionada = f"Alternativa Seleccionada: {ganadora_idx} ({puntaje_ganador:.2f} pts)"
-    
+
     df_eval = df_eval.round(2).reset_index().rename(columns={"index": "Alternativa"})
     df_evaluacion_alt = df_eval
 
@@ -301,7 +401,7 @@ def agregar_tabla_word(doc, df):
     else:
         p = doc.add_paragraph()
         p.add_run("No se registraron datos en esta tabla.").italic = True
-        
+
 def descargar_y_pegar_imagen(doc, url, ancho):
     if url:
         try:
@@ -358,7 +458,7 @@ def redibujar_arbol_objetivos(datos):
         dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
         def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
         obj_gen = [it for it in datos.get("Objetivo General", []) if isinstance(it, dict) and it.get('texto')]
-        if obj_gen: 
+        if obj_gen:
             dot.node("OG", limpiar(obj_gen[0]['texto']), fillcolor=CONFIG_OBJ["Objetivo General"]["color"], fontcolor='white', color='none', width='4.5')
         for tipo, p_id, h_tipo in [("Fines Directos", "OG", "Fines Indirectos"), ("Medios Directos", "OG", "Medios Indirectos")]:
             items = [it for it in datos.get(tipo, []) if isinstance(it, dict) and it.get('texto')]
@@ -379,7 +479,7 @@ def redibujar_arbol_objetivos(datos):
 
 def generar_word():
     doc = Document()
-    
+
     # --- UNIFICACIÓN DE COLOR DE TÍTULOS (AZUL OSCURO #1E3A8A) ---
     color_azul_oscuro = RGBColor(30, 58, 138)
     for i in range(1, 5):
@@ -389,29 +489,37 @@ def generar_word():
             style.font.bold = True
         except:
             pass
-            
+
     try:
         doc.styles['Title'].font.color.rgb = color_azul_oscuro
     except:
         pass
-    
+
     # --- CONFIGURACIÓN DE ENCABEZADO Y PIE DE PÁGINA ---
     section = doc.sections[0]
-    section.different_first_page_header_footer = True 
-    
+    section.different_first_page_header_footer = True
+
     def crear_encabezado(hdr_obj):
         htable = hdr_obj.add_table(rows=1, cols=2, width=Inches(6.5))
         htable.autofit = False
-        htable.columns[0].width = Inches(5.0) 
-        htable.columns[1].width = Inches(1.5) 
+        htable.columns[0].width = Inches(5.0)
+        htable.columns[1].width = Inches(1.5)
         h_izq = htable.cell(0, 0).paragraphs[0]
         h_izq.alignment = WD_ALIGN_PARAGRAPH.LEFT
         h_izq.add_run(nombre_proyecto.upper()).bold = True
         h_der = htable.cell(0, 1).paragraphs[0]
         h_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+        # ✅ Si no hay archivo en la sesión, intenta usar el guardado en Storage
         if logo_entidad is not None:
             logo_entidad.seek(0)
             h_der.add_run().add_picture(io.BytesIO(logo_entidad.getvalue()), width=Inches(0.6))
+        else:
+            url_logo = datos_reportes.get("ruta_logo_portada")
+            b = _download_image_bytes(url_logo)
+            if b:
+                h_der.add_run().add_picture(io.BytesIO(b), width=Inches(0.6))
+
         p_line = hdr_obj.add_paragraph()
         pPr = p_line._p.get_or_add_pPr()
         pBdr = OxmlElement('w:pBdr')
@@ -425,30 +533,30 @@ def generar_word():
 
     crear_encabezado(section.first_page_header)
     crear_encabezado(section.header)
-    
+
     footer = section.footer
     p_line_f = footer.paragraphs[0]
     pPr_f = p_line_f._p.get_or_add_pPr()
     pBdr_f = OxmlElement('w:pBdr')
     bottom_f = OxmlElement('w:bottom')
     bottom_f.set(qn('w:val'), 'single')
-    bottom_f.set(qn('w:sz'), '6') 
+    bottom_f.set(qn('w:sz'), '6')
     bottom_f.set(qn('w:space'), '1')
     bottom_f.set(qn('w:color'), 'auto')
     pBdr_f.append(bottom_f)
     pPr_f.append(pBdr_f)
-    
+
     ftable = footer.add_table(rows=1, cols=3, width=Inches(7.0))
     ftable.autofit = False
-    
+
     tblLayout = OxmlElement('w:tblLayout')
     tblLayout.set(qn('w:type'), 'fixed')
     ftable._tbl.tblPr.append(tblLayout)
-    
+
     ancho_izq = Inches(0.5)
-    ancho_cen = Inches(6.0) 
+    ancho_cen = Inches(6.0)
     ancho_der = Inches(0.5)
-    
+
     ftable.columns[0].width = ancho_izq
     ftable.columns[1].width = ancho_cen
     ftable.columns[2].width = ancho_der
@@ -456,42 +564,42 @@ def generar_word():
         row.cells[0].width = ancho_izq
         row.cells[1].width = ancho_cen
         row.cells[2].width = ancho_der
-    
+
     f_centro = ftable.cell(0, 1).paragraphs[0]
     f_centro.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    f_centro.paragraph_format.space_after = Pt(0) 
+    f_centro.paragraph_format.space_after = Pt(0)
     f_centro.paragraph_format.space_before = Pt(0)
-    
+
     texto_entidad = entidad_formulo if entidad_formulo else ""
     texto_div = division if division else ""
-    
+
     if texto_entidad:
         r_centro1 = f_centro.add_run(texto_entidad.upper())
         r_centro1.font.size = Pt(9)
         r_centro1.italic = True
         r_centro1.font.color.rgb = RGBColor(128, 128, 128)
-        
+
     if texto_div:
         if texto_entidad:
             f_centro2 = ftable.cell(0, 1).add_paragraph()
         else:
             f_centro2 = f_centro
-            
+
         f_centro2.alignment = WD_ALIGN_PARAGRAPH.CENTER
         f_centro2.paragraph_format.space_after = Pt(0)
         f_centro2.paragraph_format.space_before = Pt(0)
-        
+
         r_centro2 = f_centro2.add_run(texto_div.upper())
         r_centro2.font.size = Pt(9)
         r_centro2.italic = True
         r_centro2.font.color.rgb = RGBColor(128, 128, 128)
-    
+
     f_der = ftable.cell(0, 2).paragraphs[0]
     f_der.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     r_num = f_der.add_run()
     r_num.font.size = Pt(10)
     r_num.font.color.rgb = RGBColor(128, 128, 128)
-    
+
     fldChar1 = OxmlElement('w:fldChar')
     fldChar1.set(qn('w:fldCharType'), 'begin')
     instrText = OxmlElement('w:instrText')
@@ -501,57 +609,64 @@ def generar_word():
     fldChar2.set(qn('w:fldCharType'), 'separate')
     fldChar3 = OxmlElement('w:fldChar')
     fldChar3.set(qn('w:fldCharType'), 'end')
-    
+
     r_num._r.append(fldChar1)
     r_num._r.append(instrText)
     r_num._r.append(fldChar2)
     r_num._r.append(fldChar3)
 
     # --- 1. PORTADA (AJUSTADA SIN EXCESO DE SALTOS DE LÍNEA) ---
-    doc.add_paragraph() 
+    doc.add_paragraph()
     p_titulo = doc.add_paragraph()
     p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_titulo = p_titulo.add_run(nombre_proyecto.upper())
     r_titulo.bold = True
     r_titulo.font.size = Pt(20)
-    
+
     doc.add_paragraph()
     if img_portada is not None:
         img_portada.seek(0)
         p_img = doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img.add_run().add_picture(io.BytesIO(img_portada.getvalue()), width=Inches(3.8))
-        
+    else:
+        url_img = datos_reportes.get("ruta_img_portada")
+        b = _download_image_bytes(url_img)
+        if b:
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.add_run().add_picture(io.BytesIO(b), width=Inches(3.8))
+
     doc.add_paragraph()
     if entidad_formulo:
         doc.add_paragraph(entidad_formulo.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
     if division:
         doc.add_paragraph(division.upper()).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
+
     doc.add_paragraph()
     p_presentado = doc.add_paragraph()
     p_presentado.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_presentado.add_run("Presentado por:\n").italic = True
     p_presentado.add_run(nombres_formuladores).bold = True
-    
+
     doc.add_paragraph()
     p_pie = doc.add_paragraph()
     p_pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
     texto_lugar = lugar_presentacion if lugar_presentacion else ""
     texto_anio = anio_presentacion if anio_presentacion else ""
     p_pie.add_run(f"{texto_lugar}\n{texto_anio}".strip()).bold = True
-    
+
     doc.add_page_break()
-    
+
     # --- 2. INICIO DEL CONTENIDO ---
     p_tit_cont = doc.add_paragraph()
     p_tit_cont.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r_t_cont = p_tit_cont.add_run(nombre_proyecto.upper())
     r_t_cont.bold = True
     r_t_cont.font.size = Pt(16)
-    
-    doc.add_paragraph("\n") 
-    
+
+    doc.add_paragraph("\n")
+
     # 1 a 4
     doc.add_heading("1. Articulación con el plan de desarrollo", level=1)
     doc.add_paragraph(str(plan_desarrollo))
@@ -561,39 +676,39 @@ def generar_word():
     doc.add_paragraph(str(texto_normativo))
     doc.add_heading("4. Justificación", level=1)
     doc.add_paragraph(str(justificacion))
-    
+
     # 5. Localización
     doc.add_heading("5. Localización del proyecto", level=1)
-    
+
     if ruta_mapa:
         descargar_y_pegar_imagen(doc, ruta_mapa, 5.0)
-    
+
     doc.add_heading("5.1 Localización", level=2)
     t_loc = doc.add_table(rows=2, cols=6)
     t_loc.style = 'Table Grid'
     headers_loc = ["Departamento", "Provincia", "Municipio", "Barrio/Vereda", "Latitud", "Longitud"]
-    
+
     for i, header_text in enumerate(headers_loc):
         cell = t_loc.cell(0, i)
         cell.text = header_text
         shading_elm = OxmlElement('w:shd')
         shading_elm.set(qn('w:val'), 'clear')
         shading_elm.set(qn('w:color'), 'auto')
-        shading_elm.set(qn('w:fill'), 'D9E2F3') 
+        shading_elm.set(qn('w:fill'), 'D9E2F3')
         cell._tc.get_or_add_tcPr().append(shading_elm)
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.bold = True
-                
+
     t_loc.cell(1, 0).text = str(zona_data.get('departamento', ''))
     t_loc.cell(1, 1).text = str(zona_data.get('provincia', ''))
     t_loc.cell(1, 2).text = str(zona_data.get('municipio', ''))
     t_loc.cell(1, 3).text = str(zona_data.get('barrio_vereda', ''))
     t_loc.cell(1, 4).text = str(zona_data.get('latitud', ''))
     t_loc.cell(1, 5).text = str(zona_data.get('longitud', ''))
-    
+
     doc.add_paragraph("\n")
-    
+
     doc.add_heading("5.2 Definición de límites", level=2)
     doc.add_paragraph("Límites Geográficos:", style='List Bullet')
     doc.add_paragraph(str(zona_data.get('limites_geograficos', '')))
@@ -604,37 +719,38 @@ def generar_word():
 
     doc.add_heading("5.3 Condiciones de accesibilidad", level=2)
     doc.add_paragraph(str(zona_data.get('accesibilidad', '')))
-            
+
     # --- 6. IDENTIFICACIÓN Y DESCRIPCIÓN DEL PROBLEMA ---
     doc.add_heading("6. Identificación y descripción del problema", level=1)
-    
+
     imagen_prob_insertada = False
-    arbol_prob_memoria = st.session_state.get('arbol_problemas_img', None) 
+    arbol_prob_memoria = st.session_state.get('arbol_problemas_img', None)
     if arbol_prob_memoria is not None:
         try:
             p_arbol_p = doc.add_paragraph()
             p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_arbol_p.add_run().add_picture(io.BytesIO(arbol_prob_memoria.getvalue()), width=Inches(6.0))
             imagen_prob_insertada = True
-        except: pass
-        
+        except:
+            pass
+
     if not imagen_prob_insertada and datos_h8:
         img_prob_recreada = redibujar_arbol_problemas(datos_h8)
         if img_prob_recreada:
             p_arbol_p = doc.add_paragraph()
             p_arbol_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_arbol_p.add_run().add_picture(img_prob_recreada, width=Inches(6.0))
-            
+
     doc.add_heading("6.1 Magnitud del problema", level=2)
     agregar_tabla_word(doc, df_magnitud_reconstruida)
-    
+
     doc.add_paragraph("\n")
     doc.add_heading("Descripción detallada (Problema - Causa - Efecto)", level=3)
     doc.add_paragraph(str(narrativa_problema))
-    
+
     doc.add_heading("Antecedentes: ¿Qué se ha hecho previamente con el problema?", level=3)
     doc.add_paragraph(str(antecedentes_problema))
-    
+
     if ruta_foto1 or ruta_foto2:
         doc.add_heading("Registro Fotográfico del Problema", level=3)
         if ruta_foto1:
@@ -645,13 +761,13 @@ def generar_word():
     # --- 7. POBLACIÓN ---
     doc.add_heading("7. Población", level=1)
     agregar_tabla_word(doc, df_poblacion_general)
-    
+
     doc.add_heading("7.1 Población objetivo por sexo", level=2)
     agregar_tabla_word(doc, df_pob_sexo)
-    
+
     doc.add_heading("7.2 Población objetivo por rango de edad", level=2)
     agregar_tabla_word(doc, df_pob_edad)
-    
+
     doc.add_heading("7.3 Análisis de la población objetivo", level=2)
     doc.add_paragraph(str(analisis_poblacion))
 
@@ -662,8 +778,8 @@ def generar_word():
     doc.add_paragraph("\n" + str(texto_analisis_participantes))
 
     # --- 9. OBJETIVOS ---
-    doc.add_heading("9. Objetivos", level=1) 
-    
+    doc.add_heading("9. Objetivos", level=1)
+
     imagen_obj_insertada = False
     arbol_obj_memoria = st.session_state.get('arbol_objetivos_img', None)
     if arbol_obj_memoria is not None:
@@ -674,17 +790,17 @@ def generar_word():
             imagen_obj_insertada = True
         except:
             pass
-            
+
     if not imagen_obj_insertada and arbol_obj_datos:
         img_obj_recreada = redibujar_arbol_objetivos(arbol_obj_datos)
         if img_obj_recreada:
             p_arbol_obj = doc.add_paragraph()
             p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_arbol_obj.add_run().add_picture(img_obj_recreada, width=Inches(6.0))
-            
+            p_arbol_obj.add_run().add_picture(io.BytesIO(img_obj_recreada), width=Inches(6.0))
+
     doc.add_heading("9.1 Objetivo General", level=2)
     doc.add_paragraph(str(objetivo_general))
-    
+
     doc.add_heading("9.2 Objetivos Específicos", level=2)
     for oe in objetivos_especificos:
         if str(oe).strip():
@@ -692,7 +808,7 @@ def generar_word():
 
     # --- 10. ALTERNATIVAS ---
     doc.add_heading("10. Alternativas", level=1)
-    
+
     doc.add_heading("10.1 Alternativas Evaluadas", level=2)
     if not lista_alts_evaluadas:
         doc.add_paragraph("No se han registrado alternativas evaluadas en la Hoja 6.")
@@ -708,28 +824,28 @@ def generar_word():
                     p_act = doc.add_paragraph(f"🔹 Actividad: {act}")
                     p_act.paragraph_format.left_indent = Inches(0.5)
             doc.add_paragraph("\n")
-    
+
     doc.add_heading("10.2 Evaluación de Alternativas", level=2)
-    
+
     doc.add_heading("Criterios Evaluados (Pesos %)", level=3)
     agregar_tabla_word(doc, df_criterios)
     doc.add_paragraph("\n")
-    
+
     doc.add_heading("Calificaciones y Puntaje Total", level=3)
     agregar_tabla_word(doc, df_evaluacion_alt)
     doc.add_paragraph("\n")
-    
+
     doc.add_heading("Alternativa Seleccionada", level=3)
     t_verde = doc.add_table(rows=1, cols=1)
     celda = t_verde.cell(0, 0)
     celda.text = str(alternativa_seleccionada)
-    
+
     shading_elm = OxmlElement('w:shd')
     shading_elm.set(qn('w:val'), 'clear')
     shading_elm.set(qn('w:color'), 'auto')
-    shading_elm.set(qn('w:fill'), 'E2F0D9') 
+    shading_elm.set(qn('w:fill'), 'E2F0D9')
     celda._tc.get_or_add_tcPr().append(shading_elm)
-    
+
     for paragraph in celda.paragraphs:
         for run in paragraph.runs:
             run.bold = True
