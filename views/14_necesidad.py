@@ -69,31 +69,53 @@ for kmap, k in mapa.items():
             meta_general = str(metas.get(k, {}).get("Meta", "")).strip()
             break
 
-# --- SECCIÓN 1: OBJETIVO GENERAL ---
+# --- SECCIÓN 1: OBJETIVO GENERAL (FLEXBOX PARA ALTURAS IGUALES) ---
 st.markdown('<div class="header-tabla">🎯 Objetivo General del Proyecto</div>', unsafe_allow_html=True)
+
+# Usamos HTML nativo (Flexbox) para obligar a que las 3 cajas midan exactamente lo mismo
+html_objetivos = f"""
+<div style="display: flex; gap: 15px; align-items: stretch; width: 100%;">
+    <div style="flex: 2; display: flex; flex-direction: column;">
+        <div class="readonly-label">Descripción del Objetivo</div>
+        <div class="readonly-box" style="flex: 1; height: 100%;">{obj_general}</div>
+    </div>
+    <div style="flex: 1.5; display: flex; flex-direction: column;">
+        <div class="readonly-label">Indicador</div>
+        <div class="readonly-box" style="flex: 1; height: 100%;">{ind_general}</div>
+    </div>
+    <div style="flex: 1; display: flex; flex-direction: column;">
+        <div class="readonly-label">Meta</div>
+        <div class="readonly-box" style="flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold;">{meta_general}</div>
+    </div>
+</div>
+"""
+
 with st.container(border=True):
-    col1, col2, col3 = st.columns([2, 1.5, 1])
-    with col1: st.markdown(f'<div class="readonly-label">Descripción del Objetivo</div><div class="readonly-box">{obj_general}</div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="readonly-label">Indicador</div><div class="readonly-box">{ind_general}</div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class="readonly-label">Meta</div><div class="readonly-box" style="text-align: center; min-height: 45px;">{meta_general}</div>', unsafe_allow_html=True)
+    st.markdown(html_objetivos, unsafe_allow_html=True)
 
 st.divider()
 
-# --- SECCIÓN 2: NECESIDADES (ALTURA FIJA AMPLIA) ---
+# --- SECCIÓN 2: NECESIDADES (CAJAS AUTOAJUSTABLES) ---
 st.markdown('<div class="header-tabla">🔍 Análisis de la Necesidad</div>', unsafe_allow_html=True)
+
+# Cálculo matemático para la altura de las cajas
+txt_desc = st.session_state.get('desc_objetivo_general', "")
+h_desc = int(max(150, (txt_desc.count('\n') + (len(txt_desc) / 80) + 1) * 25 + 40))
+
+txt_nec = st.session_state.get('necesidad_atender', "")
+h_nec = int(max(150, (txt_nec.count('\n') + (len(txt_nec) / 80) + 1) * 25 + 40))
+
 col_a, col_b = st.columns(2)
 
 with col_a: 
-    # Altura fija de 250px para dar mucho espacio de lectura
     desc_objetivo = st.text_area("Descripción del objetivo general", 
-                                 value=st.session_state.get('desc_objetivo_general', ""), 
-                                 height=250,
+                                 value=txt_desc, 
+                                 height=h_desc,
                                  placeholder="Describa el objetivo general...")
 with col_b: 
-    # Altura fija de 250px
     nec_atender = st.text_area("Necesidad a atender", 
-                               value=st.session_state.get('necesidad_atender', ""), 
-                               height=250,
+                               value=txt_nec, 
+                               height=h_nec,
                                placeholder="¿Qué necesidad principal se está atendiendo?")
 
 st.divider()
