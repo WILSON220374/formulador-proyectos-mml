@@ -12,11 +12,9 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 inicializar_session()
 
 # -----------------------------
-# CSS (alineado a Hoja 10)
+# CSS (alineado a Hoja 10 y compactado)
 # -----------------------------
 st.markdown(
-    """
-  st.markdown(
     """
     <style>
     /* Reducimos el padding inferior del contenedor principal */
@@ -100,7 +98,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # -----------------------------
 # Estilos AgGrid (headers + alineación vertical)
 # -----------------------------
