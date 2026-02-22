@@ -22,8 +22,6 @@ def _df_from_saved(obj):
     return pd.DataFrame()
 
 
-
-
 def _safe_int(value, default: int = 2026) -> int:
     try:
         if value is None:
@@ -87,23 +85,17 @@ def _normalize_tabla_deficit(obj):
 
     # dict
     if isinstance(obj, dict):
-        # caso ya normalizado por año -> {dem, ofe}
-        # o por año -> {"Demanda":..., "Oferta":...}
         out = {}
         for year_key, val in obj.items():
             try:
                 y = str(int(float(str(year_key).strip())))
             except Exception:
-                # si la llave no es año, ignorar
                 continue
 
             if isinstance(val, pd.DataFrame):
-                # inesperado: intentar leer primera fila
                 val = val.to_dict(orient="records")
 
             if isinstance(val, list):
-                # si viene como lista de filas para un año
-                # tomar primera fila si tiene dem/ofe
                 if val:
                     vv = val[0] if isinstance(val[0], dict) else {}
                     val = vv
@@ -129,6 +121,8 @@ def _normalize_tabla_deficit(obj):
         return out
 
     return {}
+
+
 def inicializar_session():
     # --- AJUSTE VISUAL PARA QUE NO TENGAS QUE HACER SCROLL ---
     st.markdown(
@@ -235,9 +229,6 @@ def inicializar_session():
         st.session_state['meta_resultados_parciales'] = {}
 
     # --- HOJA 14 (Necesidad) ---
-    # Nota: la Hoja 14 espera tipos específicos:
-    # - anio_formulacion: int
-    # - tabla_deficit: dict[str, {"dem": float, "ofe": float}]
     if 'desc_objetivo_general' not in st.session_state:
         st.session_state['desc_objetivo_general'] = ""
     if 'necesidad_atender' not in st.session_state:
@@ -267,7 +258,6 @@ def inicializar_session():
     if 'plan_programa' not in st.session_state:
         st.session_state['plan_programa'] = ""
 
-
     # NUEVO: medios de verificación (Hoja 11 - tabla final)
     if 'medios_verificacion' not in st.session_state:
         st.session_state['medios_verificacion'] = {}
@@ -275,6 +265,25 @@ def inicializar_session():
     # NUEVO: hoja 12 (Riesgos)
     # Nota: NO inicializamos 'datos_riesgos' aquí.
     # La Hoja 12 construye la matriz a partir de los objetivos (Hoja 7) cuando la clave NO existe.
+
+    # --- HOJA 16 (Reportes) ---
+    # ✅ Solo lo necesario para persistir texto + rutas/path de portada
+    if 'datos_reportes' not in st.session_state or not isinstance(st.session_state.get('datos_reportes'), dict):
+        st.session_state['datos_reportes'] = {}
+
+    dr = st.session_state['datos_reportes']
+    dr.setdefault("ruta_logo_portada", None)
+    dr.setdefault("path_logo_portada", None)
+    dr.setdefault("sig_logo_portada", None)
+    dr.setdefault("ruta_img_portada", None)
+    dr.setdefault("path_img_portada", None)
+    dr.setdefault("sig_img_portada", None)
+    dr.setdefault("entidad_formulo", "")
+    dr.setdefault("division", "")
+    dr.setdefault("lugar_presentacion", "Tunja, Boyacá")
+    dr.setdefault("anio_presentacion", "2026")
+    dr.setdefault("texto_resumen", "")
+    dr.setdefault("texto_normativo", "")
 
 
 def cargar_datos_nube(user_id):
@@ -297,7 +306,6 @@ def cargar_datos_nube(user_id):
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
             st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
             st.session_state['justificacion_arbol_objetivos_final'] = d.get('justificacion_arbol_objetivos_final', "")
-            # Sincronizar justificación también dentro del objeto del árbol final (compatibilidad con Hoja 7)
             try:
                 if isinstance(st.session_state.get('arbol_objetivos_final', None), dict):
                     st.session_state['arbol_objetivos_final'].setdefault('referencia_manual', {})
@@ -320,14 +328,11 @@ def cargar_datos_nube(user_id):
             st.session_state['datos_indicadores'] = d.get('datos_indicadores', {})
             st.session_state['indicadores_mapa_objetivo'] = d.get('indicadores_mapa_objetivo', {})
 
-            # NUEVO: selección de indicadores (tabla 2)
             st.session_state['seleccion_indicadores'] = d.get('seleccion_indicadores', {})
 
-            # NUEVO: meta y resultados parciales
             st.session_state['duracion_proyecto_periodos'] = d.get('duracion_proyecto_periodos', 4)
             st.session_state['meta_resultados_parciales'] = d.get('meta_resultados_parciales', {})
 
-            # NUEVO: medios de verificación (Hoja 11 - tabla final)
             st.session_state['medios_verificacion'] = d.get('medios_verificacion', {})
 
             # --- HOJA 14 (Necesidad) ---
@@ -335,7 +340,6 @@ def cargar_datos_nube(user_id):
             st.session_state['necesidad_atender'] = d.get('necesidad_atender', st.session_state.get('necesidad_atender', ""))
             st.session_state['anio_formulacion'] = _safe_int(d.get('anio_formulacion', st.session_state.get('anio_formulacion', 2026)), 2026)
             st.session_state['tabla_deficit'] = _normalize_tabla_deficit(d.get('tabla_deficit', st.session_state.get('tabla_deficit', {})))
-
 
             # --- HOJA 15 (Producto) ---
             st.session_state['sector_seleccionado'] = d.get('sector_seleccionado', st.session_state.get('sector_seleccionado', "Seleccione..."))
@@ -347,22 +351,18 @@ def cargar_datos_nube(user_id):
             st.session_state['plan_nombre'] = d.get('plan_nombre', st.session_state.get('plan_nombre', ""))
             st.session_state['plan_eje'] = d.get('plan_eje', st.session_state.get('plan_eje', ""))
             st.session_state['plan_programa'] = d.get('plan_programa', st.session_state.get('plan_programa', ""))
+
             # NUEVO: hoja 12 (Riesgos)
             if 'datos_riesgos' in d:
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('datos_riesgos'))
             elif 'riesgos' in d:
-                # Compatibilidad si el key se guardó como 'riesgos'
                 st.session_state['datos_riesgos'] = _df_from_saved(d.get('riesgos'))
             else:
-                # Si no hay datos persistidos, eliminamos la clave para que la Hoja 12 la genere desde los objetivos.
                 st.session_state.pop('datos_riesgos', None)
-            # Validación: si se cargó un DataFrame vacío o sin la columna clave,
-            # eliminamos la clave para que la Hoja 12 regenere la matriz desde los objetivos (Hoja 7).
             if 'datos_riesgos' in st.session_state:
-                dr = st.session_state.get('datos_riesgos')
-                if (not isinstance(dr, pd.DataFrame)) or dr.empty or ('Objetivo' not in dr.columns):
+                dr_ = st.session_state.get('datos_riesgos')
+                if (not isinstance(dr_, pd.DataFrame)) or dr_.empty or ('Objetivo' not in dr_.columns):
                     st.session_state.pop('datos_riesgos', None)
-
 
             # DataFrames (compatibilidad: records o dict)
             if 'interesados' in d:
@@ -374,6 +374,27 @@ def cargar_datos_nube(user_id):
             if 'calificaciones' in d:
                 st.session_state['df_calificaciones'] = _df_from_saved(d.get('calificaciones'))
 
+            # --- HOJA 16 (Reportes) ---
+            dr_saved = d.get('datos_reportes', {}) or {}
+            if not isinstance(dr_saved, dict):
+                dr_saved = {}
+            st.session_state['datos_reportes'] = dr_saved
+
+            # Normalizar llaves esperadas por Hoja 16
+            drx = st.session_state['datos_reportes']
+            drx.setdefault("ruta_logo_portada", None)
+            drx.setdefault("path_logo_portada", None)
+            drx.setdefault("sig_logo_portada", None)
+            drx.setdefault("ruta_img_portada", None)
+            drx.setdefault("path_img_portada", None)
+            drx.setdefault("sig_img_portada", None)
+            drx.setdefault("entidad_formulo", "")
+            drx.setdefault("division", "")
+            drx.setdefault("lugar_presentacion", "Tunja, Boyacá")
+            drx.setdefault("anio_presentacion", "2026")
+            drx.setdefault("texto_resumen", "")
+            drx.setdefault("texto_normativo", "")
+
     except Exception as e:
         st.error(f"Error al cargar: {e}")
 
@@ -382,7 +403,6 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
 
-        # Normalizar justificación de Hoja 7 (puede vivir en clave directa o dentro de arbol_objetivos_final['referencia_manual'])
         _just = st.session_state.get('justificacion_arbol_objetivos_final', '')
         if (not isinstance(_just, str) or _just.strip() == ''):
             try:
@@ -399,7 +419,6 @@ def guardar_datos_nube():
             "diagnostico": st.session_state.get('datos_problema', {}),
             "zona": st.session_state.get('datos_zona', {}),
 
-            # Guardado recomendado: records (más estable)
             "interesados": st.session_state.get('df_interesados', pd.DataFrame()).to_dict(orient="records"),
             "analisis_txt": st.session_state.get('analisis_participantes', ""),
 
@@ -417,36 +436,28 @@ def guardar_datos_nube():
             "arbol_p_f": st.session_state.get('arbol_problemas_final', {}),
             "zona_detallada": st.session_state.get('descripcion_zona', {}),
 
-            # --- HOJA 10 (Descripción del problema) ---
             "descripcion_problema": st.session_state.get('descripcion_problema', {
                 "tabla_datos": {},
                 "redaccion_narrativa": "",
                 "antecedentes": ""
             }),
 
-            # --- HOJA 11 (Indicadores) ---
             "datos_indicadores": st.session_state.get('datos_indicadores', {}),
             "indicadores_mapa_objetivo": st.session_state.get('indicadores_mapa_objetivo', {}),
 
-            # NUEVO: selección de indicadores (tabla 2)
             "seleccion_indicadores": st.session_state.get('seleccion_indicadores', {}),
 
-            # NUEVO: meta y resultados parciales
             "duracion_proyecto_periodos": st.session_state.get('duracion_proyecto_periodos', 4),
             "meta_resultados_parciales": st.session_state.get('meta_resultados_parciales', {}),
 
-            # NUEVO: medios de verificación (Hoja 11 - tabla final)
             "medios_verificacion": st.session_state.get('medios_verificacion', {}),
 
-            # NUEVO: hoja 12 (Riesgos) - guardado como records
             "datos_riesgos": (
                 st.session_state.get('datos_riesgos', pd.DataFrame()).to_dict(orient="records")
                 if isinstance(st.session_state.get('datos_riesgos', None), pd.DataFrame)
                 else pd.DataFrame(st.session_state.get('datos_riesgos', []) or []).to_dict(orient="records")
             ),
-       
 
-            # --- HOJA 15 (Producto) ---
             "sector_seleccionado": st.session_state.get('sector_seleccionado', "Seleccione..."),
             "programa_seleccionado": st.session_state.get('programa_seleccionado', "Seleccione..."),
             "producto_seleccionado": st.session_state.get('producto_seleccionado', "Seleccione..."),
@@ -456,11 +467,19 @@ def guardar_datos_nube():
             "plan_nombre": st.session_state.get('plan_nombre', ""),
             "plan_eje": st.session_state.get('plan_eje', ""),
             "plan_programa": st.session_state.get('plan_programa', ""),
-            # --- HOJA 14 (Necesidad) ---
+
             "desc_objetivo_general": st.session_state.get('desc_objetivo_general', ""),
             "necesidad_atender": st.session_state.get('necesidad_atender', ""),
             "anio_formulacion": _safe_int(st.session_state.get('anio_formulacion', 2026), 2026),
             "tabla_deficit": _normalize_tabla_deficit(st.session_state.get('tabla_deficit', {})),
+
+            # --- HOJA 16 (Reportes) ---
+            # ✅ Solo lo necesario: texto + rutas/path (dict serializable)
+            "datos_reportes": (
+                st.session_state.get('datos_reportes', {})
+                if isinstance(st.session_state.get('datos_reportes', None), dict)
+                else {}
+            ),
         }
 
         db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
