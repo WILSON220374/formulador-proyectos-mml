@@ -99,11 +99,11 @@ def mostrar_imagen_simetrica(src, altura_px):
     if not src:
         return
     html_code = f"""
-    <div style="width: 100%; height: {altura_px}px; overflow: hidden; border-radius: 8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px; background-color: #f8fafc; display: flex; justify-content: center; align-items: center;">
-        <img src="{src}" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+    <div style="width: 100%; border-radius: 8px; border: 2px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px; overflow: hidden; background-color: white;">
+        <img src="{src}" style="width: 100%; height: auto; max-height: {altura_px}px; object-fit: contain; display: block;">
     </div>
     """
-    st.markdown(html_code, unsafe_allow_html=True)
+    st.markdown(html_code, unsafe_allow_html=Tr
     
 # --- FUNCIÓN DE GUARDADO ROBUSTO ---
 def update_field(key):
