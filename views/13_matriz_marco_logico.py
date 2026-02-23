@@ -4,6 +4,7 @@ import pandas as pd
 import graphviz
 import textwrap
 import html
+import re
 from session_state import inicializar_session
 
 # 1. Asegurar persistencia 
@@ -115,17 +116,25 @@ for kmap, k in mapa.items():
     elif "Actividad" in nivel_original:
         tipo_mml = "ACTIVIDAD"
         
-    # --- BÚSQUEDA DE SUPUESTOS BLINDADA ---
+    # --- BÚSQUEDA DE SUPUESTOS ULTRA-BLINDADA ---
         supuesto = "Pendiente"
-        obj_limpio_matriz = objetivo_texto.strip().lower() # Limpiamos el texto de la matriz
+        
+        # 1. Limpiamos la matriz: dejamos solo letras y números en minúscula (sin espacios)
+        obj_matriz_limpio = re.sub(r'[^a-z0-9]', '', str(objetivo_texto).lower())
         
         for r in riesgos:
-            obj_limpio_riesgo = str(r.get("Objetivo", "")).strip().lower() # Limpiamos el texto del riesgo
+            # 2. Limpiamos el objetivo de la tabla de riesgos igual
+            obj_riesgo_limpio = re.sub(r'[^a-z0-9]', '', str(r.get("Objetivo", "")).lower())
             
-            # Comparamos las versiones limpias
-            if obj_limpio_riesgo == obj_limpio_matriz:
-                supuesto = str(r.get("Supuesto", "Pendiente"))
-                break
+            # 3. Verificamos que no estén vacíos y comparamos de forma exacta
+            if obj_riesgo_limpio and obj_matriz_limpio:
+                if obj_riesgo_limpio in obj_matriz_limpio or obj_matriz_limpio in obj_riesgo_limpio:
+                    val_supuesto = str(r.get("Supuesto", "")).strip()
+                    
+                    # 4. Aseguramos que no traiga celdas nulas o "nan"
+                    if val_supuesto and val_supuesto.lower() != "nan":
+                        supuesto = val_supuesto
+                    break
             
     datos_reales.append({
         "tipo": tipo_mml,
