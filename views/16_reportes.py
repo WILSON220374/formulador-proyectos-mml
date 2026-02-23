@@ -907,11 +907,44 @@ def generar_pdf():
     pdf.cell(0, 10, "Reporte en PDF (Aún en construcción)", align="C", new_x="LMARGIN", new_y="NEXT")
     return pdf.output()
 
-# --- BOTONES DE DESCARGA ---
+# ==========================================
+# 📥 3. GENERAR DOCUMENTO (VALIDACIÓN FINAL)
+# ==========================================
 st.markdown('<div class="header-tabla">📥 3. Generar Documento</div>', unsafe_allow_html=True)
 
-col_btn1, col_btn2 = st.columns(2)
-with col_btn1:
-    st.download_button("📝 Descargar Word (.docx)", data=generar_word(), file_name="Proyecto_Formulado.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
-with col_btn2:
-    st.download_button("📄 Descargar PDF (.pdf)", data=bytes(generar_pdf()), file_name="Reporte_Prueba.pdf", mime="application/pdf", type="primary", use_container_width=True)
+# 1. Verificamos si el árbol de objetivos tiene datos reales en la memoria
+# Esto evita que generar_word() se ejecute si no hay nada que dibujar
+arbol_obj_datos_val = st.session_state.get('arbol_objetivos_final', {})
+datos_listos = any(arbol_obj_datos_val.get(k) for k in arbol_obj_datos_val.keys() if k != 'referencia_manual')
+
+if not datos_listos:
+    # 2. Mensaje preventivo si faltan datos
+    st.error("### 🛑 Acción Requerida")
+    st.info("Para habilitar la descarga del reporte final, el sistema necesita procesar el **Árbol de Objetivos**. Por favor, ve a la hoja correspondiente y asegúrate de que el árbol se visualice correctamente en pantalla.")
+    
+    # Botón para facilitar la navegación al usuario
+    if st.button("🎯 Ir a validar el Árbol de Objetivos", use_container_width=True):
+        st.switch_page("views/09_arbol_objetivos.py")
+else:
+    # 3. Si todo está listo, mostramos los botones de descarga normales
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        # Al estar dentro de este 'else', la función generar_word() 
+        # solo se activa cuando el árbol ya tiene información.
+        st.download_button(
+            label="📝 Descargar Word (.docx)", 
+            data=generar_word(), 
+            file_name=f"Proyecto_{nombre_proyecto[:20]}.docx", 
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+            type="primary", 
+            use_container_width=True
+        )
+    with col_btn2:
+        st.download_button(
+            label="📄 Descargar PDF (.pdf)", 
+            data=bytes(generar_pdf()), 
+            file_name="Reporte_Proyecto.pdf", 
+            mime="application/pdf", 
+            type="primary", 
+            use_container_width=True
+        )
