@@ -939,12 +939,3 @@ else:
             type="primary", 
             use_container_width=True
         )
-    with col_btn2:
-        st.download_button(
-            label="📄 Descargar PDF (.pdf)", 
-            data=bytes(generar_pdf()), 
-            file_name="Reporte_Proyecto.pdf", 
-            mime="application/pdf", 
-            type="primary", 
-            use_container_width=True
-        )
