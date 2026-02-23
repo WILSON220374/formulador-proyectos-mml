@@ -115,11 +115,17 @@ for kmap, k in mapa.items():
     elif "Actividad" in nivel_original:
         tipo_mml = "ACTIVIDAD"
         
-    supuesto = "Pendiente"
-    for r in riesgos:
-        if str(r.get("Objetivo", "")) == objetivo_texto:
-            supuesto = str(r.get("Supuesto", "Pendiente"))
-            break
+    # --- BÚSQUEDA DE SUPUESTOS BLINDADA ---
+        supuesto = "Pendiente"
+        obj_limpio_matriz = objetivo_texto.strip().lower() # Limpiamos el texto de la matriz
+        
+        for r in riesgos:
+            obj_limpio_riesgo = str(r.get("Objetivo", "")).strip().lower() # Limpiamos el texto del riesgo
+            
+            # Comparamos las versiones limpias
+            if obj_limpio_riesgo == obj_limpio_matriz:
+                supuesto = str(r.get("Supuesto", "Pendiente"))
+                break
             
     datos_reales.append({
         "tipo": tipo_mml,
