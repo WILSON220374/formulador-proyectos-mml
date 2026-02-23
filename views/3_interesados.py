@@ -22,14 +22,14 @@ analisis_txt = st.session_state.get('analisis_participantes', "")
 # --- ESTILOS CSS ---
 st.markdown("""
   <style>
-    /* 1. FUERZA EL SCROLL AL FINAL (Solución Técnica Elegante) */
+    /* 1. FUERZA EL SCROLL AL FINAL (Ajustado para eliminar espacios gigantes) */
     .main .block-container {
-        padding-bottom: 30rem !important; /* Espacio base */
+        padding-bottom: 10rem !important; /* Espacio base reducido */
     }
     
-    /* Ataca el último bloque vertical de la página para que empuje el fondo */
+    /* Ataca el último bloque vertical para que no empuje tanto el fondo */
     [data-testid="stVerticalBlock"] > div:last-child {
-        margin-bottom: 20rem !important;
+        margin-bottom: 2rem !important; /* Reducido para acercar el contenido */
     }
 
     /* Asegura que el contenedor principal permita el desbordamiento */
