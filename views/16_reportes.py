@@ -932,7 +932,7 @@ else:
         # Al estar dentro de este 'else', la función generar_word() 
         # solo se activa cuando el árbol ya tiene información.
         st.download_button(
-            label="📝 Descargar Word (.docx)", 
+            label="📝 Descargar Documento", 
             data=generar_word(), 
             file_name=f"Proyecto_{nombre_proyecto[:20]}.docx", 
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
