@@ -116,25 +116,35 @@ for kmap, k in mapa.items():
     elif "Actividad" in nivel_original:
         tipo_mml = "ACTIVIDAD"
         
-    # --- BÚSQUEDA DE SUPUESTOS ULTRA-BLINDADA ---
-        supuesto = "Pendiente"
+    # --- BÚSQUEDA DE SUPUESTOS INTELIGENTE (POR NIVEL Y TEXTO) ---
+    supuesto = "Pendiente"
+    
+    # 1. Normalizamos el tipo de la matriz para la búsqueda (ej: "OBJETIVO GENERAL")
+    tipo_busqueda = str(tipo_mml).strip().upper()
+    
+    # 2. Limpiamos el texto del objetivo actual (quitamos espacios y pasamos a minúsculas)
+    obj_matriz_limpio = "".join(str(objetivo_texto).split()).lower()
+
+    for r in riesgos:
+        # Normalizamos el tipo y el objetivo de la tabla de riesgos
+        tipo_riesgo = str(r.get("Tipo", "")).strip().upper().replace("Í", "I")
+        obj_riesgo_limpio = "".join(str(r.get("Objetivo", "")).split()).lower()
         
-        # 1. Limpiamos la matriz: dejamos solo letras y números en minúscula (sin espacios)
-        obj_matriz_limpio = re.sub(r'[^a-z0-9]', '', str(objetivo_texto).lower())
+        # PRIORIDAD 1: Si los textos coinciden casi exactamente, ese es el supuesto
+        if obj_riesgo_limpio and obj_matriz_limpio and (obj_riesgo_limpio in obj_matriz_limpio or obj_matriz_limpio in obj_riesgo_limpio):
+            val_supuesto = str(r.get("Supuesto", "")).strip()
+            if val_supuesto and val_supuesto.lower() != "nan":
+                supuesto = val_supuesto
+                break
         
-        for r in riesgos:
-            # 2. Limpiamos el objetivo de la tabla de riesgos igual
-            obj_riesgo_limpio = re.sub(r'[^a-z0-9]', '', str(r.get("Objetivo", "")).lower())
-            
-            # 3. Verificamos que no estén vacíos y comparamos de forma exacta
-            if obj_riesgo_limpio and obj_matriz_limpio:
-                if obj_riesgo_limpio in obj_matriz_limpio or obj_matriz_limpio in obj_riesgo_limpio:
-                    val_supuesto = str(r.get("Supuesto", "")).strip()
-                    
-                    # 4. Aseguramos que no traiga celdas nulas o "nan"
-                    if val_supuesto and val_supuesto.lower() != "nan":
-                        supuesto = val_supuesto
-                    break
+        # PRIORIDAD 2: Si el texto falla pero el NIVEL coincide (Seguro para casos de 1 solo objetivo por nivel)
+        # Ajustamos el nombre del nivel para que coincida (con o sin tilde)
+        tipo_matriz_sin_tilde = tipo_busqueda.replace("Í", "I")
+        if tipo_riesgo == tipo_matriz_sin_tilde:
+            val_supuesto = str(r.get("Supuesto", "")).strip()
+            if val_supuesto and val_supuesto.lower() != "nan":
+                supuesto = val_supuesto
+                # No hacemos break aquí para dar prioridad a la coincidencia de texto si existe más adelante
             
     datos_reales.append({
         "tipo": tipo_mml,
