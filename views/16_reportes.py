@@ -828,12 +828,18 @@ def generar_word():
         except:
             pass
 
-    if not imagen_obj_insertada and arbol_obj_datos:
+  if not imagen_obj_insertada and arbol_obj_datos:
         img_obj_recreada = redibujar_arbol_objetivos(arbol_obj_datos)
         if img_obj_recreada:
-            p_arbol_obj = doc.add_paragraph()
-            p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_arbol_obj.add_run().add_picture(io.BytesIO(img_obj_recreada), width=Inches(6.0))
+            try:
+                p_arbol_obj = doc.add_paragraph()
+                p_arbol_obj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                # ✅ CORRECCIÓN: Usamos la imagen directamente sin el io.BytesIO() extra
+                p_arbol_obj.add_run().add_picture(img_obj_recreada, width=Inches(6.0))
+                imagen_obj_insertada = True
+            except Exception:
+                # Si algo falla con la imagen, el programa sigue adelante sin romperse
+                doc.add_paragraph("[Aviso: El Árbol de Objetivos no se pudo renderizar]")
 
     doc.add_heading("9.1 Objetivo General", level=2)
     doc.add_paragraph(str(objetivo_general))
