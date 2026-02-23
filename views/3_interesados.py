@@ -254,7 +254,6 @@ if btn_guardar:
         guardar_datos_nube()
         st.rerun()
 
-st.write("")
 st.divider()
 
 # --- MAPA DE INFLUENCIA ---
