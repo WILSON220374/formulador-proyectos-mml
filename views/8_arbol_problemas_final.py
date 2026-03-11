@@ -151,8 +151,7 @@ with col_t:
 
 with col_img:
     if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
-
+        st.image("unnamed.jpg", width="stretch")
 st.divider()
 
 # --- CONFIGURACIÓN GRAFOS ---
@@ -175,7 +174,7 @@ def generar_grafo_problemas():
         return None
 
     dot = graphviz.Digraph(format='png')
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='polyline')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
 
     def limpiar(t):
@@ -254,23 +253,32 @@ with st.sidebar:
             st.session_state['arbol_problemas_final'][_k] = _a_lista_dicts(st.session_state['arbol_problemas_final'].get(_k))
         guardar_datos_nube()
 
-    st.button("♻️ Importar desde Paso 4", use_container_width=True, type="primary", on_click=importar_p4)
+    st.button("♻️ Importar desde Paso 4", width="stretch", type="primary", on_click=importar_p4)
     st.divider()
-    grafo = generar_grafo_problemas()
+    ggrafo = generar_grafo_problemas()
     if grafo:
-        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_final.png", use_container_width=True)
-
+        try:
+            png_data = grafo.pipe(format='png')
+            st.download_button(
+                "🖼️ Descargar PNG",
+                data=png_data,
+                file_name="arbol_final.png",
+                width="stretch"
+            )
+        except Exception as e:
+            st.error(f"No fue posible generar el PNG del árbol: {e}")
 # --- PANEL PRINCIPAL ---
 tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
     g_f = generar_grafo_problemas()
     if g_f:
-            # Muestra la imagen en pantalla (Esto ya lo tienes)
-            st.image(g_f.pipe(format='png'), use_container_width=True)
-            
-            # 👇 NUEVA LÍNEA: Guardamos la foto idéntica en la memoria para el Word 👇
-            st.session_state['arbol_problemas_img'] = io.BytesIO(g_f.pipe(format='png'))
+        try:
+            png_data = g_f.pipe(format='png')
+            st.image(png_data, width="stretch")
+            st.session_state['arbol_problemas_img'] = io.BytesIO(png_data)
+        except Exception as e:
+            st.error(f"No fue posible renderizar el árbol: {e}")
 with tab2:
     st.markdown("### 📌 Resumen del Diagnóstico Definitivo")
     st.info("La tabla se sincroniza automáticamente con el panel de acción inferior.")
