@@ -71,7 +71,7 @@ with col_t:
 
 with col_img:
     if os.path.exists("unnamed.jpg"):
-    st.image("unnamed.jpg", width="stretch")
+        st.image("unnamed.jpg", width="stretch")
 
 st.divider()
 
