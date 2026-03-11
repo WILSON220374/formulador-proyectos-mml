@@ -101,7 +101,7 @@ def generar_grafo_problemas():
 
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_PC', shape='plaintext', style='none')
+        s.node('L_PC', shape='plaintext')
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
 
     c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
