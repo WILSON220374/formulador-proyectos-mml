@@ -70,14 +70,14 @@ with col_t:
     st.progress(1.0 if hay_datos else 0.0, text="Árbol en Construcción" if hay_datos else "Esperando Datos")
 
 with col_img:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", width=None)
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
 
 st.divider()
 
 # --- MOTOR DE DIBUJO PROFESIONAL ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
-    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto') and str(it.get('texto')).strip()]
+    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
     if not pc: return None
 
     dot = graphviz.Digraph(format='png')
@@ -92,7 +92,7 @@ def generar_grafo_problemas():
     etiquetas = {"L_EI": "EFECTO\nINDIRECTO", "L_ED": "EFECTO\nDIRECTO", "L_PC": "PROBLEMA\nCENTRAL", "L_CD": "CAUSA\nDIRECTA", "L_CI": "CAUSA\nINDIRECTA"}
     for id_e, txt in etiquetas.items():
         color_txt = COLORS["PC"] if "PC" in id_e else COLORS[id_e.split('_')[1]]
-        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold')
+        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold', style='none')
 
     dot.edge("L_CI", "L_CD", style='invis')
     dot.edge("L_CD", "L_PC", style='invis')
@@ -101,13 +101,13 @@ def generar_grafo_problemas():
 
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_PC', shape='plaintext')
+        s.node('L_PC', shape='plaintext', style='none')
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
 
     c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_CD', shape='plaintext')
+        s.node('L_CD', shape='plaintext', style='none')
         for i, it in enumerate(c_directas):
             node_id = f"CD{i}"
             s.node(node_id, limpiar(it['texto']), fillcolor=COLORS["CD"], fontcolor='black', color='none')
@@ -116,7 +116,7 @@ def generar_grafo_problemas():
     c_indirectas = [it for it in datos.get("Causas Indirectas", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_CI', shape='plaintext')
+        s.node('L_CI', shape='plaintext', style='none')
         for i, it in enumerate(c_indirectas):
             node_id_ci = f"CI{i}"
             s.node(node_id_ci, limpiar(it['texto']), fillcolor=COLORS["CI"], fontcolor='white', color='none', fontsize='10')
@@ -127,7 +127,7 @@ def generar_grafo_problemas():
     e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_EI', shape='plaintext', style='none')
+        s.node('L_ED', shape='plaintext', style='none')
         for i, it in enumerate(e_directos):
             node_id_ed = f"ED{i}"
             s.node(node_id_ed, limpiar(it['texto']), fillcolor=COLORS["ED"], fontcolor='white', color='none')
@@ -188,7 +188,7 @@ with st.sidebar:
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo: 
-        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", width="stretch")
+        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
 
     st.divider()
     with st.expander("⚠️ BORRADO TOTAL"):
@@ -214,7 +214,7 @@ with tab1:
     else:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
-            st.image(grafo_f.pipe(format='png'), width="stretch")
+            st.image(grafo_f.pipe(format='png'), use_container_width=True)
 
 with tab2:
     if not hay_datos:
