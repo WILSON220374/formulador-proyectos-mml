@@ -285,6 +285,12 @@ def inicializar_session():
     dr.setdefault("texto_resumen", "")
     dr.setdefault("texto_normativo", "")
 
+if 'proyecto_version' not in st.session_state:
+    st.session_state['proyecto_version'] = 1
+
+if 'conflicto_guardado' not in st.session_state:
+    st.session_state['conflicto_guardado'] = False
+
 
 def cargar_datos_nube(user_id):
     try:
@@ -295,7 +301,10 @@ def cargar_datos_nube(user_id):
             row = res.data[0]
             d = row.get('datos', {}) or {}
 
+            st.session_state['proyecto_version'] = row.get('version', 1) or 1
+            st.session_state['conflicto_guardado'] = False
             st.session_state['usuario_id'] = user_id
+
             st.session_state['integrantes'] = d.get('integrantes', [])
             st.session_state['datos_problema'] = d.get('diagnostico', st.session_state['datos_problema'])
             st.session_state['datos_zona'] = d.get('zona', {})
@@ -482,7 +491,40 @@ def guardar_datos_nube():
             ),
         }
 
-        db.table("proyectos").update({"datos": paquete}).eq("user_id", st.session_state.get('usuario_id', "")).execute()
+        user_id = st.session_state.get('usuario_id', "")
+        if not user_id:
+            return False
+
+        version_local = st.session_state.get('proyecto_version', 1)
+
+        res_actual = db.table("proyectos").select("version").eq("user_id", user_id).execute()
+        if not res_actual.data:
+            st.error("No se encontró el proyecto para guardar.")
+            return False
+
+        version_actual_bd = res_actual.data[0].get("version", 1) or 1
+
+        if version_actual_bd != version_local:
+            st.session_state['conflicto_guardado'] = True
+            st.warning("Otro usuario modificó este proyecto antes que tú. Recarga el proyecto antes de guardar para no sobrescribir cambios.")
+            return False
+
+        nueva_version = version_actual_bd + 1
+
+        res_update = db.table("proyectos").update({
+            "datos": paquete,
+            "version": nueva_version
+        }).eq("user_id", user_id).eq("version", version_actual_bd).execute()
+
+        if not res_update.data:
+            st.session_state['conflicto_guardado'] = True
+            st.warning("No se pudo guardar porque el proyecto cambió mientras intentabas guardar. Recarga antes de continuar.")
+            return False
+
+        st.session_state['proyecto_version'] = nueva_version
+        st.session_state['conflicto_guardado'] = False
+        return True
 
     except Exception as e:
         st.error(f"Error al guardar: {e}")
+        return False
