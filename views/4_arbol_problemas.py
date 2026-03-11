@@ -70,7 +70,7 @@ with col_t:
     st.progress(1.0 if hay_datos else 0.0, text="Árbol en Construcción" if hay_datos else "Esperando Datos")
 
 with col_img:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", width=None)
 
 st.divider()
 
