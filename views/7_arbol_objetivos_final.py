@@ -16,12 +16,27 @@ if 'arbol_objetivos_final' not in st.session_state:
 
 if 'referencia_manual' not in st.session_state['arbol_objetivos_final']:
     st.session_state['arbol_objetivos_final']['referencia_manual'] = {
-        "nombre": "", "objetivo": "", "especificos": [], "actividades": []
+        "nombre": "",
+        "objetivo": "",
+        "especificos": [],
+        "actividades": [],
+        "justificacion": ""
     }
 
 ref_data = st.session_state['arbol_objetivos_final']['referencia_manual']
 
-# Campo libre: Justificación (Hoja 7)
+if 'nombre' not in ref_data:
+    ref_data['nombre'] = ""
+
+if 'objetivo' not in ref_data:
+    ref_data['objetivo'] = ""
+
+if 'especificos' not in ref_data:
+    ref_data['especificos'] = []
+
+if 'actividades' not in ref_data:
+    ref_data['actividades'] = []
+
 if 'justificacion' not in ref_data:
     ref_data['justificacion'] = ""
 
@@ -190,7 +205,7 @@ with tab2:
         st.button("🔄 Sincronizar con Árbol", key="sync_obj_top", type="primary", use_container_width=True, on_click=sincronizar_objetivos_desde_poda)
 
     st.markdown("**Objetivo General**")
-    st.text_area("OG", value=ref_data['objetivo'], key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
+    sst.text_area("OG", value=ref_data.get('objetivo', ''), key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
     
     st.divider()
 
