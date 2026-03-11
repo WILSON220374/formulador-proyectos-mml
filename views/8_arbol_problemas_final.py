@@ -255,7 +255,7 @@ with st.sidebar:
 
     st.button("♻️ Importar desde Paso 4", width="stretch", type="primary", on_click=importar_p4)
     st.divider()
-    ggrafo = generar_grafo_problemas()
+    grafo = generar_grafo_problemas()
     if grafo:
         try:
             png_data = grafo.pipe(format='png')
