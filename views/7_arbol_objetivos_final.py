@@ -126,8 +126,8 @@ with col_t:
     st.progress(puntos / 3)
 
 with col_img:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
-
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", width="stretch")
 st.divider()
 
 # --- MOTOR DE DIBUJO ---
@@ -145,7 +145,7 @@ def generar_grafo_final():
     claves_graficas = [k for k in datos.keys() if k != 'referencia_manual']
     if not any(datos.get(k) for k in claves_graficas): return None
     dot = graphviz.Digraph(format='png')
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='polyline')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     def limpiar(t): return "\\n".join(textwrap.wrap(str(t).upper(), width=25))
     obj_gen = [it for it in datos.get("Objetivo General", []) if it.get('texto')]
@@ -183,26 +183,39 @@ with st.sidebar:
         nuevo['referencia_manual'] = ref_bk
         st.session_state['arbol_objetivos_final'] = nuevo
         guardar_datos_nube()
-    st.button("♻️ Importar Paso 5", use_container_width=True, type="primary", on_click=importar_p5)
+    st.button("♻️ Importar Paso 5", width="stretch", type="primary", on_click=importar_p5)
     st.divider()
     grafo = generar_grafo_final()
-    if grafo: st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_final.png", use_container_width=True)
-
+    if grafo:
+        try:
+            png_data = grafo.pipe(format='png')
+            st.download_button(
+                "🖼️ Descargar PNG",
+                data=png_data,
+                file_name="arbol_final.png",
+                width="stretch"
+            )
+        except Exception as e:
+            st.error(f"No fue posible generar el PNG del árbol: {e}")
 # --- PANEL PRINCIPAL ---
 tab1, tab2 = st.tabs(["🌳 Visualización", "✂️ Poda y Ajuste"])
 
 with tab1:
     g_f = generar_grafo_final()
-    if g_f: 
-        st.image(g_f.pipe(format='png'), use_container_width=True)
-        st.session_state['arbol_objetivos_img'] = io.BytesIO(g_f.pipe(format='png'))
+    if g_f:
+        try:
+            png_data = g_f.pipe(format='png')
+            st.image(png_data, width="stretch")
+            st.session_state['arbol_objetivos_img'] = io.BytesIO(png_data)
+        except Exception as e:
+            st.error(f"No fue posible renderizar el árbol: {e}")
         
 with tab2:
     col_title, col_sync = st.columns([0.6, 0.4], vertical_alignment="center")
     with col_title:
         st.markdown("### 📌 Alternativa Seleccionada")
     with col_sync:
-        st.button("🔄 Sincronizar con Árbol", key="sync_obj_top", type="primary", use_container_width=True, on_click=sincronizar_objetivos_desde_poda)
+        st.button("🔄 Sincronizar con Árbol", key="sync_obj_top", type="primary", width="stretch", on_click=sincronizar_objetivos_desde_poda)
 
     st.markdown("**Objetivo General**")
     st.text_area("OG", value=ref_data.get('objetivo', ''), key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
