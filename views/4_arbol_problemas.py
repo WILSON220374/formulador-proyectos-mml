@@ -214,7 +214,7 @@ with tab1:
     else:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
-            st.image(grafo_f.pipe(format='png'), use_container_width=True)
+            st.image(grafo_f.pipe(format='png'), width="stretch")
 
 with tab2:
     if not hay_datos:
