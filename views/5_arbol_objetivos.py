@@ -29,9 +29,8 @@ st.markdown("""
         border: 1px solid #e2e8f0 !important;           
         border-radius: 0 0 10px 10px !important;
         text-align: center !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        color: #000 !important;
+        font-size: 13px !important;
+        color: #1e293b !important;
         min-height: 100px !important;
     }
 
@@ -91,7 +90,7 @@ def generar_grafo_objetivos():
     dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='polyline')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     
-    def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
+    def limpiar(t): return "\n".join(textwrap.wrap(str(t), width=25))
 
     MAPA_LLAVES = {
         "MI": "Medios Indirectos", "MD": "Medios Directos", "OG": "Objetivo General", "FD": "Fines Directos", "FI": "Fines Indirectos"
@@ -167,11 +166,12 @@ def render_card_obj(seccion, item, idx, seccion_hijos=None):
     if st.button("🗑️", key=f"obj_btn_{id_u}"):
         st.session_state['arbol_objetivos'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
     
-    if nuevo_texto and nuevo_texto.upper() != texto_viejo.upper():
-        nuevo_fmt = nuevo_texto.upper().strip()
+   if nuevo_texto is not None and nuevo_texto.strip() != texto_viejo.strip():
+        nuevo_fmt = nuevo_texto.strip()
         if seccion_hijos:
             for h in st.session_state['arbol_objetivos'].get(seccion_hijos, []):
-                if h.get('padre') == texto_viejo: h['padre'] = nuevo_fmt
+                if h.get('padre') == texto_viejo:
+                    h['padre'] = nuevo_fmt
         st.session_state['arbol_objetivos'][seccion][idx]['texto'] = nuevo_fmt
         guardar_datos_nube()
 
@@ -185,7 +185,7 @@ with st.sidebar:
         for p_sec, o_sec in mapeo.items():
             for it in problemas.get(p_sec, []):
                 if isinstance(it, dict):
-                    nueva = {"texto": it.get('texto', '').upper(), "id_unico": str(uuid.uuid4()), "padre": it.get('padre', "").upper()}
+                    nueva = {"texto": it.get('texto', ''), "id_unico": str(uuid.uuid4()), "padre": it.get('padre', "")}
                     st.session_state['arbol_objetivos'][o_sec].append(nueva)
         guardar_datos_nube(); st.rerun()
 
