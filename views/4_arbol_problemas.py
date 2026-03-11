@@ -92,7 +92,7 @@ def generar_grafo_problemas():
     etiquetas = {"L_EI": "EFECTO\nINDIRECTO", "L_ED": "EFECTO\nDIRECTO", "L_PC": "PROBLEMA\nCENTRAL", "L_CD": "CAUSA\nDIRECTA", "L_CI": "CAUSA\nINDIRECTA"}
     for id_e, txt in etiquetas.items():
         color_txt = COLORS["PC"] if "PC" in id_e else COLORS[id_e.split('_')[1]]
-        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold', style='none')
+        dot.node(id_e, txt, shape='plaintext', fontcolor=color_txt, fontsize='12', fontname='Arial Bold')
 
     dot.edge("L_CI", "L_CD", style='invis')
     dot.edge("L_CD", "L_PC", style='invis')
