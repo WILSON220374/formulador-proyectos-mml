@@ -116,7 +116,7 @@ def generar_grafo_problemas():
     c_indirectas = [it for it in datos.get("Causas Indirectas", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_CI', shape='plaintext', style='none')
+        s.node('L_CI', shape='plaintext')
         for i, it in enumerate(c_indirectas):
             node_id_ci = f"CI{i}"
             s.node(node_id_ci, limpiar(it['texto']), fillcolor=COLORS["CI"], fontcolor='white', color='none', fontsize='10')
