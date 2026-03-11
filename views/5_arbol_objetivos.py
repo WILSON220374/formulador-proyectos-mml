@@ -67,7 +67,8 @@ with col_t:
     st.progress(1.0 if hay_datos else 0.0)
 
 with col_img:
-    if os.path.exists("unnamed.jpg"): st.image("unnamed.jpg", use_container_width=True)
+    if os.path.exists("unnamed.jpg"):
+        st.image("unnamed.jpg", width="stretch")
 
 st.divider()
 
@@ -177,7 +178,7 @@ def render_card_obj(seccion, item, idx, seccion_hijos=None):
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Herramientas")
-    if st.button("✨ Traer desde Árbol de Problemas", use_container_width=True, type="primary"):
+    if st.button("✨ Traer desde Árbol de Problemas", width="stretch", type="primary"):
         problemas = st.session_state.get('arbol_tarjetas', {})
         mapeo = {"Efectos Indirectos": "Fines Indirectos", "Efectos Directos": "Fines Directos", "Problema Principal": "Objetivo General", "Causas Directas": "Medios Directos", "Causas Indirectas": "Medios Indirectos"}
         for k in CONFIG_OBJ: st.session_state['arbol_objetivos'][k] = []
@@ -191,15 +192,28 @@ with st.sidebar:
     # --- BOTÓN DE DESCARGA REINTEGRADO ---
     st.divider()
     grafo = generar_grafo_objetivos()
-    if grafo: 
-        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_objetivos.png", use_container_width=True)
+    if grafo:
+        try:
+            png_data = grafo.pipe(format='png')
+            st.download_button(
+                "🖼️ Descargar PNG",
+                data=png_data,
+                file_name="arbol_objetivos.png",
+                width="stretch"
+            )
+        except Exception as e:
+            st.error(f"No fue posible generar el PNG del árbol: {e}")
 
 # --- PANEL PRINCIPAL ---
 tab1, tab2 = st.tabs(["🌳 Visualización", "📝 Edición"])
 
 with tab1:
     grafo_f = generar_grafo_objetivos()
-    if grafo_f: st.image(grafo_f.pipe(format='png'), use_container_width=True)
+    if grafo_f:
+        try:
+            st.image(grafo_f.pipe(format='png'), width="stretch")
+        except Exception as e:
+            st.error(f"No fue posible renderizar el árbol: {e}")
 
 with tab2:
     if hay_datos:
