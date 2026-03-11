@@ -87,7 +87,7 @@ def generar_grafo_objetivos():
     dot = graphviz.Digraph(format='png')
     dot.attr(label='\nÁRBOL DE OBJETIVOS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
     dot.attr(size='16,12!', ratio='fill', center='true', dpi='300') 
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='polyline')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
     
     def limpiar(t): return "\n".join(textwrap.wrap(str(t).upper(), width=25))
@@ -99,7 +99,7 @@ def generar_grafo_objetivos():
     # Etiquetas de la izquierda
     for niv, full_key in MAPA_LLAVES.items():
         conf = CONFIG_OBJ[full_key]
-        dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold', style='none')
+        dot.node(f"L_{niv}", conf['label'], shape='plaintext', fontcolor=conf['color'], fontsize='11', fontname='Arial Bold')
 
     niv_list = ["MI", "MD", "OG", "FD", "FI"]
     for i in range(len(niv_list)-1):
