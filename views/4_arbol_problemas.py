@@ -154,7 +154,7 @@ def generar_grafo_problemas():
                 if it.get('padre') == p_data.get('texto'):
                     dot.edge(node_id_ci, f"CD{j}")
 
-   e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
+    e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
     padres_ed = {it.get('texto') for it in e_directos}
     
     with dot.subgraph() as s:
