@@ -71,7 +71,7 @@ with col_t:
 
 with col_img:
     if os.path.exists("unnamed.jpg"):
-        st.image("unnamed.jpg", use_container_width=True)
+    st.image("unnamed.jpg", width="stretch")
 
 st.divider()
 
@@ -85,7 +85,7 @@ def generar_grafo_problemas():
     dot = graphviz.Digraph(format='png')
     dot.attr(label='\nÁRBOL DE PROBLEMAS\n ', labelloc='t', fontsize='28', fontname='Arial Bold', fontcolor='#1E3A8A')
     dot.attr(size='16,12!', ratio='fill', center='true', dpi='300')
-    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='ortho')
+    dot.attr(rankdir='BT', nodesep='0.4', ranksep='0.6', splines='polyline')
     dot.attr('node', fontsize='11', fontname='Arial', style='filled', shape='box', margin='0.3,0.2', width='2.5')
 
     def limpiar(t):
@@ -251,7 +251,7 @@ with st.sidebar:
     with st.expander("⚠️ BORRADO TOTAL"):
         st.write("Esta acción reseteará todo el árbol permanentemente.")
         confirmar_check = st.checkbox("Confirmo el reseteo total")
-        if st.button("🔥 BORRAR ÁRBOL COMPLETO", disabled=not confirmar_check, use_container_width=True):
+        if st.button("🔥 BORRAR ÁRBOL COMPLETO", disabled=not confirmar_check, width="stretch"):
             st.session_state['arbol_tarjetas'] = {
                 "Efectos Indirectos": [],
                 "Efectos Directos": [],
@@ -272,7 +272,7 @@ with tab1:
         grafo_f = generar_grafo_problemas()
         if grafo_f:
             try:
-                st.image(grafo_f.pipe(format='png'), use_container_width=True)
+                st.image(grafo_f.pipe(format='png'), width="stretch")
             except Exception as e:
                 st.error(f"No fue posible renderizar el árbol: {e}")
 
