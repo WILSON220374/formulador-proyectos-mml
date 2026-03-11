@@ -20,6 +20,46 @@ if 'arbol_tarjetas' in st.session_state:
                 str(it.get('texto')).upper() != "NONE"
             ]
 
+# --- LIMPIEZA DEFINITIVA DE NODOS HUÉRFANOS ---
+if 'arbol_tarjetas' in st.session_state:
+    cambios_huerfanos = False
+
+    causas_directas_validas = {
+        it.get('texto')
+        for it in st.session_state['arbol_tarjetas'].get("Causas Directas", [])
+        if isinstance(it, dict) and it.get('texto')
+    }
+
+    efectos_directos_validos = {
+        it.get('texto')
+        for it in st.session_state['arbol_tarjetas'].get("Efectos Directos", [])
+        if isinstance(it, dict) and it.get('texto')
+    }
+
+    causas_indirectas_original = st.session_state['arbol_tarjetas'].get("Causas Indirectas", [])
+    causas_indirectas_limpias = [
+        it for it in causas_indirectas_original
+        if isinstance(it, dict) and it.get('texto') and it.get('padre') in causas_directas_validas
+    ]
+
+    if len(causas_indirectas_limpias) != len(causas_indirectas_original):
+        st.session_state['arbol_tarjetas']["Causas Indirectas"] = causas_indirectas_limpias
+        cambios_huerfanos = True
+
+    efectos_indirectos_original = st.session_state['arbol_tarjetas'].get("Efectos Indirectos", [])
+    efectos_indirectos_limpios = [
+        it for it in efectos_indirectos_original
+        if isinstance(it, dict) and it.get('texto') and it.get('padre') in efectos_directos_validos
+    ]
+
+    if len(efectos_indirectos_limpios) != len(efectos_indirectos_original):
+        st.session_state['arbol_tarjetas']["Efectos Indirectos"] = efectos_indirectos_limpios
+        cambios_huerfanos = True
+
+    if cambios_huerfanos:
+        guardar_datos_nube()
+
+
 # --- DISEÑO PROFESIONAL (CSS) ---
 st.markdown("""
     <style>
