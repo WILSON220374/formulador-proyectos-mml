@@ -77,7 +77,7 @@ st.divider()
 # --- MOTOR DE DIBUJO PROFESIONAL ---
 def generar_grafo_problemas():
     datos = st.session_state.get('arbol_tarjetas', {})
-    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto')]
+    pc = [it for it in datos.get("Problema Principal", []) if it.get('texto') and str(it.get('texto')).strip()]
     if not pc: return None
 
     dot = graphviz.Digraph(format='png')
