@@ -205,7 +205,7 @@ with tab2:
         st.button("🔄 Sincronizar con Árbol", key="sync_obj_top", type="primary", use_container_width=True, on_click=sincronizar_objetivos_desde_poda)
 
     st.markdown("**Objetivo General**")
-    sst.text_area("OG", value=ref_data.get('objetivo', ''), key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
+    st.text_area("OG", value=ref_data.get('objetivo', ''), key="temp_objetivo", label_visibility="collapsed", height=100, on_change=actualizar_campo_simple, args=("objetivo",))
     
     st.divider()
 
