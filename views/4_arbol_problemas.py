@@ -129,6 +129,8 @@ def generar_grafo_problemas():
         s.node('PC', limpiar(pc[0]['texto']), fillcolor=COLORS["PC"], fontcolor='white', color='none', width='4.5')
 
     c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
+    padres_cd = {it.get('texto') for it in c_directas}
+    
     with dot.subgraph() as s:
         s.attr(rank='same')
         s.node('L_CD', shape='plaintext')
@@ -136,8 +138,12 @@ def generar_grafo_problemas():
             node_id = f"CD{i}"
             s.node(node_id, limpiar(it['texto']), fillcolor=COLORS["CD"], fontcolor='black', color='none')
             dot.edge(node_id, 'PC')
-
-    c_indirectas = [it for it in datos.get("Causas Indirectas", []) if it.get('texto')]
+    
+    c_indirectas = [
+        it for it in datos.get("Causas Indirectas", [])
+        if it.get('texto') and it.get('padre') in padres_cd
+    ]
+    
     with dot.subgraph() as s:
         s.attr(rank='same')
         s.node('L_CI', shape='plaintext')
@@ -148,7 +154,9 @@ def generar_grafo_problemas():
                 if it.get('padre') == p_data.get('texto'):
                     dot.edge(node_id_ci, f"CD{j}")
 
-    e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
+   e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
+    padres_ed = {it.get('texto') for it in e_directos}
+    
     with dot.subgraph() as s:
         s.attr(rank='same')
         s.node('L_ED', shape='plaintext')
@@ -156,8 +164,12 @@ def generar_grafo_problemas():
             node_id_ed = f"ED{i}"
             s.node(node_id_ed, limpiar(it['texto']), fillcolor=COLORS["ED"], fontcolor='white', color='none')
             dot.edge('PC', node_id_ed)
-
-    e_indirectos = [it for it in datos.get("Efectos Indirectos", []) if it.get('texto')]
+    
+    e_indirectos = [
+        it for it in datos.get("Efectos Indirectos", [])
+        if it.get('texto') and it.get('padre') in padres_ed
+    ]
+    
     with dot.subgraph() as s:
         s.attr(rank='same')
         s.node('L_EI', shape='plaintext')
@@ -285,7 +297,11 @@ with tab2:
         # AJUSTE: FUNCIÓN DE CUADRÍCULA PARA ALINEACIÓN PERFECTA
         def mostrar_seccion_dinamica(tipo_padre, tipo_hijo):
             padres = [p for p in st.session_state.get('arbol_tarjetas', {}).get(tipo_padre, []) if p.get('texto')]
-            hijos = st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, [])
+            padres_texto = {p.get('texto') for p in padres}
+            hijos = [
+                h for h in st.session_state.get('arbol_tarjetas', {}).get(tipo_hijo, [])
+                if h.get('texto') and h.get('padre') in padres_texto
+            ]
             if not padres:
                 return
 
