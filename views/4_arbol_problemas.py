@@ -107,7 +107,7 @@ def generar_grafo_problemas():
     c_directas = [it for it in datos.get("Causas Directas", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_CD', shape='plaintext', style='none')
+        s.node('L_CD', shape='plaintext')
         for i, it in enumerate(c_directas):
             node_id = f"CD{i}"
             s.node(node_id, limpiar(it['texto']), fillcolor=COLORS["CD"], fontcolor='black', color='none')
