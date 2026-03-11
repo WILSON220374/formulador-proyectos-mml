@@ -127,7 +127,7 @@ def generar_grafo_problemas():
     e_directos = [it for it in datos.get("Efectos Directos", []) if it.get('texto')]
     with dot.subgraph() as s:
         s.attr(rank='same')
-        s.node('L_ED', shape='plaintext', style='none')
+        s.node('L_EI', shape='plaintext', style='none')
         for i, it in enumerate(e_directos):
             node_id_ed = f"ED{i}"
             s.node(node_id_ed, limpiar(it['texto']), fillcolor=COLORS["ED"], fontcolor='white', color='none')
