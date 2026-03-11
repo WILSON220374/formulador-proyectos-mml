@@ -155,23 +155,46 @@ def generar_grafo_objetivos():
 
 # --- RENDERIZADO DE TARJETA ---
 def render_card_obj(seccion, item, idx, seccion_hijos=None):
-    if not isinstance(item, dict): return
+    if not isinstance(item, dict):
+        return
+
     id_u = item.get('id_unico', str(uuid.uuid4()))
-    color_barra = CONFIG_OBJ.get(seccion, {}).get("color", "#ccc")
-    st.markdown(f'<div style="background-color: {color_barra}; height: 12px; border-radius: 10px 10px 0 0;"></div>', unsafe_allow_html=True)
-    
+    color = CONFIG_OBJ[seccion]['color']
+
+    st.markdown(
+        f'<div style="background-color: {color}; height: 8px; border-radius: 10px 10px 0 0;"></div>',
+        unsafe_allow_html=True
+    )
+
     texto_viejo = item.get('texto', '')
-    nuevo_texto = st.text_area("t", value=texto_viejo, key=f"obj_txt_{id_u}", label_visibility="collapsed")
-    
-    if st.button("🗑️", key=f"obj_btn_{id_u}"):
-        st.session_state['arbol_objetivos'][seccion].pop(idx); guardar_datos_nube(); st.rerun()
-    
-   if nuevo_texto is not None and nuevo_texto.strip() != texto_viejo.strip():
+    nuevo_texto = st.text_area(
+        "t",
+        value=texto_viejo,
+        key=f"txt_obj_{id_u}",
+        label_visibility="collapsed"
+    )
+
+    if st.button("🗑️", key=f"btn_obj_{id_u}"):
+        texto_eliminado = item.get('texto', '')
+        st.session_state['arbol_objetivos'][seccion].pop(idx)
+
+        if seccion_hijos:
+            st.session_state['arbol_objetivos'][seccion_hijos] = [
+                h for h in st.session_state['arbol_objetivos'].get(seccion_hijos, [])
+                if h.get('padre') != texto_eliminado
+            ]
+
+        guardar_datos_nube()
+        st.rerun()
+
+    if nuevo_texto is not None and nuevo_texto.strip() != texto_viejo.strip():
         nuevo_fmt = nuevo_texto.strip()
+
         if seccion_hijos:
             for h in st.session_state['arbol_objetivos'].get(seccion_hijos, []):
                 if h.get('padre') == texto_viejo:
                     h['padre'] = nuevo_fmt
+
         st.session_state['arbol_objetivos'][seccion][idx]['texto'] = nuevo_fmt
         guardar_datos_nube()
 
