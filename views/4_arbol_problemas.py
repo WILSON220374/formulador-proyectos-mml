@@ -188,7 +188,7 @@ with st.sidebar:
     st.divider()
     grafo = generar_grafo_problemas()
     if grafo: 
-        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", use_container_width=True)
+        st.download_button("🖼️ Descargar PNG", data=grafo.pipe(format='png'), file_name="arbol_problemas.png", width="stretch")
 
     st.divider()
     with st.expander("⚠️ BORRADO TOTAL"):
