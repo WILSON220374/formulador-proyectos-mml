@@ -73,7 +73,64 @@ CONFIG_NIVELES = {
     "ACTIVIDAD":              {"color": "#D97706", "bg": "#FFFBEB"}  # Ámbar
 }
 
-# --- EXTRACCIÓN DE DATOS REALES (MÉTODO DINÁMICO HOJA 11) ---
+def _norm_text(v):
+    return " ".join(str(v or "").split()).strip()
+
+def _as_list(v):
+    if v is None:
+        return []
+    if isinstance(v, list):
+        return v
+    return [v]
+
+def _get_pares_actuales_desde_hoja7() -> set[tuple[str, str]]:
+    arbol = st.session_state.get("arbol_objetivos_final", {})
+    if not isinstance(arbol, dict):
+        return set()
+
+    ref = arbol.get("referencia_manual", {})
+    if not isinstance(ref, dict):
+        return set()
+
+    pares = set()
+
+    og = _norm_text(ref.get("objetivo", ""))
+    if og:
+        pares.add(("Objetivo General", og))
+
+    for e in _as_list(ref.get("especificos", [])):
+        e_txt = _norm_text(e)
+        if e_txt:
+            pares.add(("Objetivo Específico (Componente)", e_txt))
+
+    for a in _as_list(ref.get("actividades", [])):
+        a_txt = _norm_text(a)
+        if a_txt:
+            pares.add(("Actividad Clave", a_txt))
+
+    return pares
+
+def _tipo_mml_desde_nivel(nivel_original: str) -> str:
+    n = _norm_text(nivel_original)
+    if "General" in n or "Fin" in n:
+        return "OBJETIVO GENERAL"
+    if "Espec" in n or "Componente" in n or "Propósito" in n:
+        return "OBJETIVO ESPECÍFICO"
+    if "Actividad" in n:
+        return "ACTIVIDAD"
+    return "OBJETIVO ESPECÍFICO"
+
+def _nivel_desde_tipo_mml(tipo_mml: str) -> str:
+    t = _norm_text(tipo_mml).upper()
+    if t == "OBJETIVO GENERAL":
+        return "Objetivo General"
+    if t == "OBJETIVO ESPECÍFICO":
+        return "Objetivo Específico (Componente)"
+    if t == "ACTIVIDAD":
+        return "Actividad Clave"
+    return tipo_mml
+
+# --- EXTRACCIÓN DE DATOS REALES (FILTRADA CONTRA HOJA 7 ACTUAL) ---
 mapa = st.session_state.get("indicadores_mapa_objetivo", {})
 datos_ind = st.session_state.get("datos_indicadores", {})
 seleccion = st.session_state.get("seleccion_indicadores", {})
@@ -85,67 +142,56 @@ if isinstance(riesgos_df, pd.DataFrame) and not riesgos_df.empty:
 else:
     riesgos = []
 
+pares_actuales_hoja7 = _get_pares_actuales_desde_hoja7()
 datos_reales = []
 
 for kmap, k in mapa.items():
     partes = kmap.split("||")
     if len(partes) != 2:
         continue
-        
-    nivel_original = partes[0]
-    objetivo_texto = partes[1]
-    
+
+    nivel_original = _norm_text(partes[0])
+    objetivo_texto = _norm_text(partes[1])
+
+    # Filtrar solo lo que sigue vigente en la estructura actual de Hoja 7
+    if (nivel_original, objetivo_texto) not in pares_actuales_hoja7:
+        continue
+
     sel = seleccion.get(k, {})
     p_cols = ["P1", "P2", "P3", "P4", "P5"]
     is_selected = True if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in p_cols) else False
-    
+
     if not is_selected:
-        continue 
-        
+        continue
+
     ind_data = datos_ind.get(k, {})
-    indicador_texto = str(ind_data.get("Indicador", "")).strip()
-    
+    indicador_texto = _norm_text(ind_data.get("Indicador", ""))
+
     meta_data = metas.get(k, {})
-    meta_texto = str(meta_data.get("Meta", "")).strip()
-    
-    tipo_mml = "OBJETIVO ESPECÍFICO" 
-    if "General" in nivel_original or "Fin" in nivel_original:
-        tipo_mml = "OBJETIVO GENERAL"
-    elif "Espec" in nivel_original or "Componente" in nivel_original or "Propósito" in nivel_original:
-        tipo_mml = "OBJETIVO ESPECÍFICO"
-    elif "Actividad" in nivel_original:
-        tipo_mml = "ACTIVIDAD"
-        
-    # --- BÚSQUEDA DE SUPUESTOS INTELIGENTE (POR NIVEL Y TEXTO) ---
+    meta_texto = _norm_text(meta_data.get("Meta", ""))
+
+    tipo_mml = _tipo_mml_desde_nivel(nivel_original)
+
     supuesto = "Pendiente"
-    
-    # 1. Normalizamos el tipo de la matriz para la búsqueda (ej: "OBJETIVO GENERAL")
     tipo_busqueda = str(tipo_mml).strip().upper()
-    
-    # 2. Limpiamos el texto del objetivo actual (quitamos espacios y pasamos a minúsculas)
     obj_matriz_limpio = "".join(str(objetivo_texto).split()).lower()
 
     for r in riesgos:
-        # Normalizamos el tipo y el objetivo de la tabla de riesgos
         tipo_riesgo = str(r.get("Tipo", "")).strip().upper().replace("Í", "I")
         obj_riesgo_limpio = "".join(str(r.get("Objetivo", "")).split()).lower()
-        
-        # PRIORIDAD 1: Si los textos coinciden casi exactamente, ese es el supuesto
+
         if obj_riesgo_limpio and obj_matriz_limpio and (obj_riesgo_limpio in obj_matriz_limpio or obj_matriz_limpio in obj_riesgo_limpio):
             val_supuesto = str(r.get("Supuesto", "")).strip()
             if val_supuesto and val_supuesto.lower() != "nan":
                 supuesto = val_supuesto
                 break
-        
-        # PRIORIDAD 2: Si el texto falla pero el NIVEL coincide (Seguro para casos de 1 solo objetivo por nivel)
-        # Ajustamos el nombre del nivel para que coincida (con o sin tilde)
+
         tipo_matriz_sin_tilde = tipo_busqueda.replace("Í", "I")
         if tipo_riesgo == tipo_matriz_sin_tilde:
             val_supuesto = str(r.get("Supuesto", "")).strip()
             if val_supuesto and val_supuesto.lower() != "nan":
                 supuesto = val_supuesto
-                # No hacemos break aquí para dar prioridad a la coincidencia de texto si existe más adelante
-            
+
     datos_reales.append({
         "tipo": tipo_mml,
         "objetivo": objetivo_texto,
@@ -153,6 +199,14 @@ for kmap, k in mapa.items():
         "meta": meta_texto,
         "supuesto": supuesto
     })
+
+# Quitar duplicados reales por tipo + objetivo
+dedup = {}
+for fila in datos_reales:
+    clave = (_norm_text(fila["tipo"]), _norm_text(fila["objetivo"]))
+    dedup[clave] = fila
+
+datos_reales = list(dedup.values())
 
 # --- ORDENAMIENTO JERÁRQUICO ---
 orden_jerarquia = {
