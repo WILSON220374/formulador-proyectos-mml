@@ -155,6 +155,10 @@ for k in keys_si:
     })
 
 df_base = pd.DataFrame(rows_base)
+if not df_base.empty:
+    df_base["_key"] = df_base["_key"].astype(str).map(_norm_text)
+    df_base = df_base[df_base["_key"].isin(keys_validas_actuales)].copy()
+    df_base = df_base.drop_duplicates(subset=["_key"], keep="last").copy()
 
 # -----------------------------
 # Estructura de la matriz (mantener nombres y funcionalidades)
@@ -248,16 +252,18 @@ if "datos_riesgos" not in st.session_state or not isinstance(st.session_state.ge
 else:
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(st.session_state["datos_riesgos"], df_base)
 
-# Limpieza definitiva de filas viejas que ya no existen en la base actual
-if not st.session_state["datos_riesgos"].empty and "_key" in st.session_state["datos_riesgos"].columns:
-    df_riesgos_actual = st.session_state["datos_riesgos"].copy()
-    df_riesgos_actual["_key"] = df_riesgos_actual["_key"].astype(str).map(_norm_text)
-    df_riesgos_actual = df_riesgos_actual[df_riesgos_actual["_key"].isin(set(df_base["_key"].astype(str).tolist()))].copy()
-    st.session_state["datos_riesgos"] = _ensure_columns(df_riesgos_actual)[COLUMN_ORDER].copy()
-    guardar_datos_nube()
+keys_base_actuales = set(df_base["_key"].astype(str).tolist()) if not df_base.empty else set()
 
-# Forzar orden de columnas (evita “desorden” al recargar)
-st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
+df_riesgos_actual = st.session_state["datos_riesgos"].copy()
+df_riesgos_actual = _ensure_columns(df_riesgos_actual)
+
+if "_key" in df_riesgos_actual.columns:
+    df_riesgos_actual["_key"] = df_riesgos_actual["_key"].astype(str).map(_norm_text)
+    df_riesgos_actual = df_riesgos_actual[df_riesgos_actual["_key"].isin(keys_base_actuales)].copy()
+    df_riesgos_actual = df_riesgos_actual.drop_duplicates(subset=["_key"], keep="last").copy()
+
+st.session_state["datos_riesgos"] = _ensure_columns(df_riesgos_actual)[COLUMN_ORDER].copy()
+guardar_datos_nube()
 
 # --- ACTUALIZAR PROGRESO (después de inicializar/ordenar la matriz) ---
 st.info("💡 Completa la matriz de riesgos. Las columnas de Categoría, Probabilidad e Impacto tienen menús desplegables. El texto se ajusta automáticamente y las filas crecen según el contenido.")
