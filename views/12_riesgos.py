@@ -69,6 +69,16 @@ def _tipo_from_nivel(nivel_txt: str) -> str:
         return "ACTIVIDAD"
     return n.upper() if n else ""
 
+def _nivel_from_tipo(tipo_txt: str) -> str:
+    t = _norm_text(tipo_txt).upper()
+    if t == "OBJETIVO GENERAL":
+        return "Objetivo General"
+    if t == "OBJETIVO ESPECIFICO":
+        return "Objetivo Específico (Componente)"
+    if t == "ACTIVIDAD":
+        return "Actividad Clave"
+    return tipo_txt
+
 def _get_keys_si() -> list[str]:
     sel = st.session_state.get("seleccion_indicadores", {})
     keys = []
@@ -92,10 +102,7 @@ def _as_list(v):
         return v
     return [v]
 
-def _mk_map_key(nivel, objetivo):
-    return f"{_norm_text(nivel)}||{_norm_text(objetivo)}"
-
-def _get_keys_validas_actuales_desde_hoja7() -> set[str]:
+def _get_pares_actuales_desde_hoja7() -> set[tuple[str, str]]:
     arbol = st.session_state.get("arbol_objetivos_final", {})
     if not isinstance(arbol, dict):
         return set()
@@ -104,36 +111,41 @@ def _get_keys_validas_actuales_desde_hoja7() -> set[str]:
     if not isinstance(ref, dict):
         return set()
 
+    pares = set()
+
     obj_general = _norm_text(ref.get("objetivo", ""))
-    especificos = [_norm_text(x) for x in _as_list(ref.get("especificos", [])) if _norm_text(x)]
-    actividades = [_norm_text(x) for x in _as_list(ref.get("actividades", [])) if _norm_text(x)]
-
-    filas_actuales = []
     if obj_general:
-        filas_actuales.append(("Objetivo General", obj_general))
-    for e in especificos:
-        filas_actuales.append(("Objetivo Específico (Componente)", e))
-    for a in actividades:
-        filas_actuales.append(("Actividad Clave", a))
+        pares.add((_norm_text("Objetivo General"), obj_general))
 
-    mapa = st.session_state.get("indicadores_mapa_objetivo", {})
-    if not isinstance(mapa, dict):
-        return set()
+    for e in _as_list(ref.get("especificos", [])):
+        e_txt = _norm_text(e)
+        if e_txt:
+            pares.add((_norm_text("Objetivo Específico (Componente)"), e_txt))
 
-    keys_validas = set()
-    for nivel, objetivo in filas_actuales:
-        kmap = _mk_map_key(nivel, objetivo)
-        if kmap in mapa:
-            keys_validas.add(_norm_text(mapa[kmap]))
+    for a in _as_list(ref.get("actividades", [])):
+        a_txt = _norm_text(a)
+        if a_txt:
+            pares.add((_norm_text("Actividad Clave"), a_txt))
 
-    return keys_validas
+    return pares
 
 datos_ind = st.session_state.get("datos_indicadores", {})
 if not isinstance(datos_ind, dict):
     datos_ind = {}
 
-keys_validas_actuales = _get_keys_validas_actuales_desde_hoja7()
-keys_si = [k for k in _get_keys_si() if _norm_text(k) in keys_validas_actuales]
+pares_actuales_hoja7 = _get_pares_actuales_desde_hoja7()
+
+keys_si = []
+for k in _get_keys_si():
+    base = datos_ind.get(k, {})
+    if not isinstance(base, dict):
+        continue
+
+    nivel = _norm_text(base.get("Nivel", ""))
+    objetivo = _norm_text(base.get("Objetivo", ""))
+
+    if (nivel, objetivo) in pares_actuales_hoja7:
+        keys_si.append(k)
 
 if not keys_si:
     st.warning("⚠️ No hay indicadores seleccionados vigentes para la estructura actual de Hoja 7.")
@@ -157,8 +169,17 @@ for k in keys_si:
 df_base = pd.DataFrame(rows_base)
 if not df_base.empty:
     df_base["_key"] = df_base["_key"].astype(str).map(_norm_text)
-    df_base = df_base[df_base["_key"].isin(keys_validas_actuales)].copy()
-    df_base = df_base.drop_duplicates(subset=["_key"], keep="last").copy()
+    df_base["Tipo"] = df_base["Tipo"].astype(str).map(_norm_text)
+    df_base["Objetivo"] = df_base["Objetivo"].astype(str).map(_norm_text)
+
+    df_base = df_base[
+        df_base.apply(
+            lambda r: (_nivel_from_tipo(r["Tipo"]), r["Objetivo"]) in pares_actuales_hoja7,
+            axis=1
+        )
+    ].copy()
+
+    df_base = df_base.drop_duplicates(subset=["Tipo", "Objetivo"], keep="last").copy()
 
 # -----------------------------
 # Estructura de la matriz (mantener nombres y funcionalidades)
@@ -252,15 +273,21 @@ if "datos_riesgos" not in st.session_state or not isinstance(st.session_state.ge
 else:
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(st.session_state["datos_riesgos"], df_base)
 
-keys_base_actuales = set(df_base["_key"].astype(str).tolist()) if not df_base.empty else set()
-
 df_riesgos_actual = st.session_state["datos_riesgos"].copy()
 df_riesgos_actual = _ensure_columns(df_riesgos_actual)
 
-if "_key" in df_riesgos_actual.columns:
-    df_riesgos_actual["_key"] = df_riesgos_actual["_key"].astype(str).map(_norm_text)
-    df_riesgos_actual = df_riesgos_actual[df_riesgos_actual["_key"].isin(keys_base_actuales)].copy()
-    df_riesgos_actual = df_riesgos_actual.drop_duplicates(subset=["_key"], keep="last").copy()
+if not df_riesgos_actual.empty:
+    df_riesgos_actual["Tipo"] = df_riesgos_actual["Tipo"].astype(str).map(_norm_text)
+    df_riesgos_actual["Objetivo"] = df_riesgos_actual["Objetivo"].astype(str).map(_norm_text)
+
+    df_riesgos_actual = df_riesgos_actual[
+        df_riesgos_actual.apply(
+            lambda r: (_nivel_from_tipo(r["Tipo"]), r["Objetivo"]) in pares_actuales_hoja7,
+            axis=1
+        )
+    ].copy()
+
+    df_riesgos_actual = df_riesgos_actual.drop_duplicates(subset=["Tipo", "Objetivo"], keep="last").copy()
 
 st.session_state["datos_riesgos"] = _ensure_columns(df_riesgos_actual)[COLUMN_ORDER].copy()
 guardar_datos_nube()
