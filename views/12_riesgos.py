@@ -85,29 +85,59 @@ def _get_keys_si() -> list[str]:
                 if all(bool(v.get(pc, False)) for pc in P_COLS):
                     keys.append(k)
     return keys
+def _as_list(v):
+    if v is None:
+        return []
+    if isinstance(v, list):
+        return v
+    return [v]
+
+def _mk_map_key(nivel, objetivo):
+    return f"{_norm_text(nivel)}||{_norm_text(objetivo)}"
+
+def _get_keys_validas_actuales_desde_hoja7() -> set[str]:
+    arbol = st.session_state.get("arbol_objetivos_final", {})
+    if not isinstance(arbol, dict):
+        return set()
+
+    ref = arbol.get("referencia_manual", {})
+    if not isinstance(ref, dict):
+        return set()
+
+    obj_general = _norm_text(ref.get("objetivo", ""))
+    especificos = [_norm_text(x) for x in _as_list(ref.get("especificos", [])) if _norm_text(x)]
+    actividades = [_norm_text(x) for x in _as_list(ref.get("actividades", [])) if _norm_text(x)]
+
+    filas_actuales = []
+    if obj_general:
+        filas_actuales.append(("Objetivo General", obj_general))
+    for e in especificos:
+        filas_actuales.append(("Objetivo Específico (Componente)", e))
+    for a in actividades:
+        filas_actuales.append(("Actividad Clave", a))
+
+    mapa = st.session_state.get("indicadores_mapa_objetivo", {})
+    if not isinstance(mapa, dict):
+        return set()
+
+    keys_validas = set()
+    for nivel, objetivo in filas_actuales:
+        kmap = _mk_map_key(nivel, objetivo)
+        if kmap in mapa:
+            keys_validas.add(_norm_text(mapa[kmap]))
+
+    return keys_validas
+
 datos_ind = st.session_state.get("datos_indicadores", {})
 if not isinstance(datos_ind, dict):
     datos_ind = {}
 
-keys_validas_actuales = {
-    _norm_text(k)
-    for k, base in datos_ind.items()
-    if isinstance(base, dict) and _norm_text(base.get("Nivel", "")) and _norm_text(base.get("Objetivo", ""))
-}
-keys_si = [k for k in _get_keys_si() if k in keys_validas_actuales]
+keys_validas_actuales = _get_keys_validas_actuales_desde_hoja7()
+keys_si = [k for k in _get_keys_si() if _norm_text(k) in keys_validas_actuales]
 
 if not keys_si:
-    st.warning("⚠️ No hay indicadores seleccionados (Hoja 11). Marca P1..P5 y presiona “Aplicar selección”, luego vuelve a esta hoja.")
+    st.warning("⚠️ No hay indicadores seleccionados vigentes para la estructura actual de Hoja 7.")
     st.stop()
-
-datos_ind = st.session_state.get("datos_indicadores", {})
-if not isinstance(datos_ind, dict):
-    datos_ind = {}
-keys_validas_actuales = {
-    _norm_text(k)
-    for k, base in datos_ind.items()
-    if isinstance(base, dict) and _norm_text(base.get("Nivel", "")) and _norm_text(base.get("Objetivo", ""))
-}
 
 # Base (una fila por indicador seleccionado)
 rows_base = []
