@@ -86,7 +86,7 @@ def _get_keys_si() -> list[str]:
                     keys.append(k)
     return keys
 
-keys_si = _get_keys_si()
+keys_si = [k for k in _get_keys_si() if k in keys_validas_actuales]
 
 if not keys_si:
     st.warning("⚠️ No hay indicadores seleccionados (Hoja 11). Marca P1..P5 y presiona “Aplicar selección”, luego vuelve a esta hoja.")
@@ -95,6 +95,11 @@ if not keys_si:
 datos_ind = st.session_state.get("datos_indicadores", {})
 if not isinstance(datos_ind, dict):
     datos_ind = {}
+keys_validas_actuales = {
+    _norm_text(k)
+    for k, base in datos_ind.items()
+    if isinstance(base, dict) and _norm_text(base.get("Nivel", "")) and _norm_text(base.get("Objetivo", ""))
+}
 
 # Base (una fila por indicador seleccionado)
 rows_base = []
@@ -204,6 +209,14 @@ if "datos_riesgos" not in st.session_state or not isinstance(st.session_state.ge
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(pd.DataFrame(), df_base)
 else:
     st.session_state["datos_riesgos"] = _rebuild_from_base_keep_edits(st.session_state["datos_riesgos"], df_base)
+
+# Limpieza definitiva de filas viejas que ya no existen en la base actual
+if not st.session_state["datos_riesgos"].empty and "_key" in st.session_state["datos_riesgos"].columns:
+    df_riesgos_actual = st.session_state["datos_riesgos"].copy()
+    df_riesgos_actual["_key"] = df_riesgos_actual["_key"].astype(str).map(_norm_text)
+    df_riesgos_actual = df_riesgos_actual[df_riesgos_actual["_key"].isin(set(df_base["_key"].astype(str).tolist()))].copy()
+    st.session_state["datos_riesgos"] = _ensure_columns(df_riesgos_actual)[COLUMN_ORDER].copy()
+    guardar_datos_nube()
 
 # Forzar orden de columnas (evita “desorden” al recargar)
 st.session_state["datos_riesgos"] = _ensure_columns(st.session_state["datos_riesgos"])[COLUMN_ORDER].copy()
