@@ -85,7 +85,15 @@ def _get_keys_si() -> list[str]:
                 if all(bool(v.get(pc, False)) for pc in P_COLS):
                     keys.append(k)
     return keys
+datos_ind = st.session_state.get("datos_indicadores", {})
+if not isinstance(datos_ind, dict):
+    datos_ind = {}
 
+keys_validas_actuales = {
+    _norm_text(k)
+    for k, base in datos_ind.items()
+    if isinstance(base, dict) and _norm_text(base.get("Nivel", "")) and _norm_text(base.get("Objetivo", ""))
+}
 keys_si = [k for k in _get_keys_si() if k in keys_validas_actuales]
 
 if not keys_si:
