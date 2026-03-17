@@ -454,6 +454,7 @@ for nivel, objetivo_txt in _build_rows_from_ref():
 df_sel = pd.DataFrame(sel_rows)
 df_sel = _ensure_columns(df_sel, {"_key":"", "Nivel":"", "Objetivo":"", "Indicador":"", P1:False, P2:False, P3:False, P4:False, P5:False, "Selección":"No"})
 df_sel = df_sel[["_key","Nivel","Objetivo","Indicador",P1,P2,P3,P4,P5,"Selección"]].copy()
+keys_validas_actuales = set(df_sel["_key"].astype(str).tolist())
 
 js_value_getter_sel = JsCode("""
 function(params) {
@@ -505,12 +506,15 @@ with c_apply_1:
 with c_apply_2:
     st.caption("Use este botón para guardar las selecciones y actualizar las tablas siguientes.")
 
-if aplicar:
+iif aplicar:
     df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
     df_sel_live = _ensure_columns(df_sel_live, {"_key":"", P1:False, P2:False, P3:False, P4:False, P5:False})
     if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
         df_sel_live["_key"] = df_sel["_key"].values[: len(df_sel_live)]
 
+    keys_validas_live = set(df_sel_live["_key"].astype(str).tolist())
+
+    # 1. Guardar lo actual de la tabla visible
     for _, r in df_sel_live.iterrows():
         k = _norm_text(r.get("_key", ""))
         if not k:
@@ -523,10 +527,27 @@ if aplicar:
             P5: bool(r.get(P5, False)),
         }
 
-    # limpieza: solo conservar meta/mv de seleccionados
+    # 2. Borrar definitivamente claves viejas que ya no pertenecen al árbol actual
+    for k in list(st.session_state.get("seleccion_indicadores", {}).keys()):
+        if k not in keys_validas_live:
+            st.session_state["seleccion_indicadores"].pop(k, None)
+
+    for k in list(st.session_state.get("datos_indicadores", {}).keys()):
+        if k not in keys_validas_live:
+            st.session_state["datos_indicadores"].pop(k, None)
+
+    for k in list(st.session_state.get("meta_resultados_parciales", {}).keys()):
+        if k not in keys_validas_live:
+            st.session_state["meta_resultados_parciales"].pop(k, None)
+
+    for k in list(st.session_state.get("medios_verificacion", {}).keys()):
+        if k not in keys_validas_live:
+            st.session_state["medios_verificacion"].pop(k, None)
+
+    # 3. Conservar meta/mv solo para los seleccionados = Sí del árbol actual
     keys_si_now = []
     for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
-        if all(bool(sel.get(p, False)) for p in P_COLS):
+        if k in keys_validas_live and all(bool(sel.get(p, False)) for p in P_COLS):
             keys_si_now.append(k)
 
     actuales = set(keys_si_now)
@@ -561,9 +582,9 @@ if dur != int(st.session_state.get("duracion_proyecto_periodos", 4)):
 # claves seleccionadas Sí
 keys_si = []
 for k, sel in st.session_state.get("seleccion_indicadores", {}).items():
-    if isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in P_COLS):
+    if k in keys_validas_actuales and isinstance(sel, dict) and all(bool(sel.get(p, False)) for p in P_COLS):
         keys_si.append(k)
-
+        
 if not keys_si:
     st.info("Aún no hay indicadores con Selección = Sí. Marca P1..P5 y presiona “Aplicar selección”.")
 else:
