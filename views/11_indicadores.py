@@ -506,7 +506,7 @@ with c_apply_1:
 with c_apply_2:
     st.caption("Use este botón para guardar las selecciones y actualizar las tablas siguientes.")
 
-iif aplicar:
+if aplicar:
     df_sel_live = pd.DataFrame(grid_response_2.get("data", []))
     df_sel_live = _ensure_columns(df_sel_live, {"_key":"", P1:False, P2:False, P3:False, P4:False, P5:False})
     if "_key" not in df_sel_live.columns or df_sel_live["_key"].astype(str).eq("").all():
