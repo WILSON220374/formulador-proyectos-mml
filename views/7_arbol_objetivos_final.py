@@ -239,16 +239,22 @@ with tab2:
                 st.markdown(f"<div class='list-item'>➡️ {item}</div>", unsafe_allow_html=True)
         else:
             st.info("Sincronice con el árbol para ver las actividades.")
+    #-----------------------------
+    # Justificación
     # -----------------------------
-    # Justificación (CORREGIDO: guardado inmediato con on_change)
-    # -----------------------------
-    # 1) Aseguramos variable temporal (patrón igual a Objetivo General)
-    if "temp_justificacion" not in st.session_state:
-        st.session_state["temp_justificacion"] = ref_data.get("justificacion", "")
+    just_persistida = ref_data.get("justificacion", "") or ""
 
-    # 2) Sincronización inicial: si la temporal está vacía pero el árbol tiene texto, cargarlo
-    if (not (st.session_state.get("temp_justificacion") or "").strip()) and (ref_data.get("justificacion") or "").strip():
-        st.session_state["temp_justificacion"] = ref_data.get("justificacion", "")
+    if "temp_justificacion" not in st.session_state:
+        st.session_state["temp_justificacion"] = just_persistida
+
+    if "_justificacion_ref" not in st.session_state:
+        st.session_state["_justificacion_ref"] = just_persistida
+
+    # Si la justificación persistida cambió desde fuera (por recarga/sincronización),
+    # refrescar la temporal para que no se quede mostrando una versión vieja.
+    if st.session_state.get("_justificacion_ref", "") != just_persistida:
+        st.session_state["temp_justificacion"] = just_persistida
+        st.session_state["_justificacion_ref"] = just_persistida
 
     _just_txt = st.session_state.get("temp_justificacion", "") or ""
     _lines = max(6, len(str(_just_txt).splitlines()) + 1)
@@ -264,6 +270,12 @@ with tab2:
         on_change=actualizar_campo_simple,
         args=("justificacion",),
     )
+
+    if st.button("💾 Guardar justificación", key="guardar_justificacion", width="stretch"):
+        st.session_state['arbol_objetivos_final']['referencia_manual']["justificacion"] = st.session_state.get("temp_justificacion", "")
+        st.session_state["_justificacion_ref"] = st.session_state.get("temp_justificacion", "")
+        guardar_datos_nube()
+        st.success("Justificación guardada correctamente.")
 
     st.divider()
     st.subheader("📋 Panel de Poda")
