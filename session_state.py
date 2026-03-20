@@ -313,13 +313,21 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
-            st.session_state['justificacion_arbol_objetivos_final'] = d.get('justificacion_arbol_objetivos_final', "")
+                        st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
+
             try:
                 if isinstance(st.session_state.get('arbol_objetivos_final', None), dict):
                     st.session_state['arbol_objetivos_final'].setdefault('referencia_manual', {})
                     if isinstance(st.session_state['arbol_objetivos_final'].get('referencia_manual', None), dict):
-                        st.session_state['arbol_objetivos_final']['referencia_manual']['justificacion'] = st.session_state.get('justificacion_arbol_objetivos_final', '')
+                        just_ref = st.session_state['arbol_objetivos_final']['referencia_manual'].get('justificacion', '')
+                        just_legacy = d.get('justificacion_arbol_objetivos_final', '')
+
+                        # Prioridad: usar la justificación dentro de arbol_f si existe.
+                        # Solo usar la vieja si la nueva viene vacía.
+                        just_final = just_ref if str(just_ref).strip() else just_legacy
+
+                        st.session_state['arbol_objetivos_final']['referencia_manual']['justificacion'] = just_final
+                        st.session_state['justificacion_arbol_objetivos_final'] = just_final
             except Exception:
                 pass
 
