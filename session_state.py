@@ -313,7 +313,7 @@ def cargar_datos_nube(user_id):
             st.session_state['arbol_objetivos'] = d.get('arbol_o', st.session_state['arbol_objetivos'])
             st.session_state['lista_alternativas'] = d.get('alternativas', [])
             st.session_state['ponderacion_criterios'] = d.get('pesos_eval', st.session_state['ponderacion_criterios'])
-                        st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
+            st.session_state['arbol_objetivos_final'] = d.get('arbol_f', {})
 
             try:
                 if isinstance(st.session_state.get('arbol_objetivos_final', None), dict):
