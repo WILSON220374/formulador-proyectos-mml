@@ -420,16 +420,22 @@ def guardar_datos_nube():
     try:
         db = conectar_db()
 
-        _just = st.session_state.get('justificacion_arbol_objetivos_final', '')
-        if (not isinstance(_just, str) or _just.strip() == ''):
-            try:
-                _ao = st.session_state.get('arbol_objetivos_final', {})
-                if isinstance(_ao, dict):
-                    _rm = _ao.get('referencia_manual', {})
-                    if isinstance(_rm, dict):
-                        _just = _rm.get('justificacion', '')
-            except Exception:
-                _just = ''
+        _just = ''
+        try:
+            _ao = st.session_state.get('arbol_objetivos_final', {})
+            if isinstance(_ao, dict):
+                _rm = _ao.get('referencia_manual', {})
+                if isinstance(_rm, dict):
+                    _just = _rm.get('justificacion', '')
+        except Exception:
+            _just = ''
+
+        if not isinstance(_just, str):
+            _just = ''
+
+        # Mantener sincronizada la clave antigua para compatibilidad,
+        # pero la fuente principal ahora es referencia_manual.justificacion
+        st.session_state['justificacion_arbol_objetivos_final'] = _just
 
         paquete = {
             "integrantes": st.session_state.get('integrantes', []),
