@@ -931,10 +931,16 @@ else:
     with col_btn1:
         # Al estar dentro de este 'else', la función generar_word() 
         # solo se activa cuando el árbol ya tiene información.
+        nombre_archivo_seguro = "Proyecto"
+        if nombre_proyecto:
+            nombre_archivo_seguro = str(nombre_proyecto).replace("\n", " ").replace("\r", " ")
+            nombre_archivo_seguro = " ".join(nombre_archivo_seguro.split())
+            nombre_archivo_seguro = nombre_archivo_seguro[:40]
+
         st.download_button(
             label="📝 Descargar Documento", 
             data=generar_word(), 
-            file_name=f"Proyecto_{nombre_proyecto[:20]}.docx", 
+            file_name=f"Proyecto_{nombre_archivo_seguro}.docx", 
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
             type="primary", 
             use_container_width=True
