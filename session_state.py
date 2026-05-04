@@ -1,6 +1,45 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import math
 from supabase import create_client
+
+
+def _limpiar_json(obj):
+    if isinstance(obj, pd.DataFrame):
+        obj = obj.replace([np.inf, -np.inf], np.nan)
+        obj = obj.where(pd.notna(obj), None)
+        return obj.to_dict(orient="records")
+
+    if isinstance(obj, dict):
+        return {k: _limpiar_json(v) for k, v in obj.items()}
+
+    if isinstance(obj, list):
+        return [_limpiar_json(v) for v in obj]
+
+    if isinstance(obj, tuple):
+        return [_limpiar_json(v) for v in obj]
+
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+
+    if isinstance(obj, (np.floating,)):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+
+    try:
+        if pd.isna(obj) and not isinstance(obj, (str, bool)):
+            return None
+    except Exception:
+        pass
+
+    return obj
 
 
 def conectar_db():
@@ -505,6 +544,7 @@ def guardar_datos_nube():
             ),
         }
 
+        paquete = _limpiar_json(paquete)
         user_id = st.session_state.get('usuario_id', "")
         if not user_id:
             return False
